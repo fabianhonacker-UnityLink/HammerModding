@@ -243,7 +243,6 @@ body.request-modal-open { overflow: hidden; }
   box-shadow: 0 0 0 1px rgba(255,255,255,0.14), 0 0 24px rgba(255,64,64,0.22), 0 0 40px rgba(255,24,24,0.14);
 }
 .cart-panel-card {
-  margin-top: 14px;
   border-radius: 24px;
   padding: 16px;
   display: grid;
