@@ -15,21 +15,18 @@ const detailSections = {
 };
 const searchInput = document.getElementById('searchInput');
 const searchables = document.querySelectorAll('.searchable');
-const cartStatusCard = document.getElementById('cartStatusCard');
-const cartCountBadge = document.getElementById('cartCountBadge');
-const cartSubtotalLabel = document.getElementById('cartSubtotalLabel');
-const cartStatusText = document.getElementById('cartStatusText');
-const mobileCartBadge = document.getElementById('mobileCartBadge');
-const mobileCartStatusButton = document.getElementById('mobileCartStatusButton');
-const cartToast = document.getElementById('cartToast');
 let lastSectionBeforeDetail = 'scripts';
 
 const viewportVisibility = new WeakMap();
 let viewportObserver = null;
 let introBooting = false;
 
-const cartDraftStorageKey = 'hm_cart_draft';
-const cartStorageKey = 'hm_cart';
+const cartStorageKey = 'hm_cart_stage4a_clean';
+const legacyCartStorageKeys = ['hm_cart', 'hm_store_cart', 'hm_cart_draft'];
+const cartStatusCard = document.getElementById('cartStatusCard');
+const cartCountBadge = document.getElementById('cartCountBadge');
+const cartSubtotalLabel = document.getElementById('cartSubtotalLabel');
+const cartStatusText = document.getElementById('cartStatusText');
 const paidScriptCatalog = {
   blitzer: { id: 'blitzer-script', slug: 'blitzer', name: 'Blitzer Script', price: '15.00', priceLabel: '15,00 €', type: 'paid-script' },
   gps: { id: 'gps-system', slug: 'gps', name: 'GPS System', price: '10.00', priceLabel: '10,00 €', type: 'paid-script' },
@@ -39,14 +36,14 @@ const paidScriptCatalog = {
 };
 
 const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
-  version: 'phase-4a-visible-cart',
+  version: 'phase-4a-clean-top-right',
   catalog: paidScriptCatalog,
   storageKey: cartStorageKey,
   lastPreparedItem: null,
-  lastCartSnapshot: [],
 });
 
-let cartToastTimer = null;
+let inMemoryCart = [];
+let cartPulseTimer = null;
 
 function safeReadStorage(storage, key) {
   if (!storage) return null;
@@ -72,117 +69,15 @@ function safeRemoveStorage(storage, key) {
   try {
     storage.removeItem(key);
   } catch (error) {
-    // nichts weiter nötig
+    // ignore storage cleanup issues
   }
 }
 
-function getViewportObserver() {
-  if (viewportObserver) return viewportObserver;
-
-  viewportObserver = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        viewportVisibility.set(entry.target, entry.isIntersecting && entry.intersectionRatio > 0.05);
-      });
-      syncVideoPlayback();
-    },
-    {
-      threshold: [0, 0.05, 0.15, 0.35],
-      rootMargin: '120px 0px 120px 0px',
-    },
-  );
-
-  return viewportObserver;
-}
-
-function watchViewport(el) {
-  if (!el) return;
-  if (!viewportVisibility.has(el)) viewportVisibility.set(el, true);
-  getViewportObserver().observe(el);
-}
-
-function isInViewport(el) {
-  if (!el) return false;
-  return viewportVisibility.get(el) ?? true;
-}
-
-function isActuallyVisible(el) {
-  if (!el) return false;
-  if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return false;
-  const style = window.getComputedStyle(el);
-  return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
-}
-
-function syncVideoPlayback() {
-  const videos = document.querySelectorAll('video[autoplay]');
-  videos.forEach((video) => {
-    watchViewport(video);
-    const introPending = video.dataset.introPending === 'true';
-    const visible = !document.hidden && isActuallyVisible(video) && isInViewport(video);
-
-    if (introPending) {
-      if (!video.paused) video.pause();
-      return;
-    }
-
-    if (!visible) {
-      if (!video.paused) video.pause();
-      return;
-    }
-
-    if (video.paused) {
-      const playPromise = video.play();
-      if (playPromise && typeof playPromise.catch === 'function') {
-        playPromise.catch(() => {});
-      }
-    }
+function cleanupLegacyCartState() {
+  legacyCartStorageKeys.forEach((key) => {
+    safeRemoveStorage(window.localStorage, key);
+    safeRemoveStorage(window.sessionStorage, key);
   });
-}
-
-function setVisible(el, visible) {
-  if (!el) return;
-  el.classList.toggle('hidden-section', !visible);
-  el.style.display = visible ? '' : 'none';
-}
-
-function hideAllDetails() {
-  Object.values(detailSections).forEach((el) => setVisible(el, false));
-}
-
-function activateNav(section) {
-  navItems.forEach((item) => item.classList.toggle('active', item.dataset.section === section));
-}
-
-function showSection(section) {
-  homeSections.forEach((el) => {
-    el.style.display = section === 'home' ? '' : 'none';
-  });
-  setVisible(scriptsSection, section === 'scripts');
-  setVisible(clothingSection, section === 'clothing');
-  setVisible(freeSection, section === 'free');
-  setVisible(contactSection, section === 'contact');
-  hideAllDetails();
-  syncVideoPlayback();
-}
-
-function openScriptDetail(scriptName, originSection = 'scripts') {
-  lastSectionBeforeDetail = originSection;
-  homeSections.forEach((el) => (el.style.display = 'none'));
-  setVisible(scriptsSection, false);
-  setVisible(clothingSection, false);
-  setVisible(freeSection, false);
-  setVisible(contactSection, false);
-  hideAllDetails();
-  setVisible(detailSections[scriptName], true);
-  activateNav(originSection === 'home' ? 'home' : originSection === 'free' ? 'free' : 'scripts');
-  syncVideoPlayback();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function goBackFromDetail() {
-  const target = lastSectionBeforeDetail || 'scripts';
-  activateNav(target);
-  showSection(target);
 }
 
 function parseCartPriceToCents(value) {
@@ -208,11 +103,11 @@ function normalizeCartItems(items) {
   const uniqueItems = new Map();
 
   items.forEach((entry) => {
-    const seededCatalogItem = entry?.slug ? paidScriptCatalog[entry.slug] || null : null;
-    const id = String(entry?.id || seededCatalogItem?.id || '').trim();
-    const slug = String(entry?.slug || seededCatalogItem?.slug || '').trim();
-    const name = String(entry?.name || seededCatalogItem?.name || '').trim();
-    const price = String(entry?.price || seededCatalogItem?.price || '0').trim();
+    const catalogItem = entry?.slug ? paidScriptCatalog[entry.slug] || null : null;
+    const id = String(entry?.id || catalogItem?.id || '').trim();
+    const slug = String(entry?.slug || catalogItem?.slug || '').trim();
+    const name = String(entry?.name || catalogItem?.name || '').trim();
+    const price = String(entry?.price || catalogItem?.price || '0').trim();
     const priceCents = parseCartPriceToCents(price);
 
     if (!id || !slug || !name) return;
@@ -221,9 +116,9 @@ function normalizeCartItems(items) {
       id,
       slug,
       name,
-      type: String(entry?.type || seededCatalogItem?.type || 'paid-script').trim(),
+      type: String(entry?.type || catalogItem?.type || 'paid-script').trim(),
       price,
-      priceLabel: String(entry?.priceLabel || seededCatalogItem?.priceLabel || formatCartPrice(priceCents)).trim(),
+      priceLabel: String(entry?.priceLabel || catalogItem?.priceLabel || formatCartPrice(priceCents)).trim(),
       priceCents,
       quantity: 1,
       source: String(entry?.source || 'detail-page').trim() || 'detail-page',
@@ -231,121 +126,6 @@ function normalizeCartItems(items) {
   });
 
   return Array.from(uniqueItems.values());
-}
-
-function readStoredCart() {
-  const raw = safeReadStorage(window.localStorage, cartStorageKey) ?? safeReadStorage(window.sessionStorage, cartStorageKey);
-  if (!raw) return [];
-
-  try {
-    return normalizeCartItems(JSON.parse(raw));
-  } catch (error) {
-    return [];
-  }
-}
-
-function writeStoredCart(items) {
-  const normalized = normalizeCartItems(items);
-  const payload = JSON.stringify(normalized);
-
-  const wroteToLocal = safeWriteStorage(window.localStorage, cartStorageKey, payload);
-  if (!wroteToLocal) {
-    safeWriteStorage(window.sessionStorage, cartStorageKey, payload);
-  } else {
-    safeRemoveStorage(window.sessionStorage, cartStorageKey);
-  }
-
-  hmStoreBridge.lastCartSnapshot = normalized.map((entry) => ({ ...entry }));
-  hmStoreBridge.getCart = () => readStoredCart().map((entry) => ({ ...entry }));
-
-  return normalized;
-}
-
-function migratePreparedDraftToCart() {
-  const currentCart = readStoredCart();
-  if (currentCart.length) return currentCart;
-
-  const rawDraft = safeReadStorage(window.sessionStorage, cartDraftStorageKey);
-  if (!rawDraft) return currentCart;
-
-  try {
-    const draftItems = normalizeCartItems(JSON.parse(rawDraft));
-    if (!draftItems.length) return currentCart;
-    const migrated = writeStoredCart(draftItems);
-    safeRemoveStorage(window.sessionStorage, cartDraftStorageKey);
-    return migrated;
-  } catch (error) {
-    return currentCart;
-  }
-}
-
-function getCartMetrics(cart = readStoredCart()) {
-  const normalized = normalizeCartItems(cart);
-  return {
-    itemCount: normalized.length,
-    subtotalCents: normalized.reduce((sum, item) => sum + item.priceCents, 0),
-  };
-}
-
-function updateCartSummaryUI(cart = readStoredCart()) {
-  const normalized = normalizeCartItems(cart);
-  const { itemCount, subtotalCents } = getCartMetrics(normalized);
-
-  if (cartStatusCard) {
-    cartStatusCard.dataset.empty = itemCount === 0 ? 'true' : 'false';
-  }
-
-  if (cartCountBadge) {
-    cartCountBadge.textContent = String(itemCount);
-  }
-
-  if (mobileCartBadge) {
-    mobileCartBadge.textContent = String(itemCount);
-    mobileCartBadge.hidden = itemCount < 1;
-  }
-
-  if (cartSubtotalLabel) {
-    cartSubtotalLabel.textContent = formatCartPrice(subtotalCents);
-  }
-
-  if (cartStatusText) {
-    if (itemCount === 0) {
-      cartStatusText.textContent = 'Noch keine Produkte im Warenkorb.';
-    } else if (itemCount === 1) {
-      cartStatusText.textContent = `${normalized[0].name} liegt aktuell im Warenkorb.`;
-    } else {
-      cartStatusText.textContent = `${itemCount} Produkte sind aktuell im Warenkorb gespeichert.`;
-    }
-  }
-}
-
-function syncDetailCartButtons(cart = readStoredCart()) {
-  const cartButtons = document.querySelectorAll('[data-cart-add="true"]');
-  const normalized = normalizeCartItems(cart);
-  const itemIds = new Set(normalized.map((item) => item.id));
-
-  cartButtons.forEach((button) => {
-    const defaultLabel = button.dataset.defaultLabel || button.textContent.trim() || 'Warenkorb hinzufügen';
-    button.dataset.defaultLabel = defaultLabel;
-
-    const productId = button.dataset.productId || '';
-    const inCart = itemIds.has(productId);
-    button.dataset.inCart = inCart ? 'true' : 'false';
-    button.textContent = inCart ? 'Im Warenkorb' : defaultLabel;
-  });
-}
-
-function showCartToast(message, variant = 'success') {
-  if (!cartToast) return;
-
-  cartToast.textContent = message;
-  cartToast.dataset.variant = variant;
-  cartToast.classList.add('is-visible');
-
-  window.clearTimeout(cartToastTimer);
-  cartToastTimer = window.setTimeout(() => {
-    cartToast.classList.remove('is-visible');
-  }, 1800);
 }
 
 function buildPreparedCartItem(button) {
@@ -374,21 +154,82 @@ function buildPreparedCartItem(button) {
   };
 }
 
-function addPreparedItemToCart(item) {
-  if (!item) {
-    return { status: 'invalid', cart: readStoredCart() };
+function readStoredCart() {
+  const raw = safeReadStorage(window.localStorage, cartStorageKey);
+  if (!raw) return normalizeCartItems(inMemoryCart);
+
+  try {
+    return normalizeCartItems(JSON.parse(raw));
+  } catch (error) {
+    return normalizeCartItems(inMemoryCart);
   }
+}
 
-  hmStoreBridge.lastPreparedItem = item;
-  const currentCart = readStoredCart();
-  const alreadyInCart = currentCart.some((entry) => entry.id === item.id);
+function writeStoredCart(items) {
+  const normalized = normalizeCartItems(items);
+  inMemoryCart = normalized.map((entry) => ({ ...entry }));
 
-  if (alreadyInCart) {
-    return { status: 'existing', cart: currentCart };
+  const payload = JSON.stringify(normalized);
+  safeWriteStorage(window.localStorage, cartStorageKey, payload);
+
+  hmStoreBridge.lastPreparedItem = normalized[normalized.length - 1] || null;
+  hmStoreBridge.getCart = () => normalized.map((entry) => ({ ...entry }));
+
+  return normalized;
+}
+
+function getCartMetrics(cart = readStoredCart()) {
+  const normalized = normalizeCartItems(cart);
+  return {
+    itemCount: normalized.length,
+    subtotalCents: normalized.reduce((sum, item) => sum + item.priceCents, 0),
+  };
+}
+
+function updateCartStatusCard(cart = readStoredCart()) {
+  if (!cartStatusCard || !cartCountBadge || !cartSubtotalLabel || !cartStatusText) return;
+
+  const normalized = normalizeCartItems(cart);
+  const { itemCount, subtotalCents } = getCartMetrics(normalized);
+
+  cartStatusCard.dataset.empty = itemCount === 0 ? 'true' : 'false';
+  cartCountBadge.textContent = String(itemCount);
+  cartSubtotalLabel.textContent = formatCartPrice(subtotalCents);
+
+  if (itemCount === 0) {
+    cartStatusText.textContent = 'Noch keine Produkte im Warenkorb.';
+  } else if (itemCount === 1) {
+    cartStatusText.textContent = `${normalized[0].name} liegt aktuell im Warenkorb.`;
+  } else {
+    cartStatusText.textContent = `${itemCount} Produkte liegen aktuell im Warenkorb.`;
   }
+}
 
-  const updatedCart = writeStoredCart([...currentCart, item]);
-  return { status: 'added', cart: updatedCart };
+function updatePreparedCartButtons(cart = readStoredCart()) {
+  const normalized = normalizeCartItems(cart);
+  const itemIds = new Set(normalized.map((item) => item.id));
+  const buttons = document.querySelectorAll('[data-cart-add="true"]');
+
+  buttons.forEach((button) => {
+    const preparedItem = buildPreparedCartItem(button);
+    if (!preparedItem) {
+      button.dataset.cartReady = 'false';
+      return;
+    }
+
+    button.dataset.cartReady = 'true';
+    button.dataset.defaultLabel = button.dataset.defaultLabel || 'Warenkorb hinzufügen';
+    button.setAttribute('aria-label', `${preparedItem.name} zum Warenkorb hinzufügen`);
+
+    const inCart = itemIds.has(preparedItem.id);
+    button.dataset.inCart = inCart ? 'true' : 'false';
+    button.textContent = inCart ? 'Im Warenkorb' : button.dataset.defaultLabel;
+  });
+}
+
+function refreshCartUi(cart = readStoredCart()) {
+  updateCartStatusCard(cart);
+  updatePreparedCartButtons(cart);
 }
 
 function pulsePreparedCartButton(button) {
@@ -400,17 +241,29 @@ function pulsePreparedCartButton(button) {
   }, 0);
 }
 
-function initializeVisibleCart() {
-  const migratedCart = migratePreparedDraftToCart();
-  const activeCart = writeStoredCart(migratedCart.length ? migratedCart : readStoredCart());
-  updateCartSummaryUI(activeCart);
-  syncDetailCartButtons(activeCart);
-  hmStoreBridge.clearCart = () => {
-    const emptyCart = writeStoredCart([]);
-    updateCartSummaryUI(emptyCart);
-    syncDetailCartButtons(emptyCart);
-    return emptyCart;
-  };
+function pulseCartStatusCard() {
+  if (!cartStatusCard) return;
+  cartStatusCard.classList.remove('is-cart-pulse');
+  window.clearTimeout(cartPulseTimer);
+  window.setTimeout(() => cartStatusCard.classList.add('is-cart-pulse'), 0);
+  cartPulseTimer = window.setTimeout(() => {
+    cartStatusCard.classList.remove('is-cart-pulse');
+  }, 1200);
+}
+
+function addPreparedItemToCart(item) {
+  if (!item) return readStoredCart();
+
+  const currentCart = readStoredCart();
+  if (currentCart.some((entry) => entry.id === item.id)) {
+    refreshCartUi(currentCart);
+    return currentCart;
+  }
+
+  const updatedCart = writeStoredCart([...currentCart, item]);
+  refreshCartUi(updatedCart);
+  pulseCartStatusCard();
+  return updatedCart;
 }
 
 function setupPreparedCartButtons() {
@@ -424,48 +277,23 @@ function setupPreparedCartButtons() {
       return;
     }
 
-    button.dataset.defaultLabel = button.textContent.trim() || 'Warenkorb hinzufügen';
-    button.dataset.cartReady = 'true';
+    button.dataset.defaultLabel = 'Warenkorb hinzufügen';
     button.setAttribute('aria-label', `${preparedItem.name} zum Warenkorb hinzufügen`);
 
     button.addEventListener('click', () => {
       const item = buildPreparedCartItem(button);
       if (!item) return;
-
-      const result = addPreparedItemToCart(item);
-      updateCartSummaryUI(result.cart);
-      syncDetailCartButtons(result.cart);
+      addPreparedItemToCart(item);
       pulsePreparedCartButton(button);
-
-      if (result.status === 'added') {
-        showCartToast(`${item.name} wurde zum Warenkorb hinzugefügt.`, 'success');
-      } else if (result.status === 'existing') {
-        showCartToast(`${item.name} liegt bereits im Warenkorb.`, 'info');
-      }
     });
   });
 }
 
-function setupCartStatusButton() {
-  if (!mobileCartStatusButton) return;
-
-  mobileCartStatusButton.addEventListener('click', () => {
-    const { itemCount, subtotalCents } = getCartMetrics();
-    if (!itemCount) {
-      showCartToast('Dein Warenkorb ist aktuell leer.', 'info');
-      return;
-    }
-
-    showCartToast(`${itemCount} Produkt${itemCount === 1 ? '' : 'e'} im Warenkorb • ${formatCartPrice(subtotalCents)}`, 'info');
-  });
+function initializePhase4ACart() {
+  cleanupLegacyCartState();
+  const currentCart = writeStoredCart(readStoredCart());
+  refreshCartUi(currentCart);
 }
-
-window.addEventListener('storage', (event) => {
-  if (event.key !== cartStorageKey) return;
-  const syncedCart = readStoredCart();
-  updateCartSummaryUI(syncedCart);
-  syncDetailCartButtons(syncedCart);
-});
 
 navItems.forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -518,8 +346,7 @@ if (searchInput) {
 
 
 setupPreparedCartButtons();
-initializeVisibleCart();
-setupCartStatusButton();
+initializePhase4ACart();
 
 showSection('home');
 
