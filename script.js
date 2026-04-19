@@ -17,6 +17,33 @@ const searchInput = document.getElementById('searchInput');
 const searchables = document.querySelectorAll('.searchable');
 let lastSectionBeforeDetail = 'scripts';
 
+function isActuallyVisible(el) {
+  if (!el) return false;
+  if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return false;
+  const style = window.getComputedStyle(el);
+  return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+}
+
+function syncVideoPlayback() {
+  const videos = document.querySelectorAll('video');
+  videos.forEach((video) => {
+    const shouldAutoplay = video.hasAttribute('autoplay');
+    const visible = isActuallyVisible(video);
+
+    if (!visible) {
+      video.pause();
+      return;
+    }
+
+    if (shouldAutoplay) {
+      const playPromise = video.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {});
+      }
+    }
+  });
+}
+
 function setVisible(el, visible) {
   if (!el) return;
   el.classList.toggle('hidden-section', !visible);
@@ -40,6 +67,7 @@ function showSection(section) {
   setVisible(freeSection, section === 'free');
   setVisible(contactSection, section === 'contact');
   hideAllDetails();
+  syncVideoPlayback();
 }
 
 function openScriptDetail(scriptName, originSection = 'scripts') {
@@ -52,6 +80,7 @@ function openScriptDetail(scriptName, originSection = 'scripts') {
   hideAllDetails();
   setVisible(detailSections[scriptName], true);
   activateNav(originSection === 'home' ? 'home' : originSection === 'free' ? 'free' : 'scripts');
+  syncVideoPlayback();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -112,7 +141,6 @@ if (searchInput) {
 
 showSection('home');
 
-
 function setupMarquees() {
   const configs = [
     { selector: '.slider-track-paid', speed: 52 },
@@ -170,7 +198,8 @@ function setupMarquees() {
       const delta = (ts - lastTs) / 1000;
       lastTs = ts;
 
-      if (!paused && groupWidth > 0) {
+      const systemPaused = document.hidden || !isActuallyVisible(viewport);
+      if (!paused && !systemPaused && groupWidth > 0) {
         x += cfg.speed * delta;
         if (x >= 0) x = -groupWidth;
         track.style.transform = `translateX(${x}px)`;
@@ -185,7 +214,6 @@ function setupMarquees() {
 
 setupMarquees();
 
-
 function setupCinematicBackground() {
   const bg = document.querySelector('.bg-cinematic');
   const debrisLayer = document.getElementById('bgDebris');
@@ -193,17 +221,27 @@ function setupCinematicBackground() {
   const canvas = document.getElementById('lightningCanvas');
   if (!bg || !debrisLayer || !imageLayer || !canvas) return;
 
-  const ctx = canvas.getContext('2d');
+  const lowPowerMode =
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+    (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
+    (navigator.deviceMemory && navigator.deviceMemory <= 4);
+
+  const ctx = canvas.getContext('2d', { alpha: true });
   let w = 0;
   let h = 0;
-  let dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+  let dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, lowPowerMode ? 1.25 : 1.6));
   let activeStrikes = [];
   let flashTimer;
+  let lightningRaf = null;
+  let strikeBurstTimer = null;
+  let mouseFrame = null;
+  let targetX = 0;
+  let targetY = 0;
 
   const resizeCanvas = () => {
     w = window.innerWidth;
-    h = Math.max(window.innerHeight, document.documentElement.scrollHeight, document.body.scrollHeight);
-    dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+    h = window.innerHeight;
+    dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, lowPowerMode ? 1.25 : 1.6));
     canvas.width = Math.floor(w * dpr);
     canvas.height = Math.floor(h * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -234,7 +272,7 @@ function setupCinematicBackground() {
     let by = points[branchStart].y;
     branchPoints.push({ x: bx, y: by });
     const branchDir = Math.random() < 0.5 ? -1 : 1;
-    const branchSteps = 2 + Math.floor(Math.random() * 3);
+    const branchSteps = lowPowerMode ? 2 : 2 + Math.floor(Math.random() * 3);
     for (let i = 0; i < branchSteps; i += 1) {
       by += 28 + Math.random() * 54;
       bx += branchDir * (28 + Math.random() * 58);
@@ -244,11 +282,11 @@ function setupCinematicBackground() {
       points,
       branchPoints,
       start: performance.now(),
-      drawMs: 180 + Math.random() * 90,
-      holdMs: 110 + Math.random() * 120,
-      fadeMs: 160 + Math.random() * 120,
-      width: 1.8 + Math.random() * 2.2,
-      branchWidth: 1.1 + Math.random() * 1.2,
+      drawMs: (lowPowerMode ? 160 : 180) + Math.random() * 70,
+      holdMs: (lowPowerMode ? 80 : 110) + Math.random() * 90,
+      fadeMs: (lowPowerMode ? 120 : 160) + Math.random() * 90,
+      width: (lowPowerMode ? 1.45 : 1.8) + Math.random() * 1.7,
+      branchWidth: (lowPowerMode ? 0.9 : 1.1) + Math.random() * 1.0,
     };
   };
 
@@ -296,8 +334,20 @@ function setupCinematicBackground() {
     ctx.restore();
   };
 
+  const ensureLightningLoop = () => {
+    if (lightningRaf !== null) return;
+    lightningRaf = requestAnimationFrame(renderLightning);
+  };
+
   const renderLightning = () => {
+    lightningRaf = null;
     ctx.clearRect(0, 0, w, h);
+
+    if (document.hidden) {
+      activeStrikes = [];
+      return;
+    }
+
     const now = performance.now();
     activeStrikes = activeStrikes.filter((strike) => {
       const elapsed = now - strike.start;
@@ -318,7 +368,10 @@ function setupCinematicBackground() {
       drawPartialPath(strike.branchPoints, Math.min(1, branchProgress), strike.branchWidth, alpha * 0.85, true);
       return true;
     });
-    requestAnimationFrame(renderLightning);
+
+    if (activeStrikes.length > 0) {
+      ensureLightningLoop();
+    }
   };
 
   const triggerFlash = () => {
@@ -326,24 +379,46 @@ function setupCinematicBackground() {
     void bg.offsetWidth;
     bg.classList.add('flash-active');
     clearTimeout(flashTimer);
-    flashTimer = setTimeout(() => bg.classList.remove('flash-active'), 520);
+    flashTimer = setTimeout(() => bg.classList.remove('flash-active'), lowPowerMode ? 360 : 520);
+  };
+
+  const scheduleNextBurst = (delay) => {
+    clearTimeout(strikeBurstTimer);
+    strikeBurstTimer = setTimeout(launchStrikeBurst, delay);
   };
 
   const launchStrikeBurst = () => {
+    if (document.hidden) {
+      scheduleNextBurst(3000);
+      return;
+    }
+
     activeStrikes.push(buildStrike());
-    if (Math.random() > 0.45) setTimeout(() => activeStrikes.push(buildStrike()), 110 + Math.random() * 140);
-    if (Math.random() > 0.68) setTimeout(() => activeStrikes.push(buildStrike()), 250 + Math.random() * 160);
+    if (!lowPowerMode && Math.random() > 0.48) {
+      setTimeout(() => {
+        activeStrikes.push(buildStrike());
+        ensureLightningLoop();
+      }, 110 + Math.random() * 140);
+    }
+    if (!lowPowerMode && Math.random() > 0.76) {
+      setTimeout(() => {
+        activeStrikes.push(buildStrike());
+        ensureLightningLoop();
+      }, 250 + Math.random() * 160);
+    }
+
     triggerFlash();
-    const next = 1800 + Math.random() * 2600;
-    setTimeout(launchStrikeBurst, next);
+    ensureLightningLoop();
+    const next = lowPowerMode ? 3200 + Math.random() * 2600 : 2200 + Math.random() * 2800;
+    scheduleNextBurst(next);
   };
 
   const spawnDebris = () => {
-    const count = 96;
+    const count = lowPowerMode ? 28 : 54;
     debrisLayer.innerHTML = '';
     for (let i = 0; i < count; i += 1) {
       const piece = document.createElement('span');
-      const frontBias = Math.random() < 0.42;
+      const frontBias = Math.random() < (lowPowerMode ? 0.28 : 0.38);
       const sideBand = Math.random();
       let startX;
       if (sideBand < 0.35) startX = -8 + Math.random() * 30;
@@ -351,28 +426,28 @@ function setupCinematicBackground() {
       else startX = 18 + Math.random() * 64;
       const lowerBias = Math.random() < 0.58;
       const startY = lowerBias ? 34 + Math.random() * 66 : -6 + Math.random() * 86;
-      const size = frontBias ? 18 + Math.random() * 88 : 9 + Math.random() * 54;
-      const driftX = -30 + Math.random() * 60;
-      const driftY = -(26 + Math.random() * 74);
-      const opacity = frontBias ? 0.24 + Math.random() * 0.46 : 0.16 + Math.random() * 0.30;
-      const duration = frontBias ? 10 + Math.random() * 10 : 14 + Math.random() * 14;
+      const size = frontBias ? 16 + Math.random() * (lowPowerMode ? 48 : 70) : 8 + Math.random() * (lowPowerMode ? 28 : 42);
+      const driftX = -24 + Math.random() * 48;
+      const driftY = -(22 + Math.random() * 56);
+      const opacity = frontBias ? 0.22 + Math.random() * 0.32 : 0.12 + Math.random() * 0.20;
+      const duration = frontBias ? 12 + Math.random() * 10 : 16 + Math.random() * 12;
       const delay = -Math.random() * duration;
       const radius = 2 + Math.random() * 8;
-      const depth = frontBias ? 30 + Math.random() * 130 : -40 + Math.random() * 100;
+      const depth = frontBias ? 24 + Math.random() * 90 : -30 + Math.random() * 70;
       piece.className = `debris ${Math.random() > 0.5 ? 'slow' : 'fast'} ${frontBias ? 'front' : ''}`;
       piece.style.width = `${size}px`;
       piece.style.height = `${size * (0.54 + Math.random() * 0.92)}px`;
       piece.style.left = `${startX}%`;
       piece.style.top = `${startY}%`;
       piece.style.borderRadius = `${radius}px`;
-      piece.style.setProperty('--sx', `${-12 + Math.random() * 24}px`);
-      piece.style.setProperty('--sy', `${-8 + Math.random() * 18}px`);
+      piece.style.setProperty('--sx', `${-10 + Math.random() * 20}px`);
+      piece.style.setProperty('--sy', `${-8 + Math.random() * 16}px`);
       piece.style.setProperty('--ex', `${driftX * 10}px`);
       piece.style.setProperty('--ey', `${driftY * 10}px`);
       piece.style.setProperty('--r0', `${Math.random() * 180}deg`);
-      piece.style.setProperty('--r1', `${220 + Math.random() * 600}deg`);
-      piece.style.setProperty('--sc0', `${0.72 + Math.random() * 0.52}`);
-      piece.style.setProperty('--sc1', `${0.96 + Math.random() * 0.86}`);
+      piece.style.setProperty('--r1', `${180 + Math.random() * 460}deg`);
+      piece.style.setProperty('--sc0', `${0.72 + Math.random() * 0.42}`);
+      piece.style.setProperty('--sc1', `${0.96 + Math.random() * 0.56}`);
       piece.style.setProperty('--o', opacity.toFixed(2));
       piece.style.transform = `translateZ(${depth}px)`;
       piece.style.animation = `debrisDrift ${duration.toFixed(2)}s linear ${delay.toFixed(2)}s infinite`;
@@ -380,10 +455,16 @@ function setupCinematicBackground() {
     }
   };
 
+  const applyPointerParallax = () => {
+    mouseFrame = null;
+    imageLayer.style.transform = `scale(1.12) translate3d(${targetX}px, ${targetY}px, 0)`;
+    debrisLayer.style.transform = `translate3d(${targetX * 1.3}px, ${targetY * 1.3}px, 0)`;
+    canvas.style.transform = `translate3d(${targetX * 0.65}px, ${targetY * 0.65}px, 0)`;
+  };
+
   resizeCanvas();
   spawnDebris();
-  renderLightning();
-  setTimeout(launchStrikeBurst, 800);
+  scheduleNextBurst(900);
 
   window.addEventListener('resize', () => {
     resizeCanvas();
@@ -391,12 +472,27 @@ function setupCinematicBackground() {
   });
 
   window.addEventListener('mousemove', (e) => {
-    const x = (e.clientX / window.innerWidth - 0.5) * 18;
-    const y = (e.clientY / window.innerHeight - 0.5) * 14;
-    imageLayer.style.transform = `scale(1.12) translate3d(${x}px, ${y}px, 0)`;
-    debrisLayer.style.transform = `translate3d(${x * 1.8}px, ${y * 1.8}px, 0)`;
-    canvas.style.transform = `translate3d(${x * 0.85}px, ${y * 0.85}px, 0)`;
+    if (lowPowerMode || document.hidden) return;
+    targetX = (e.clientX / window.innerWidth - 0.5) * 14;
+    targetY = (e.clientY / window.innerHeight - 0.5) * 10;
+    if (mouseFrame === null) {
+      mouseFrame = requestAnimationFrame(applyPointerParallax);
+    }
+  }, { passive: true });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      activeStrikes = [];
+      ctx.clearRect(0, 0, w, h);
+      bg.classList.remove('flash-active');
+      syncVideoPlayback();
+      return;
+    }
+
+    syncVideoPlayback();
+    scheduleNextBurst(900);
   });
 }
 
 setupCinematicBackground();
+syncVideoPlayback();
