@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+
+<html lang="de">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Hammer Modding – Local Prototype</title>
+<link href="styles.css" rel="stylesheet"/>
+</head>
+<body>
+<div class="bg-cinematic">
+<div class="bg-image"></div>
+<div class="bg-shade"></div>
+<div class="bg-flash"></div>
+<div class="bg-redwash"></div>
+<div class="bg-grid"></div>
+<div class="bg-lightning">
+  <canvas aria-hidden="true" class="lightning-canvas" id="lightningCanvas"></canvas>
+</div>
+<div class="bg-debris" id="bgDebris"></div>
+<div class="bg-orb orb-1"></div>
+<div class="bg-orb orb-2"></div>
+<div class="bg-orb orb-3"></div>
+</div>
+<div class="layout">
+<aside class="sidebar glass">
+<div class="brand">
+<img alt="Hammer Modding Logo" class="brand-logo" src="assets/logo.webp"/>
+<div>
+<p class="brand-top">HM STORE</p>
+<h1>HAMMER MODDING <span style="opacity:.45;font-size:.55em;vertical-align:top;">v45</span></h1>
+</div>
+</div>
+<label class="search-wrap">
+<span>🔎</span>
+<input id="searchInput" placeholder="Produkte suchen ..." type="text"/>
+</label>
+<nav class="main-nav">
+<button class="nav-item active" data-section="home">Startseite</button>
+<button class="nav-item" data-section="clothing">Kleidung</button>
+<button class="nav-item" data-section="scripts">Scripte</button>
+<button class="nav-item" data-section="free">Free Scripts</button>
+<button class="nav-item" data-section="contact">Kontakt</button>
+</nav>
+<div class="discord-card glass-soft">
+<strong>Discord</strong>
+<p>Community, Support &amp; Updates direkt erreichbar.</p>
+<a class="discord-logo-link" href="https://discord.com/channels/@me/1446689279760924805/1495308982435320020" rel="noopener noreferrer" target="_blank" aria-label="Hammer Modding Discord öffnen">
+<img alt="Hammer Modding Discord" class="discord-logo-image" src="assets/hm-logo-discord.png"/>
+</a>
+</div>
+</aside>
+<main class="content">
+<header class="mobile-top glass">
+<button class="menu-btn">☰</button>
+<span>HAMMER MODDING</span>
+<button class="menu-btn">🛒</button>
+</header>
+<section class="hero glass section-home">
+<div class="hero-logo-wrap">
+<div class="hero-video-wrap">
+<video autoplay="" class="hero-video home-hero-video" loop="" muted="" playsinline="" poster="assets/content.png" preload="metadata" src="assets/hm-intro.mp4"></video>
+<img alt="Hammer Modding Logo" class="hero-video-logo" src="assets/logo.webp"/>
+</div>
+</div>
+<div class="hero-copy">
+<div class="eyebrow">Hammer Modding · Local Preview</div>
+<h2>HOCHWERTIGE SCRIPTS, KLEIDUNG<br/><span>&amp; STARKE RELEASES FÜR FIVEM</span></h2>
+<p>
+            Erste echte lokale Vorschau für Hammer Modding. Jetzt ziehen wir den Fokus bewusst auf den Script-Bereich, weil die Kleidungsbilder noch in Arbeit sind.
+          </p>
+<div class="hero-actions">
+<a class="cta primary" data-nav-open="scripts" href="#">Zu den Scripten</a>
+<a class="cta secondary" data-nav-open="scripts" href="#">Zur Script-Vorschau</a>
+</div>
+</div>
+</section>
+
+<section class="section-home home-marquee-section">
+<div class="section-head">
+<span></span>
+<h3 id="featured-scripts-paid">Featured Angebote</h3>
+</div>
+<div class="marquee-viewport">
+<div class="slider-track slider-track-paid">
+<div class="slider-group">
+<article class="product-card glass-soft searchable marquee-card" data-type="script gps">
+<div class="card-badge">Navigation</div>
+<div class="card-main card-main-vertical compact-home-card">
+<img alt="GPS System" src="assets/gps.png"/>
+<div>
+<h4>GPS System</h4>
+<p>Live-Standort, SOS und konfigurierbare Jobs in einer starken HM-Präsentation.</p>
+<div class="price-row"><strong>10,00 €</strong><small>inkl. Zugriff</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="gps" href="#">Jetzt ansehen</a>
+</article>
+<article class="product-card glass-soft searchable marquee-card" data-type="script blitzer">
+<div class="card-badge">Tempo-System</div>
+<div class="card-main card-main-vertical compact-home-card">
+<img alt="Blitzer Script" src="assets/blitzer.png"/>
+<div>
+<h4>Blitzer Script</h4>
+<p>Persistente Tempokontrolle mit Ghost-Objekt, Bußgeldern und Admin-Panel.</p>
+<div class="price-row"><strong>15,00 €</strong><small>inkl. Zugriff</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="blitzer" href="#">Jetzt ansehen</a>
+</article>
+<article class="product-card glass-soft searchable marquee-card" data-type="script carplay">
+<div class="card-badge">Ingame Audio</div>
+<div class="card-main card-main-vertical compact-home-card">
+<img alt="CarPlay System" src="assets/carplay.png"/>
+<div>
+<h4>CarPlay System</h4>
+<p>YouTube im Fahrzeug, Synchron für alle Insassen und saubere gemeinsame Lautstärke.</p>
+<div class="price-row"><strong>10,00 €</strong><small>inkl. Zugriff</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="carplay" href="#">Jetzt ansehen</a>
+</article>
+<article class="product-card glass-soft searchable marquee-card" data-type="script outfit">
+<div class="card-badge">Outfit</div>
+<div class="card-main card-main-vertical compact-home-card">
+<img alt="Outfit-Auswahl" src="assets/outfit.png"/>
+<div>
+<h4>Outfit-Auswahl</h4>
+<p>Item-basierte Kleidungskontrolle mit Animationen, Reset-Logik und RP-Fokus.</p>
+<div class="price-row"><strong>5,00 €</strong><small>inkl. Zugriff</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="outfit" href="#">Jetzt ansehen</a>
+</article>
+<article class="product-card glass-soft searchable marquee-card" data-type="script mechaniker-ki">
+<div class="card-badge">Pannenhilfe</div>
+<div class="card-main card-main-vertical compact-home-card">
+<img alt="KI Mechaniker" src="assets/mechaniker-ki.png"/>
+<div>
+<h4>KI Mechaniker</h4>
+<p>NPC-Pannenhilfe mit echter Anfahrt, Not-Reparaturset und realistischer Balance.</p>
+<div class="price-row"><strong>10,00 €</strong><small>inkl. Zugriff</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="mechaniker-ki" href="#">Jetzt ansehen</a>
+</article>
+</div>
+<div aria-hidden="true" class="slider-group">
+<article class="product-card glass-soft marquee-card" data-type="script gps">
+<div class="card-badge">Navigation</div>
+<div class="card-main card-main-vertical compact-home-card">
+<img alt="GPS System" src="assets/gps.png"/>
+<div>
+<h4>GPS System</h4>
+<p>Live-Standort, SOS und konfigurierbare Jobs in einer starken HM-Präsentation.</p>
+<div class="price-row"><strong>10,00 €</strong><small>inkl. Zugriff</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="gps" href="#">Jetzt ansehen</a>
+</article>
+<article class="product-card glass-soft marquee-card" data-type="script blitzer">
+<div class="card-badge">Tempo-System</div>
+<div class="card-main card-main-vertical compact-home-card">
+<img alt="Blitzer Script" src="assets/blitzer.png"/>
+<div>
+<h4>Blitzer Script</h4>
+<p>Persistente Tempokontrolle mit Ghost-Objekt, Bußgeldern und Admin-Panel.</p>
+<div class="price-row"><strong>15,00 €</strong><small>inkl. Zugriff</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="blitzer" href="#">Jetzt ansehen</a>
+</article>
+<article class="product-card glass-soft marquee-card" data-type="script carplay">
+<div class="card-badge">Ingame Audio</div>
+<div class="card-main card-main-vertical compact-home-card">
+<img alt="CarPlay System" src="assets/carplay.png"/>
+<div>
+<h4>CarPlay System</h4>
+<p>YouTube im Fahrzeug, Synchron für alle Insassen und saubere gemeinsame Lautstärke.</p>
+<div class="price-row"><strong>10,00 €</strong><small>inkl. Zugriff</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="carplay" href="#">Jetzt ansehen</a>
+</article>
+<article class="product-card glass-soft marquee-card" data-type="script outfit">
+<div class="card-badge">Outfit</div>
+<div class="card-main card-main-vertical compact-home-card">
+<img alt="Outfit-Auswahl" src="assets/outfit.png"/>
+<div>
+<h4>Outfit-Auswahl</h4>
+<p>Item-basierte Kleidungskontrolle mit Animationen, Reset-Logik und RP-Fokus.</p>
+<div class="price-row"><strong>5,00 €</strong><small>inkl. Zugriff</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="outfit" href="#">Jetzt ansehen</a>
+</article>
+<article class="product-card glass-soft marquee-card" data-type="script mechaniker-ki">
+<div class="card-badge">Pannenhilfe</div>
+<div class="card-main card-main-vertical compact-home-card">
+<img alt="KI Mechaniker" src="assets/mechaniker-ki.png"/>
+<div>
+<h4>KI Mechaniker</h4>
+<p>NPC-Pannenhilfe mit echter Anfahrt, Not-Reparaturset und realistischer Balance.</p>
+<div class="price-row"><strong>10,00 €</strong><small>inkl. Zugriff</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="mechaniker-ki" href="#">Jetzt ansehen</a>
+</article>
+</div>
+</div>
+</div>
+</section>
+
+
+<section class="section-home home-marquee-section">
+<div class="section-head">
+<span></span>
+<h3 id="featured-free">Weitere Highlights</h3>
+</div>
+<div class="marquee-viewport">
+<div class="slider-track slider-track-free slider-track-slower">
+<div class="slider-group">
+<article class="product-card glass-soft searchable marquee-card" data-type="free afk">
+<div class="card-badge">Free Script</div>
+<div class="card-main card-main-vertical compact-home-card">
+<img alt="AFK System" src="assets/afk.png"/>
+<div>
+<h4>AFK System</h4>
+<p>Automatische Inaktivitäts-Erkennung mit Countdown, Sound und optionalem Webhook.</p>
+<div class="price-row"><strong>Kostenlos</strong><small>Download</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="afk" href="#">Jetzt ansehen</a>
+</article>
+<article class="product-card glass-soft searchable marquee-card" data-type="free taxi">
+<div class="card-badge">Free Script</div>
+<div class="card-main card-main-vertical compact-home-card">
+<img alt="Taxi App LB-Phone" src="assets/taxi-full.png"/>
+<div>
+<h4>Taxi App LB-Phone</h4>
+<p>Rufe dein NPC-Taxi per Handy, steig ein und lass dich automatisch ans Ziel bringen.</p>
+<div class="price-row"><strong>Kostenlos</strong><small>LB Phone</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="taxi" href="#">Jetzt ansehen</a>
+</article>
+</div>
+<div aria-hidden="true" class="slider-group">
+<article class="product-card glass-soft marquee-card" data-type="free afk">
+<div class="card-badge">Free Script</div>
+<div class="card-main card-main-vertical compact-home-card">
+<img alt="AFK System" src="assets/afk.png"/>
+<div>
+<h4>AFK System</h4>
+<p>Automatische Inaktivitäts-Erkennung mit Countdown, Sound und optionalem Webhook.</p>
+<div class="price-row"><strong>Kostenlos</strong><small>Download</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="afk" href="#">Jetzt ansehen</a>
+</article>
+<article class="product-card glass-soft marquee-card" data-type="free taxi">
+<div class="card-badge">Free Script</div>
+<div class="card-main card-main-vertical compact-home-card">
+<img alt="Taxi App LB-Phone" src="assets/taxi-full.png"/>
+<div>
+<h4>Taxi App LB-Phone</h4>
+<p>Rufe dein NPC-Taxi per Handy, steig ein und lass dich automatisch ans Ziel bringen.</p>
+<div class="price-row"><strong>Kostenlos</strong><small>LB Phone</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="taxi" href="#">Jetzt ansehen</a>
+</article>
+</div>
+</div>
+</div>
+</section>
+
+
+<section class="section-home home-marquee-section">
+<div class="section-head">
+<span></span>
+<h3>Kommende Highlights</h3>
+</div>
+<div class="marquee-viewport">
+<div class="slider-track slider-track-coming slider-track-slowest">
+<div class="slider-group">
+<article class="product-card glass-soft searchable marquee-card coming-card" data-type="clothing polizei teaser">
+<div class="card-badge">Kommend</div>
+<div class="card-main card-main-vertical compact-home-card upcoming-card-main">
+<img alt="Polizeikleidung Preview" src="assets/preview-polizei-kleidung.png"/>
+<div>
+<h4>Polizeikleidung</h4>
+<p>Teaser für kommende Polizeikleidung in dunklem HM-Look.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Preview</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft searchable marquee-card coming-card" data-type="clothing feuerwehr teaser">
+<div class="card-badge">Kommend</div>
+<div class="card-main card-main-vertical compact-home-card upcoming-card-main">
+<img alt="Feuerwehrkleidung Preview" src="assets/preview-feuerwehr-kleidung.png"/>
+<div>
+<h4>Feuerwehrkleidung</h4>
+<p>Erster Blick auf kommende Feuerwehrkleidung im glühenden HM-Stil.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Preview</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft searchable marquee-card coming-card" data-type="clothing bad-fraks teaser">
+<div class="card-badge">Kommend</div>
+<div class="card-main card-main-vertical compact-home-card upcoming-card-main">
+<img alt="Bad-Frak Kleidung Preview" src="assets/preview-bad-frak-kleidung.png"/>
+<div>
+<h4>Bad-Frak Kleidung</h4>
+<p>Gang-/Bad-Frak-Teaser als Vorschau auf kommende Fraktionskleidung.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Preview</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft searchable marquee-card coming-card" data-type="clothing zoll teaser">
+<div class="card-badge">Kommend</div>
+<div class="card-main card-main-vertical compact-home-card upcoming-card-main">
+<img alt="Zoll Kleidung Preview" src="assets/preview-zoll-kleidung.png"/>
+<div>
+<h4>Zollkleidung</h4>
+<p>Vorschau auf kommende Zollkleidung mit staatlichem Kontroll-Look.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Preview</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft searchable marquee-card coming-card" data-type="clothing admin teaser">
+<div class="card-badge">Kommend</div>
+<div class="card-main card-main-vertical compact-home-card upcoming-card-main">
+<img alt="Admin Kleidung Preview" src="assets/preview-admin-kleidung.png"/>
+<div>
+<h4>Admin-Kleidung</h4>
+<p>Admin-Teaser als Preview für kommende HM-Serverkleidung.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Preview</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+</div>
+<div aria-hidden="true" class="slider-group">
+<article class="product-card glass-soft marquee-card coming-card" data-type="clothing polizei teaser">
+<div class="card-badge">Kommend</div>
+<div class="card-main card-main-vertical compact-home-card upcoming-card-main">
+<img alt="Polizeikleidung Preview" src="assets/preview-polizei-kleidung.png"/>
+<div>
+<h4>Polizeikleidung</h4>
+<p>Teaser für kommende Polizeikleidung in dunklem HM-Look.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Preview</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft marquee-card coming-card" data-type="clothing feuerwehr teaser">
+<div class="card-badge">Kommend</div>
+<div class="card-main card-main-vertical compact-home-card upcoming-card-main">
+<img alt="Feuerwehrkleidung Preview" src="assets/preview-feuerwehr-kleidung.png"/>
+<div>
+<h4>Feuerwehrkleidung</h4>
+<p>Erster Blick auf kommende Feuerwehrkleidung im glühenden HM-Stil.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Preview</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft marquee-card coming-card" data-type="clothing bad-fraks teaser">
+<div class="card-badge">Kommend</div>
+<div class="card-main card-main-vertical compact-home-card upcoming-card-main">
+<img alt="Bad-Frak Kleidung Preview" src="assets/preview-bad-frak-kleidung.png"/>
+<div>
+<h4>Bad-Frak Kleidung</h4>
+<p>Gang-/Bad-Frak-Teaser als Vorschau auf kommende Fraktionskleidung.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Preview</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft marquee-card coming-card" data-type="clothing zoll teaser">
+<div class="card-badge">Kommend</div>
+<div class="card-main card-main-vertical compact-home-card upcoming-card-main">
+<img alt="Zoll Kleidung Preview" src="assets/preview-zoll-kleidung.png"/>
+<div>
+<h4>Zollkleidung</h4>
+<p>Vorschau auf kommende Zollkleidung mit staatlichem Kontroll-Look.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Preview</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft marquee-card coming-card" data-type="clothing admin teaser">
+<div class="card-badge">Kommend</div>
+<div class="card-main card-main-vertical compact-home-card upcoming-card-main">
+<img alt="Admin Kleidung Preview" src="assets/preview-admin-kleidung.png"/>
+<div>
+<h4>Admin-Kleidung</h4>
+<p>Admin-Teaser als Preview für kommende HM-Serverkleidung.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Preview</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+</div>
+</div>
+</div>
+</section>
+
+<section class="section scripts-only hidden-section" id="scriptsSection">
+<div class="scripts-hero glass-soft">
+<div class="scripts-hero-copy">
+<div class="eyebrow">Hammer Modding · Script-Bereich</div>
+<h2>PREMIUM SCRIPTS<br/><span>MIT STARKER PRÄSENTATION</span></h2>
+<p>
+              Hier konzentrieren wir uns jetzt zuerst auf deine Systeme. Große Vorschauen, klare Titel,
+              bessere Script-Karten und auf Wunsch sogar dein Intro-Video direkt im Hero-Bereich.
+            </p>
+<div class="script-mini-stats">
+<div class="mini-stat"><strong>7+</strong><span>Script-Ideen</span></div>
+<div class="mini-stat"><strong>Video</strong><span>direkt im Hero</span></div>
+<div class="mini-stat"><strong>HM Look</strong><span>rot &amp; anthrazit</span></div>
+</div>
+</div>
+<div class="scripts-hero-media">
+<video autoplay="" class="hero-video" loop="" muted="" playsinline="" poster="assets/content.png" preload="metadata" src="assets/hm-intro.mp4"></video>
+</div>
+</div>
+<div class="section-head script-head">
+<span></span>
+<h3>Script Highlights</h3>
+</div>
+<div class="cards two-col scripts-grid">
+<article class="product-card glass-soft searchable script-card" data-type="script gps">
+<div class="card-badge">Highlight</div>
+<div class="card-main card-main-vertical">
+<img alt="GPS System" src="assets/gps.png"/>
+<div>
+<h4>GPS System</h4>
+<p>Panicbutton, Waypoints und Sound in einer starken roten HM-Inszenierung.</p>
+<div class="price-row"><strong>10,00 €</strong><small>Script</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="gps" href="#">Produkt ansehen</a>
+</article>
+<article class="product-card glass-soft searchable script-card active-script-card" data-script="blitzer" data-type="script blitzer">
+<div class="card-badge">Tempo-System</div>
+<div class="card-main card-main-vertical">
+<img alt="Blitzer Script" src="assets/blitzer.png"/>
+<div>
+<h4>Blitzer Script</h4>
+<p>Moderne Tempokontrolle mit Übersicht, Platzierung und Admin-Bereich.</p>
+<div class="price-row"><strong>15,00 €</strong><small>Script</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="blitzer" href="#">Produkt ansehen</a>
+</article>
+<article class="product-card glass-soft searchable script-card" data-type="script carplay">
+<div class="card-badge">Ingame Audio</div>
+<div class="card-main card-main-vertical">
+<img alt="CarPlay System" src="assets/carplay.png"/>
+<div>
+<h4>CarPlay System</h4>
+<p>Musiksteuerung direkt im Fahrzeug mit sauberer UI und schneller Bedienung.</p>
+<div class="price-row"><strong>10,00 €</strong><small>Script</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="carplay" href="#">Produkt ansehen</a>
+</article>
+<article class="product-card glass-soft searchable script-card" data-type="script outfit">
+<div class="card-badge">Utility</div>
+<div class="card-main card-main-vertical">
+<img alt="Outfit-Auswahl" src="assets/outfit.png"/>
+<div>
+<h4>Outfit-Auswahl</h4>
+<p>Job-Outfits mit übersichtlicher UI und Rückwechsel auf das Ursprungs-Outfit.</p>
+<div class="price-row"><strong>5,00 €</strong><small>Script</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="outfit" href="#">Produkt ansehen</a>
+</article>
+<article class="product-card glass-soft searchable script-card" data-type="script mechaniker-ki">
+<div class="card-badge">Mechanik</div>
+<div class="card-main card-main-vertical">
+<img alt="KI Mechaniker" src="assets/mechaniker-ki.png"/>
+<div>
+<h4>KI Mechaniker</h4>
+<p>Werkstatt- und Pannenhilfe mit realitätsnaher Präsentation für deinen Server.</p>
+<div class="price-row"><strong>10,00 €</strong><small>Script</small></div>
+</div>
+</div>
+<a class="card-link" data-open-script="mechaniker-ki" href="#">Produkt ansehen</a>
+</article>
+</div>
+</section>
+<section class="section script-detail hidden-section" id="scriptDetailSection">
+<div class="detail-topbar">
+<button class="back-link" data-back="1" id="backToScripts">← Zurück zu den Scripten</button>
+<div class="detail-tag">Script Detailseite · Blitzer</div>
+</div>
+<div class="script-detail-hero glass-soft">
+<div class="script-detail-copy">
+<div class="eyebrow">Hammer Modding · Blitzer Script</div>
+<h2>BLITZER SCRIPT<br/><span>DETAILS, FEATURES &amp; PREVIEW</span></h2>
+<p>
+              Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
+              Admin-Funktionen und echter Vorschau direkt auf der Seite.
+            </p>
+<div class="detail-price-row">
+<strong>15,00 €</strong>
+<span>inkl. Zugriff</span>
+</div>
+<div class="hero-actions">
+<a class="cta primary" href="https://youtu.be/1HXkofSvhRk" rel="noopener noreferrer" target="_blank">YouTube Preview</a>
+<a class="cta secondary" href="#">Kaufbutton folgt</a>
+</div>
+</div>
+<div class="script-detail-media">
+<video class="detail-video" controls="" playsinline="" poster="assets/blitzer.png" preload="metadata" src="assets/blitzer-preview.mp4"></video>
+</div>
+</div>
+<div class="detail-grid">
+<article class="detail-card glass-soft feature-panel">
+<div class="section-head script-head feature-head">
+<span></span>
+<h3>Premium Features</h3>
+</div>
+<div class="feature-intro">Für Server gedacht, die nicht nur irgendein Blitzer-Script wollen, sondern ein sauberes, persistentes und administrierbares System mit richtiger Wirkung.</div>
+<div class="feature-sales-grid">
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 01</div><p>Datenbankpersistenz – Blitzer bleiben nach Server-Neustarts</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 02</div><p>Job-basierte Zugangskontrolle</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 03</div><p>Serverseitige Bußgeld-Validierung</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 04</div><p>Geld von Bank/Bargeld abziehen, Firmenkasse gutschreiben</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 05</div><p>Visueller Blitz-Flash &amp; Sound bei Geschwindigkeitsüberschreitung</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 06</div><p>Cooldown-System pro Fahrzeug und Kamera</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 07</div><p>Prop-Vorschau mit transparentem Ghost-Objekt</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 08</div><p>Admin-Panel mit Statistiken und Vollzugriff</p></article>
+</div>
+</article>
+<article class="detail-card glass-soft">
+<div class="section-head script-head">
+<span></span>
+<h3>Auf einen Blick</h3>
+</div>
+<div class="detail-facts">
+<div class="fact-box"><strong>Einsatz</strong><span>Polizei / Verwaltung / Tempokontrolle</span></div>
+<div class="fact-box"><strong>System</strong><span>Persistenz + Admin-Panel + Bußgelder</span></div>
+<div class="fact-box"><strong>Effekt</strong><span>Blitz-Flash + Soundwarnung</span></div>
+<div class="fact-box"><strong>Platzierung</strong><span>Ghost-Objekt / Prop-Vorschau</span></div>
+</div>
+<div class="detail-thumb-wrap">
+<img alt="Blitzer Script Vorschau" class="detail-thumb contain-thumb" src="assets/blitzer.png"/>
+</div>
+</article>
+</div>
+</section>
+<section class="section script-detail hidden-section" id="gpsDetailSection">
+<div class="detail-topbar">
+<button class="back-link" data-back="1" id="backToScriptsGps">← Zurück zu den Scripten</button>
+<div class="detail-tag">Script Detailseite · GPS</div>
+</div>
+<div class="script-detail-hero glass-soft">
+<div class="script-detail-copy">
+<div class="eyebrow">Hammer Modding · GPS Script</div>
+<h2>GPS SCRIPT<br/><span>LIVE-STANDORT, SOS &amp; KONTROLLE</span></h2>
+<p>
+              Ein vielseitiges GPS-System für deinen Server mit frei konfigurierbaren Jobs, Sounds, Logos und Funktionen.
+              Live-Standort, Wegpunkt, SOS und letzter Standort bei Verlust direkt in einem starken HM-Auftritt.
+            </p>
+<div class="detail-price-row">
+<strong>10,00 €</strong>
+<span>inkl. Zugriff</span>
+</div>
+<div class="hero-actions">
+<a class="cta primary" href="#">Preview lokal eingebunden</a>
+<a class="cta secondary" href="#">Kaufbutton folgt</a>
+</div>
+</div>
+<div class="script-detail-media gps-media">
+<video class="detail-video" controls="" playsinline="" poster="assets/gps.png" preload="metadata" src="assets/videos/gps-system-hammer-modding.mp4"></video>
+<div class="video-hint">Lege für die lokale Vorschau die Datei <strong>assets/videos/gps-system-hammer-modding.mp4</strong> in den Ordner.</div>
+</div>
+</div>
+<div class="detail-grid">
+<article class="detail-card glass-soft feature-panel">
+<div class="section-head script-head feature-head">
+<span></span>
+<h3>Premium Features</h3>
+</div>
+<div class="feature-intro">Für Server gedacht, die ein flexibles GPS-System mit echter Einsatzrelevanz wollen – konfigurierbar, direkt nutzbar und im gleichen Premium-Stil wie dein restliches Portfolio.</div>
+<div class="feature-sales-grid">
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 01</div><p>Jobs, Sound, Logo &amp; Funktionen frei konfigurierbar</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 02</div><p>Live-Standort in Echtzeit</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 03</div><p>Wegpunkt &amp; SOS direkt möglich</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 04</div><p>Bei Verlust wird der letzte Standort übermittelt</p></article>
+</div>
+</article>
+<article class="detail-card glass-soft">
+<div class="section-head script-head">
+<span></span>
+<h3>Auf einen Blick</h3>
+</div>
+<div class="detail-facts">
+<div class="fact-box"><strong>Einsatz</strong><span>Mehrere Jobs / SOS / Navigation</span></div>
+<div class="fact-box"><strong>System</strong><span>Live-Standort + letzter Standort</span></div>
+</div>
+<div class="detail-thumb-wrap">
+<img alt="GPS Script Vorschau" class="detail-thumb contain-thumb" src="assets/gps.png"/>
+</div>
+</article>
+</div>
+</section>
+<section class="section script-detail hidden-section" id="carplayDetailSection">
+<div class="detail-topbar">
+<button class="back-link" data-back="1" id="backToScriptsCarplay">← Zurück zu den Scripten</button>
+<div class="detail-tag">Script Detailseite · CarPlay</div>
+</div>
+<div class="script-detail-hero glass-soft">
+<div class="script-detail-copy">
+<div class="eyebrow">Hammer Modding · CarPlay System</div>
+<h2>CARPLAY SYSTEM<br/><span>MUSIK DIREKT IM FAHRZEUG</span></h2>
+<p>
+              Bring Musik direkt in deine Fahrzeuge. YouTube im Auto abspielen, synchron für alle Insassen,
+              gemeinsame Lautstärke und ein sauberer Ablauf im typischen Hammer-Modding-Look.
+            </p>
+<div class="detail-price-row">
+<strong>10,00 €</strong>
+<span>inkl. Zugriff</span>
+</div>
+<div class="hero-actions">
+<a class="cta primary" href="#">Preview lokal eingebunden</a>
+<a class="cta secondary" href="#">Kaufbutton folgt</a>
+</div>
+</div>
+<div class="script-detail-media gps-media">
+<video class="detail-video" controls="" playsinline="" poster="assets/carplay.png" preload="metadata" src="assets/videos/CarPlay-System-HammerModding.mp4"></video>
+<div class="video-hint">Lege für die lokale Vorschau die Datei <strong>assets/videos/CarPlay-System-HammerModding.mp4</strong> in den Ordner.</div>
+</div>
+</div>
+<div class="detail-grid">
+<article class="detail-card glass-soft feature-panel">
+<div class="section-head script-head feature-head">
+<span></span>
+<h3>Premium Features</h3>
+</div>
+<div class="feature-intro">Für Server gedacht, die ihren Fahrzeugen mehr Leben geben wollen – mit Musik, sauberem Bedienkonzept und einer Präsentation, die direkt nach Premium aussieht.</div>
+<div class="feature-sales-grid">
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 01</div><p>YouTube im Auto abspielen</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 02</div><p>Synchron für alle Insassen</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 03</div><p>Gemeinsame Lautstärke</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 04</div><p>UI schließen → Musik läuft weiter</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 05</div><p>Motor aus → Musik stoppt</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 06</div><p>Einfach per /carplay starten und loslegen</p></article>
+</div>
+</article>
+<article class="detail-card glass-soft">
+<div class="section-head script-head">
+<span></span>
+<h3>Auf einen Blick</h3>
+</div>
+<div class="detail-facts">
+<div class="fact-box"><strong>Einsatz</strong><span>Fahrzeuge / Musik / alle Insassen</span></div>
+<div class="fact-box"><strong>System</strong><span>YouTube + Sync + Lautstärke</span></div>
+</div>
+<div class="detail-thumb-wrap">
+<img alt="CarPlay Script Vorschau" class="detail-thumb" src="assets/carplay.png"/>
+</div>
+</article>
+</div>
+</section>
+<section class="section script-detail hidden-section" id="mechanikerKiDetailSection">
+<div class="detail-topbar">
+<button class="back-link" data-back="1" id="backToScriptsMechanikerKi">← Zurück zu den Scripten</button>
+<div class="detail-tag">Script Detailseite · KI Mechaniker</div>
+</div>
+<div class="script-detail-hero glass-soft">
+<div class="script-detail-copy">
+<div class="eyebrow">Hammer Modding · KI Mechaniker</div>
+<h2>KI MECHANIKER<br/><span>PANNENHILFE DIREKT IM RP</span></h2>
+<p>
+              Mehr Komfort für dein RP: Bleib nie wieder hilflos liegen. Ein NPC-Mechaniker kommt direkt zu dir,
+              repariert dein Fahrzeug schnell und realistisch und sorgt für die perfekte Balance zwischen Spielkomfort
+              und immersivem Roleplay.
+            </p>
+<div class="detail-price-row">
+<strong>10,00 €</strong>
+<span>inkl. Zugriff</span>
+</div>
+<div class="hero-actions">
+<a class="cta primary" href="#">Preview lokal eingebunden</a>
+<a class="cta secondary" href="#">Kaufbutton folgt</a>
+</div>
+</div>
+<div class="script-detail-media gps-media">
+<video class="detail-video" controls="" playsinline="" poster="assets/mechaniker-ki.png" preload="metadata" src="assets/videos/KI-Mechaniker-HammerModding.mp4"></video>
+<div class="video-hint">Lege für die lokale Vorschau die Datei <strong>assets/videos/KI-Mechaniker-HammerModding.mp4</strong> in den Ordner.</div>
+</div>
+</div>
+<div class="detail-grid">
+<article class="detail-card glass-soft feature-panel">
+<div class="section-head script-head feature-head">
+<span></span>
+<h3>Premium Features</h3>
+</div>
+<div class="feature-intro">Für Server gedacht, die eine glaubwürdige Pannenhilfe wollen, ohne dass Spieler frustriert liegenbleiben. Realistisch, konfigurierbar und perfekt für flüssiges RP.</div>
+<div class="feature-sales-grid">
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 01</div><p>Mechaniker-NPC mit echter Anfahrt zu deinem Standort</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 02</div><p>Feste NPC-Mechaniker an frei wählbaren Orten</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 03</div><p>Automatische Deaktivierung, sobald echte Mechaniker online sind</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 04</div><p>Not-Reparaturset für schnelle Hilfe im Ernstfall</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 05</div><p>Alle Funktionen individuell konfigurierbar</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 06</div><p>Perfekte Balance zwischen Realismus und Spielkomfort</p></article>
+</div>
+</article>
+<article class="detail-card glass-soft">
+<div class="section-head script-head">
+<span></span>
+<h3>Auf einen Blick</h3>
+</div>
+<div class="detail-facts">
+<div class="fact-box"><strong>Einsatz</strong><span>Pannenhilfe / Werkstatt / Komfort-RP</span></div>
+<div class="fact-box"><strong>System</strong><span>NPC-Anfahrt + Deaktivierung bei echten Mechanikern</span></div>
+</div>
+<div class="detail-thumb-wrap">
+<img alt="KI Mechaniker Vorschau" class="detail-thumb" src="assets/mechaniker-ki.png"/>
+</div>
+</article>
+</div>
+</section>
+<section class="section script-detail hidden-section" id="afkDetailSection">
+<div class="detail-topbar">
+<button class="back-link" data-back="1" id="backToScriptsAfk">← Zurück zu den Scripten</button>
+<div class="detail-tag">Free Script Detailseite · AFK</div>
+</div>
+<div class="script-detail-hero glass-soft">
+<div class="script-detail-copy">
+<div class="eyebrow">Hammer Modding · AFK System</div>
+<h2>AFK SYSTEM<br/><span>KOSTENLOS, SAUBER &amp; PRAKTISCH</span></h2>
+<p>
+              Das AFK System erkennt automatisch inaktive Spieler und gibt dir eine übersichtliche Warnung
+              mit Countdown und Sound. Danach erfolgt der Kick nach deinem konfigurierbaren Zeitintervall –
+              optional sogar mit Admin-Benachrichtigungen und Discord-Webhook.
+            </p>
+<div class="detail-price-row">
+<strong>Kostenlos</strong>
+<span>Free Script</span>
+</div>
+<div class="hero-actions">
+<a class="cta primary" href="#">Bildvorschau</a>
+<a class="cta secondary" href="#">Downloadbutton folgt</a>
+</div>
+</div>
+<div class="script-detail-media image-media">
+<img alt="AFK System Vorschau" class="detail-video detail-image contain-image" src="assets/afk.png"/>
+</div>
+</div>
+<div class="detail-grid">
+<article class="detail-card glass-soft feature-panel">
+<div class="section-head script-head feature-head">
+<span></span>
+<h3>Premium Features</h3>
+</div>
+<div class="feature-intro">Ein kostenloses AFK-System, das nicht billig wirkt: klare Warnung, konfigurierbarer Countdown, optionale Hinweise für Admins und Discord-Anbindung für sauberen Serverbetrieb.</div>
+<div class="feature-sales-grid">
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 01</div><p>Erkennt automatisch inaktive Spieler</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 02</div><p>Übersichtliche Countdown-Warnung mit Sound</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 03</div><p>Kick nach konfigurierbarem Zeitintervall</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 04</div><p>Optionale Admin-Benachrichtigungen</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 05</div><p>Optionaler Discord-Webhook</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 06</div><p>Kostenloser Einstieg mit starkem HM-Look</p></article>
+</div>
+</article>
+<article class="detail-card glass-soft">
+<div class="section-head script-head">
+<span></span>
+<h3>Auf einen Blick</h3>
+</div>
+<div class="detail-facts">
+<div class="fact-box"><strong>Preis</strong><span>Kostenloses Free Script</span></div>
+<div class="fact-box"><strong>Einsatz</strong><span>Serverbetrieb / Inaktivität / Warnung</span></div>
+<div class="fact-box"><strong>System</strong><span>Countdown + Kick + optionale Hinweise</span></div>
+</div>
+<div class="detail-thumb-wrap">
+<img alt="AFK System Detailbild" class="detail-thumb" src="assets/afk.png"/>
+</div>
+</article>
+</div>
+</section>
+<section class="section script-detail hidden-section" id="outfitDetailSection">
+<div class="detail-topbar">
+<button class="back-link" data-back="1" id="backToScriptsOutfit">← Zurück zu den Scripten</button>
+<div class="detail-tag">Script Detailseite · Outfit Auswahl</div>
+</div>
+<div class="script-detail-hero glass-soft">
+<div class="script-detail-copy">
+<div class="eyebrow">Hammer Modding · Outfit Auswahl Script</div>
+<h2>OUTFIT AUSWAHL SCRIPT<br/><span>MAXIMALE KONTROLLE ÜBER DEINE KLEIDUNG</span></h2>
+<p>
+              Mit dem hm_kleidungsitem Script bringst du dein Server-Outfit-System auf das nächste Level.
+              Ziehe Kleidungsstücke ganz einfach per Item an und aus – komplett konfigurierbar und perfekt in
+              ox_inventory integrierbar. Von Warnwesten über Caps bis zu kompletten Outfits.
+            </p>
+<div class="detail-price-row">
+<strong>5,00 €</strong>
+<span>inkl. Zugriff</span>
+</div>
+<div class="hero-actions">
+<a class="cta primary" href="#">Preview lokal eingebunden</a>
+<a class="cta secondary" href="#">Kaufbutton folgt</a>
+</div>
+</div>
+<div class="script-detail-media gps-media">
+<video class="detail-video" controls="" playsinline="" poster="assets/outfit.png" preload="metadata" src="assets/videos/OutfitSystem-HammerModding.mp4"></video>
+<div class="video-hint">Lege für die lokale Vorschau die Datei <strong>assets/videos/OutfitSystem-HammerModding.mp4</strong> in den Ordner.</div>
+</div>
+</div>
+<div class="detail-grid">
+<article class="detail-card glass-soft feature-panel">
+<div class="section-head script-head feature-head">
+<span></span>
+<h3>Premium Features</h3>
+</div>
+<div class="feature-intro">Für Server gedacht, die Kleidung nicht nur über Menüs lösen wollen, sondern über echte nutzbare Items mit RP-Mehrwert, Animationen und voller Kontrolle über mehrere Komponenten gleichzeitig.</div>
+<div class="feature-sales-grid">
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 01</div><p>Einzelne Kleidungs-Komponenten frei definierbar</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 02</div><p>Unterstützung für männliche &amp; weibliche Charaktere</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 03</div><p>Animation beim An- &amp; Ausziehen</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 04</div><p>Perfekt für RP wie Warnwesten, Atemschutzgeräte oder Schutzkleidung</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 05</div><p>Ein Item steuert mehrere Komponenten gleichzeitig</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 06</div><p>Beim erneuten Benutzen wird das Outfit automatisch zurückgesetzt</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 07</div><p>Fertiges Warnwesten-Pack für mp_m &amp; mp_f direkt inklusive</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 08</div><p>Perfekt integriert in ox_inventory</p></article>
+</div>
+</article>
+<article class="detail-card glass-soft">
+<div class="section-head script-head">
+<span></span>
+<h3>Auf einen Blick</h3>
+</div>
+<div class="detail-facts">
+<div class="fact-box"><strong>Einsatz</strong><span>RP Kleidung / Warnwesten / Schutzkleidung</span></div>
+<div class="fact-box"><strong>System</strong><span>Item-basiert + ox_inventory + Reset-Logik</span></div>
+<div class="fact-box"><strong>Bonus</strong><span>Warnwesten-Pack für mp_m &amp; mp_f inklusive</span></div>
+</div>
+<div class="detail-thumb-wrap">
+<img alt="Outfit Auswahl Vorschau" class="detail-thumb" src="assets/outfit.png"/>
+</div>
+</article>
+</div>
+</section>
+<section class="section script-detail hidden-section" id="taxiDetailSection">
+<div class="detail-topbar">
+<button class="back-link" data-back="1" id="backToScriptsTaxi">← Zurück zu den Free Scripts</button>
+<div class="detail-tag">Free Script Detailseite · Taxi App</div>
+</div>
+<div class="script-detail-hero glass-soft">
+<div class="script-detail-copy">
+<div class="eyebrow">Hammer Modding · Taxi App LB-Phone</div>
+<h2>TAXI APP FÜR LB PHONE<br/><span>KOSTENLOS, SCHNELL &amp; REALISTISCH</span></h2>
+<p>
+              Rufe dein NPC-Taxi direkt über dein Handy, steig ein und lass dich automatisch ans Ziel bringen –
+              schnell, einfach und realistisch. Perfekt für Server, die mehr Komfort im Alltag wollen, ohne auf RP-Gefühl zu verzichten.
+            </p>
+<div class="detail-price-row">
+<strong>Kostenlos</strong>
+<span>Free Script · Voraussetzung: LB Phone</span>
+</div>
+<div class="hero-actions">
+<a class="cta primary" href="#">Bildvorschau</a>
+<a class="cta secondary" href="#">Downloadbutton folgt</a>
+</div>
+</div>
+<div class="script-detail-media image-media">
+<img alt="Taxi App Vorschau" class="detail-video detail-image contain-image" src="assets/taxi-full.png"/>
+</div>
+</div>
+<div class="detail-grid">
+<article class="detail-card glass-soft feature-panel">
+<div class="section-head script-head feature-head">
+<span></span>
+<h3>Premium Features</h3>
+</div>
+<div class="feature-intro">Ein kostenloses Komfort-Script für den Serveralltag: Taxi per Handy rufen, einsteigen und automatisch ans Ziel bringen lassen – ideal für Spieler ohne eigenes Fahrzeug oder als immersive Alternative im Roleplay.</div>
+<div class="feature-sales-grid">
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 01</div><p>NPC-Taxi direkt über das Handy rufen</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 02</div><p>Automatische Fahrt zum Ziel ohne Umwege</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 03</div><p>Schnell, einfach und realistisch ins RP eingebunden</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 04</div><p>Perfekt für Spieler ohne Fahrzeug oder als Komfort-Erweiterung</p></article>
+<article class="feature-sale-item"><div class="feature-sale-badge">Feature 05</div><p>Voraussetzung: LB Phone</p></article>
+</div>
+</article>
+<article class="detail-card glass-soft">
+<div class="section-head script-head">
+<span></span>
+<h3>Auf einen Blick</h3>
+</div>
+<div class="detail-facts">
+<div class="fact-box"><strong>Preis</strong><span>Kostenloses Free Script</span></div>
+<div class="fact-box"><strong>Voraussetzung</strong><span>LB Phone</span></div>
+<div class="fact-box"><strong>Einsatz</strong><span>Komfort / NPC-Taxi / Alltag</span></div>
+</div>
+<div class="detail-thumb-wrap">
+<img alt="Taxi App Detailbild" class="detail-thumb contain-thumb" src="assets/taxi-full.png"/>
+</div>
+</article>
+</div>
+</section>
+<section class="section clothing-only hidden-section" id="clothingSection">
+<div class="clothing-hero glass-soft">
+<div class="clothing-hero-copy">
+<div class="eyebrow">Hammer Modding · Kleidung</div>
+<h2>KLEIDUNG NACH BEREICHEN<br/><span>SAUBER STRUKTURIERT &amp; DIREKT SICHTBAR</span></h2>
+<p>
+              Hier gehen wir jetzt auf deine Kleidungsseite. Statt einer einfachen Liste bekommst du
+              eine richtige Bereichsübersicht mit Kategorien, Vorschau und später echten Produktseiten.
+            </p>
+<div class="mini-stats">
+<div class="mini-stat"><strong>10</strong><span>Kategorien</span></div>
+<div class="mini-stat"><strong>Bundles</strong><span>einbaubar</span></div>
+<div class="mini-stat"><strong>HM Style</strong><span>rot &amp; anthrazit</span></div>
+</div>
+</div>
+<div class="clothing-hero-art">
+<img alt="Hammer Modding Kleidung" src="assets/content.png"/>
+</div>
+</div>
+<div class="section-head clothing-head">
+<span></span>
+<h3>Kleidungsangebote</h3>
+</div>
+<p class="clothing-subline">Alle Kleidungsprodukte auf einen Blick – ohne extra Kategorieleiste, erstmal schön clean und übersichtlich.</p>
+<div class="cards three-col clothing-grid" id="clothingGrid">
+<article class="product-card glass-soft searchable clothing-card" data-category="admin" data-type="clothing admin">
+<div class="card-badge">Admin</div>
+<div class="card-main card-main-vertical">
+<img alt="Admin Kleidung" src="assets/preview-admin-kleidung.png"/>
+<div>
+<h4>Admin Kleidung</h4>
+<p>Serverteam-Optik, Teamwear und klare Erkennbarkeit für den Admin-Bereich.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Kleidung</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft searchable clothing-card" data-category="bad-fraks" data-type="clothing bad-fraks">
+<div class="card-badge">Bad-Fraks</div>
+<div class="card-main card-main-vertical">
+<img alt="Bad-Fraks Kleidung" src="assets/preview-bad-frak-kleidung.png"/>
+<div>
+<h4>Bad-Fraks</h4>
+<p>Düsterer Stil, markante Bündel und Looks für Gangs, Fraktionen und Straßencharaktere.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Kleidung</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft searchable clothing-card" data-category="feuerwehr" data-type="clothing feuerwehr">
+<div class="card-badge">Feuerwehr</div>
+<div class="card-main card-main-vertical">
+<img alt="Feuerwehr Kleidung" src="assets/preview-feuerwehr-kleidung.png"/>
+<div>
+<h4>Feuerwehr</h4>
+<p>Wachoutfits, Einsatzkleidung und Bundle-Ansätze für BF und FF auf einer sauberen Seite.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Kleidung</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft searchable clothing-card" data-category="krankenhaus" data-type="clothing krankenhaus">
+<div class="card-badge">Krankenhaus</div>
+<div class="card-main card-main-vertical">
+<img alt="Krankenhaus Kleidung" src="assets/clothing.png"/>
+<div>
+<h4>Krankenhaus</h4>
+<p>Arzt-Kittel, Kasacks, RD-Looks und medizinische Kleidung mit klarer Bereichsstruktur.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Kleidung</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft searchable clothing-card" data-category="mechaniker" data-type="clothing mechaniker">
+<div class="card-badge">Mechaniker</div>
+<div class="card-main card-main-vertical">
+<img alt="Mechaniker Kleidung" src="assets/clothing.png"/>
+<div>
+<h4>Mechaniker</h4>
+<p>Tuning-, Werkstatt- und Pannendienst-Looks für Mechanikerbereiche und Dienste.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Kleidung</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft searchable clothing-card" data-category="polizei" data-type="clothing polizei">
+<div class="card-badge">Polizei</div>
+<div class="card-main card-main-vertical">
+<img alt="Polizei Kleidung" src="assets/preview-polizei-kleidung.png"/>
+<div>
+<h4>Polizei</h4>
+<p>Westen, Uniformteile und Pack-Ansätze für LSPD, Sheriff und andere Polizeibereiche.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Kleidung</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft searchable clothing-card" data-category="rettungsdienst" data-type="clothing rettungsdienst">
+<div class="card-badge">Rettungsdienst</div>
+<div class="card-main card-main-vertical">
+<img alt="Rettungsdienst Kleidung" src="assets/clothing.png"/>
+<div>
+<h4>Rettungsdienst</h4>
+<p>RD-Bereiche mit sauberen rot-weißen Looks und klarer medizinischer Erkennbarkeit.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Kleidung</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft searchable clothing-card" data-category="stadtwerke" data-type="clothing stadtwerke">
+<div class="card-badge">Stadtwerke</div>
+<div class="card-main card-main-vertical">
+<img alt="Stadtwerke Kleidung" src="assets/clothing.png"/>
+<div>
+<h4>Stadtwerke</h4>
+<p>Warnschutz- und Arbeitskleidung für städtische Dienste mit sauberer Sichtbarkeit.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Kleidung</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft searchable clothing-card" data-category="zivil" data-type="clothing zivil">
+<div class="card-badge">Zivil</div>
+<div class="card-main card-main-vertical">
+<img alt="Zivil Kleidung" src="assets/clothing.png"/>
+<div>
+<h4>Zivil</h4>
+<p>Sportliche und zivile Alltagslooks für normale Spieler und freie Charaktere.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Kleidung</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+<article class="product-card glass-soft searchable clothing-card" data-category="zoll" data-type="clothing zoll">
+<div class="card-badge">Zoll</div>
+<div class="card-main card-main-vertical">
+<img alt="Zoll Kleidung" src="assets/preview-zoll-kleidung.png"/>
+<div>
+<h4>Zoll</h4>
+<p>Dunkle Zoll-Uniformen, Westen und Jacken für staatliche Kontrollen und Einsätze.</p>
+<div class="price-row soon-row"><strong>Bald erhältlich</strong><small>Kleidung</small></div>
+</div>
+</div>
+<a class="card-link disabled-link" href="#">Erscheint bald</a>
+</article>
+</div>
+</section>
+<section class="section free-only hidden-section" id="freeSection">
+<div class="section-head">
+<span></span>
+<h3>Free Scripts</h3>
+</div>
+<div class="cards two-col">
+<article class="product-card glass-soft searchable" data-type="free afk">
+<div class="card-badge">Free Release</div>
+<div class="card-main">
+<div>
+<h4>AFK System</h4>
+<p>Kostenloser Einstieg in Hammer Modding</p>
+<div class="price-row"><strong>Kostenlos</strong><small>Download</small></div>
+</div>
+<img alt="AFK System" src="assets/afk.png"/>
+</div>
+<a class="card-link" data-open-script="afk" href="#">Produkt ansehen</a>
+</article>
+<article class="product-card glass-soft searchable" data-type="free taxi">
+<div class="card-badge">Free Release</div>
+<div class="card-main">
+<div>
+<h4>Taxi App LB-Phone</h4>
+<p>NPC-Taxi direkt per Handy rufen und automatisch ans Ziel fahren lassen.</p>
+<div class="price-row"><strong>Kostenlos</strong><small>LB Phone</small></div>
+</div>
+<img alt="Taxi App LB-Phone" src="assets/taxi-full.png"/>
+</div>
+<a class="card-link" data-open-script="taxi" href="#">Produkt ansehen</a>
+</article>
+</div>
+</section>
+<section class="section-home">
+<div class="section-head">
+<span></span>
+<h3>Warum Hammer Modding?</h3>
+</div>
+<div class="reasons-grid">
+<article class="reason glass-soft">
+<div class="reason-icon">⬇</div>
+<h4>Sofortiger Download</h4>
+<p>Deine gekauften Produkte stehen direkt bereit.</p>
+</article>
+<article class="reason glass-soft">
+<div class="reason-icon">⏱</div>
+<h4>Top Performance</h4>
+<p>Sauber umgesetzt und auf Einsatz ausgelegt.</p>
+</article>
+<article class="reason glass-soft">
+<div class="reason-icon">🎧</div>
+<h4>Support &amp; Updates</h4>
+<p>Community, Hilfe und regelmäßige Weiterentwicklung.</p>
+</article>
+</div>
+</section>
+<section class="contact-box glass hidden-section" id="contactSection">
+<div class="section-head">
+<span></span>
+<h3>Kontakt</h3>
+</div>
+<p>Hier können später Discord, Support-Formular und weitere Kontaktwege rein.</p>
+</section>
+</main>
+</div>
+<script src="script.js"></script>
+</body>
+</html>
