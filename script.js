@@ -229,7 +229,7 @@ function loadVisibleCart() {
         type,
         price,
         priceLabel,
-        priceCents: parseCartPriceToCents(entry?.priceCents || price),
+        priceCents: parseCartPriceToCents(price),
         quantity: 1,
         source: entry?.source || 'detail-page',
       };
@@ -351,7 +351,9 @@ function setupPreparedCartButtons() {
     });
   });
 
-  refreshVisibleCartUi(loadVisibleCart());
+  const initialCart = loadVisibleCart();
+  persistVisibleCart(initialCart);
+  refreshVisibleCartUi(initialCart);
 }
 
 
