@@ -12,6 +12,8 @@ const detailSections = {
   afk: document.getElementById('afkDetailSection'),
   outfit: document.getElementById('outfitDetailSection'),
   taxi: document.getElementById('taxiDetailSection'),
+  'zoll-uniform': document.getElementById('zollUniformDetailSection'),
+  'serverteam-uniform': document.getElementById('serverteamUniformDetailSection'),
 };
 const searchInput = document.getElementById('searchInput');
 const searchables = document.querySelectorAll('.searchable');
@@ -23,30 +25,32 @@ let introBooting = false;
 
 const cartStorageKey = 'hm_store_cart';
 const cartDraftStorageKey = 'hm_cart_draft';
-const paidScriptCatalog = {
+const storeCatalog = {
   blitzer: { id: 'blitzer-script', slug: 'blitzer', name: 'Blitzer Script', price: '15.00', priceLabel: '15,00 €', type: 'paid-script' },
   gps: { id: 'gps-system', slug: 'gps', name: 'GPS System', price: '10.00', priceLabel: '10,00 €', type: 'paid-script' },
   carplay: { id: 'carplay-system', slug: 'carplay', name: 'CarPlay System', price: '10.00', priceLabel: '10,00 €', type: 'paid-script' },
   'mechaniker-ki': { id: 'ki-mechaniker', slug: 'mechaniker-ki', name: 'KI Mechaniker', price: '10.00', priceLabel: '10,00 €', type: 'paid-script' },
   outfit: { id: 'outfit-auswahl', slug: 'outfit', name: 'Outfit-Auswahl', price: '5.00', priceLabel: '5,00 €', type: 'paid-script' },
+  'zoll-uniform': { id: 'zoll-uniform', slug: 'zoll-uniform', name: 'Zoll-Uniform', price: '20.00', priceLabel: '20,00 €', type: 'clothing' },
+  'serverteam-uniform': { id: 'serverteam-uniform', slug: 'serverteam-uniform', name: 'Serverteam-Uniform', price: '12.00', priceLabel: '12,00 €', type: 'clothing' },
 };
 
 const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
-  version: 'phase-4c-request-flow',
-  catalog: paidScriptCatalog,
+  version: 'phase-4e-clothing-detail-cart',
+  catalog: storeCatalog,
   lastPreparedItem: null,
 });
 
-function getPaidCatalogItem(entryLike) {
+function getCatalogItem(entryLike) {
   if (!entryLike) return null;
 
   if (typeof entryLike === 'string') {
-    return paidScriptCatalog[entryLike] || Object.values(paidScriptCatalog).find((item) => item.id === entryLike) || null;
+    return storeCatalog[entryLike] || Object.values(storeCatalog).find((item) => item.id === entryLike) || null;
   }
 
   return (
-    paidScriptCatalog[entryLike.slug] ||
-    Object.values(paidScriptCatalog).find((item) => item.id === entryLike.id || item.slug === entryLike.slug) ||
+    storeCatalog[entryLike.slug] ||
+    Object.values(storeCatalog).find((item) => item.id === entryLike.id || item.slug === entryLike.slug) ||
     null
   );
 }
@@ -149,7 +153,7 @@ function openScriptDetail(scriptName, originSection = 'scripts') {
   setVisible(contactSection, false);
   hideAllDetails();
   setVisible(detailSections[scriptName], true);
-  activateNav(originSection === 'home' ? 'home' : originSection === 'free' ? 'free' : 'scripts');
+  activateNav(originSection === 'home' ? 'home' : originSection === 'free' ? 'free' : originSection === 'clothing' ? 'clothing' : 'scripts');
   syncVideoPlayback();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -176,7 +180,7 @@ function buildPreparedCartItem(button) {
   if (!button) return null;
 
   const slug = button.dataset.productSlug || '';
-  const catalogItem = getPaidCatalogItem(slug);
+  const catalogItem = getCatalogItem(slug);
   const name = button.dataset.productName || catalogItem?.name || '';
   const id = button.dataset.productId || catalogItem?.id || '';
   const price = button.dataset.productPrice || catalogItem?.price || '0';
@@ -228,7 +232,7 @@ function loadVisibleCart() {
 
   return cart
     .map((entry) => {
-      const catalogItem = getPaidCatalogItem(entry);
+      const catalogItem = getCatalogItem(entry);
       if (!catalogItem) return null;
 
       return {
@@ -273,19 +277,26 @@ function getVisibleCartTotals(cart) {
 }
 
 
+function getCartItemTypeLabel(item) {
+  if (!item) return 'Produkt';
+  if (item.type === 'clothing') return 'Kleidung';
+  if (item.type === 'paid-script') return 'Script';
+  return 'Produkt';
+}
+
 function buildCartRequestText(cart) {
   const items = Array.isArray(cart) ? cart : [];
   const totals = getVisibleCartTotals(items);
 
   if (!items.length) {
-    return 'Wähle zuerst bezahlte Scripts aus deinem Warenkorb aus.';
+    return 'Wähle zuerst Produkte aus deinem Warenkorb aus.';
   }
 
   const lines = [
     'Hammer Modding Bestellanfrage',
     '',
     'Gewünschte Produkte:',
-    ...items.map((item) => `- ${item.name} | ${item.priceLabel}`),
+    ...items.map((item) => `- ${item.name} | ${item.priceLabel} | ${getCartItemTypeLabel(item)}`),
     '',
     `Gesamtsumme: ${totals.totalLabel}`,
     '',
@@ -350,7 +361,7 @@ function closeRequestModal() {
 
 async function copyPreparedRequestText() {
   const requestText = buildCartRequestText(loadVisibleCart());
-  if (!requestText || requestText === 'Wähle zuerst bezahlte Scripts aus deinem Warenkorb aus.') return false;
+  if (!requestText || requestText === 'Wähle zuerst Produkte aus deinem Warenkorb aus.') return false;
 
   try {
     await navigator.clipboard.writeText(requestText);
@@ -453,7 +464,7 @@ function renderCartPanelItems(cart) {
         <div class="cart-panel-item-meta">
           <span>${item.priceLabel}</span>
           <span class="cart-panel-dot" aria-hidden="true"></span>
-          <span>Bezahltes Script</span>
+          <span>${getCartItemTypeLabel(item)}</span>
         </div>
       </div>
       <button class="cart-remove-button" data-cart-remove-id="${item.id}" type="button">Entfernen</button>
@@ -602,11 +613,13 @@ document.addEventListener('click', async (e) => {
     e.preventDefault();
     const originSection = openBtn.closest('#freeSection')
       ? 'free'
-      : openBtn.closest('.section-home')
-        ? 'home'
-        : openBtn.closest('#scriptsSection')
-          ? 'scripts'
-          : 'scripts';
+      : openBtn.closest('#clothingSection')
+        ? 'clothing'
+        : openBtn.closest('.section-home')
+          ? 'home'
+          : openBtn.closest('#scriptsSection')
+            ? 'scripts'
+            : 'scripts';
     openScriptDetail(openBtn.dataset.openScript, originSection);
     return;
   }
