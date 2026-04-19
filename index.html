@@ -49,12 +49,29 @@
 <img alt="Hammer Modding Discord" class="discord-logo-image" decoding="async" src="assets/hm-logo-discord.png"/>
 </a>
 </div>
+<div aria-live="polite" class="cart-status-card glass-soft" data-empty="true" id="cartStatusCard">
+<div class="cart-status-top">
+<div class="cart-status-title">
+<strong>Warenkorb</strong>
+<small>Bezahlte Scripts</small>
+</div>
+<span class="cart-count-pill" id="cartCountBadge">0</span>
+</div>
+<p class="cart-status-copy" id="cartStatusText">Noch keine Produkte im Warenkorb.</p>
+<div class="cart-status-summary">
+<span class="cart-status-label">Zwischensumme</span>
+<strong id="cartSubtotalLabel">0,00 €</strong>
+</div>
+</div>
 </aside>
 <main class="content">
 <header class="mobile-top glass">
-<button class="menu-btn">☰</button>
+<button class="menu-btn" type="button">☰</button>
 <span>HAMMER MODDING</span>
-<button class="menu-btn">🛒</button>
+<button aria-label="Warenkorbstatus" class="menu-btn menu-btn-cart" id="mobileCartStatusButton" type="button">
+<span class="menu-btn-icon">🛒</span>
+<span class="mobile-cart-badge" hidden id="mobileCartBadge">0</span>
+</button>
 </header>
 <section class="hero glass section-home">
 <div class="hero-logo-wrap">
@@ -1111,5 +1128,6 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
 </main>
 </div>
 <script src="script.js"></script>
+<div aria-atomic="true" aria-live="polite" class="cart-toast" id="cartToast"></div>
 </body>
 </html>
