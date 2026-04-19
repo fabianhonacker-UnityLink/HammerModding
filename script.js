@@ -14,6 +14,7 @@ const detailSections = {
   taxi: document.getElementById('taxiDetailSection'),
   'zoll-uniform': document.getElementById('zollUniformDetailSection'),
   'serverteam-uniform': document.getElementById('serverteamUniformDetailSection'),
+  'rettungsdienst-uniform': document.getElementById('rettungsdienstUniformDetailSection'),
 };
 const searchInput = document.getElementById('searchInput');
 const searchables = document.querySelectorAll('.searchable');
@@ -33,10 +34,11 @@ const storeCatalog = {
   outfit: { id: 'outfit-auswahl', slug: 'outfit', name: 'Outfit-Auswahl', price: '5.00', priceLabel: '5,00 €', type: 'paid-script' },
   'zoll-uniform': { id: 'zoll-uniform', slug: 'zoll-uniform', name: 'Zoll-Uniform', price: '20.00', priceLabel: '20,00 €', type: 'clothing' },
   'serverteam-uniform': { id: 'serverteam-uniform', slug: 'serverteam-uniform', name: 'Serverteam-Uniform', price: '12.00', priceLabel: '12,00 €', type: 'clothing' },
+  'rettungsdienst-uniform': { id: 'rettungsdienst-uniform', slug: 'rettungsdienst-uniform', name: 'Rettungsdienst-Uniform-Set', price: '20.00', priceLabel: '20,00 €', type: 'clothing' },
 };
 
 const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
-  version: 'phase-4e-clothing-detail-cart',
+  version: 'phase-4f-rettungsdienst-uniform',
   catalog: storeCatalog,
   lastPreparedItem: null,
 });
