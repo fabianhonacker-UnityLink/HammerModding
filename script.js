@@ -32,7 +32,7 @@ const paidScriptCatalog = {
 };
 
 const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
-  version: 'phase-4a-topright-cart',
+  version: 'phase-4b-topright-cart-panel',
   catalog: paidScriptCatalog,
   lastPreparedItem: null,
 });
@@ -316,8 +316,43 @@ function updateCartStatusCard(cart) {
   }
 }
 
+function renderCartPanelItems(cart) {
+  const panel = document.getElementById('cartPanelCard');
+  const list = document.getElementById('cartPanelList');
+  const totalEl = document.getElementById('cartPanelTotal');
+  const clearBtn = document.getElementById('cartClearButton');
+  if (!panel || !list || !totalEl || !clearBtn) return;
+
+  const items = Array.isArray(cart) ? cart : [];
+  const totals = getVisibleCartTotals(items);
+
+  panel.dataset.empty = items.length ? 'false' : 'true';
+  list.innerHTML = '';
+
+  items.forEach((item) => {
+    const row = document.createElement('article');
+    row.className = 'cart-panel-item';
+    row.innerHTML = `
+      <div class="cart-panel-item-copy">
+        <strong>${item.name}</strong>
+        <div class="cart-panel-item-meta">
+          <span>${item.priceLabel}</span>
+          <span class="cart-panel-dot" aria-hidden="true"></span>
+          <span>Bezahltes Script</span>
+        </div>
+      </div>
+      <button class="cart-remove-button" data-cart-remove-id="${item.id}" type="button">Entfernen</button>
+    `;
+    list.appendChild(row);
+  });
+
+  clearBtn.disabled = !items.length;
+  totalEl.textContent = totals.totalLabel;
+}
+
 function refreshVisibleCartUi(cart) {
   updateCartStatusCard(cart);
+  renderCartPanelItems(cart);
   updateCartButtonsState(cart);
 }
 
@@ -335,6 +370,21 @@ function addPreparedItemToCart(item) {
   const cart = loadVisibleCart();
   const existing = cart.find((entry) => entry.id === item.id);
   if (!existing) cart.push(item);
+  persistVisibleCart(cart);
+  refreshVisibleCartUi(cart);
+  return cart;
+}
+
+function removeVisibleCartItem(itemId) {
+  if (!itemId) return [];
+  const cart = loadVisibleCart().filter((entry) => entry.id !== itemId);
+  persistVisibleCart(cart);
+  refreshVisibleCartUi(cart);
+  return cart;
+}
+
+function clearVisibleCart() {
+  const cart = [];
   persistVisibleCart(cart);
   refreshVisibleCartUi(cart);
   return cart;
@@ -376,6 +426,20 @@ navItems.forEach((btn) => {
 });
 
 document.addEventListener('click', (e) => {
+  const removeBtn = e.target.closest('[data-cart-remove-id]');
+  if (removeBtn) {
+    e.preventDefault();
+    removeVisibleCartItem(removeBtn.dataset.cartRemoveId || '');
+    return;
+  }
+
+  const clearBtn = e.target.closest('[data-cart-clear="true"]');
+  if (clearBtn) {
+    e.preventDefault();
+    clearVisibleCart();
+    return;
+  }
+
   const openBtn = e.target.closest('[data-open-script]');
   if (openBtn) {
     e.preventDefault();
