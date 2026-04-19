@@ -37,6 +37,20 @@ const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
   lastPreparedItem: null,
 });
 
+function getPaidCatalogItem(entryLike) {
+  if (!entryLike) return null;
+
+  if (typeof entryLike === 'string') {
+    return paidScriptCatalog[entryLike] || Object.values(paidScriptCatalog).find((item) => item.id === entryLike) || null;
+  }
+
+  return (
+    paidScriptCatalog[entryLike.slug] ||
+    Object.values(paidScriptCatalog).find((item) => item.id === entryLike.id || item.slug === entryLike.slug) ||
+    null
+  );
+}
+
 function getViewportObserver() {
   if (viewportObserver) return viewportObserver;
 
@@ -162,7 +176,7 @@ function buildPreparedCartItem(button) {
   if (!button) return null;
 
   const slug = button.dataset.productSlug || '';
-  const catalogItem = paidScriptCatalog[slug] || null;
+  const catalogItem = getPaidCatalogItem(slug);
   const name = button.dataset.productName || catalogItem?.name || '';
   const id = button.dataset.productId || catalogItem?.id || '';
   const price = button.dataset.productPrice || catalogItem?.price || '0';
@@ -214,22 +228,17 @@ function loadVisibleCart() {
 
   return cart
     .map((entry) => {
-      const catalogItem = paidScriptCatalog[entry?.slug] || paidScriptCatalog[entry?.id] || null;
-      const id = entry?.id || catalogItem?.id || '';
-      const slug = entry?.slug || catalogItem?.slug || '';
-      const name = entry?.name || catalogItem?.name || '';
-      const price = entry?.price || catalogItem?.price || '0';
-      const priceLabel = entry?.priceLabel || catalogItem?.priceLabel || formatCartPrice(parseCartPriceToCents(price));
-      const type = entry?.type || catalogItem?.type || 'paid-script';
-      if (!id || !slug || !name) return null;
+      const catalogItem = getPaidCatalogItem(entry);
+      if (!catalogItem) return null;
+
       return {
-        id,
-        slug,
-        name,
-        type,
-        price,
-        priceLabel,
-        priceCents: parseCartPriceToCents(price),
+        id: catalogItem.id,
+        slug: catalogItem.slug,
+        name: catalogItem.name,
+        type: catalogItem.type,
+        price: catalogItem.price,
+        priceLabel: catalogItem.priceLabel,
+        priceCents: parseCartPriceToCents(catalogItem.price),
         quantity: 1,
         source: entry?.source || 'detail-page',
       };
@@ -282,14 +291,16 @@ function updateCartButtonsState(cart) {
 }
 
 function updateCartStatusCard(cart) {
-  const card = document.getElementById('cartStatusFloat');
+  const card = document.getElementById('cartStatusCard');
   if (!card) return;
 
-  const countEl = document.getElementById('cartStatusCount');
-  const copyEl = document.getElementById('cartStatusCopy');
-  const subtotalEl = document.getElementById('cartStatusSubtotal');
+  const countEl = document.getElementById('cartCountBadge');
+  const copyEl = document.getElementById('cartStatusText');
+  const subtotalEl = document.getElementById('cartSubtotalLabel');
   const items = Array.isArray(cart) ? cart : [];
   const totals = getVisibleCartTotals(items);
+
+  card.dataset.empty = items.length ? 'false' : 'true';
 
   if (countEl) countEl.textContent = String(totals.count);
   if (subtotalEl) subtotalEl.textContent = totals.totalLabel;

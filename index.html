@@ -56,6 +56,22 @@
 <span>HAMMER MODDING</span>
 <button class="menu-btn">🛒</button>
 </header>
+<div class="cart-status-dock" id="cartStatusDock" aria-live="polite">
+  <div class="cart-status-card glass-soft" data-empty="true" id="cartStatusCard">
+    <div class="cart-status-top">
+      <div class="cart-status-title">
+        <strong>Warenkorb</strong>
+        <small>Bezahlte Scripts</small>
+      </div>
+      <span class="cart-count-pill" id="cartCountBadge">0</span>
+    </div>
+    <p class="cart-status-copy" id="cartStatusText">Noch keine Produkte im Warenkorb.</p>
+    <div class="cart-status-summary">
+      <span class="cart-status-label">Zwischensumme</span>
+      <strong id="cartSubtotalLabel">0,00 €</strong>
+    </div>
+  </div>
+</div>
 <section class="hero glass section-home">
 <div class="hero-logo-wrap">
 <div class="hero-video-wrap">
@@ -741,8 +757,7 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
 <span>Free Script</span>
 </div>
 <div class="hero-actions">
-<a class="cta primary" href="#">Bildvorschau</a>
-<a class="cta secondary" href="#">Downloadbutton folgt</a>
+<button class="cta primary detail-single-button is-disabled" disabled="" type="button">Kostenloser Download folgt</button>
 </div>
 </div>
 <div class="script-detail-media image-media">
@@ -860,8 +875,7 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
 <span>Free Script · Voraussetzung: LB Phone</span>
 </div>
 <div class="hero-actions">
-<a class="cta primary" href="#">Bildvorschau</a>
-<a class="cta secondary" href="#">Downloadbutton folgt</a>
+<button class="cta primary detail-single-button is-disabled" disabled="" type="button">Kostenloser Download folgt</button>
 </div>
 </div>
 <div class="script-detail-media image-media">
@@ -1110,21 +1124,6 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
 </section>
 </main>
 </div>
-<div class="cart-status-float glass" id="cartStatusFloat" aria-live="polite" aria-label="Warenkorbstatus">
-  <div class="cart-status-head">
-    <div>
-      <strong>Warenkorb</strong>
-      <small>Bezahlte Scripts</small>
-    </div>
-    <span class="cart-status-count" id="cartStatusCount">0</span>
-  </div>
-  <p class="cart-status-copy" id="cartStatusCopy">Noch keine Produkte im Warenkorb.</p>
-  <div class="cart-status-total-row">
-    <span>Zwischensumme</span>
-    <strong id="cartStatusSubtotal">0,00 €</strong>
-  </div>
-</div>
-
 <script src="script.js"></script>
 </body>
 </html>
