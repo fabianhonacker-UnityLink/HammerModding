@@ -706,7 +706,7 @@ setupSmoothHomeIntro();
 function setupMarquees() {
   const configs = [
     { selector: '.slider-track-paid', speed: 52 },
-    { selector: '.slider-track-free', speed: 42 },
+    { selector: '.slider-track-clothing', speed: 42, direction: 'reverse' },
     { selector: '.slider-track-coming', speed: 34 },
   ];
 
@@ -744,7 +744,7 @@ function setupMarquees() {
     const recalc = () => {
       refillGroups();
       groupWidth = firstGroup.scrollWidth;
-      x = -groupWidth;
+      x = cfg.direction === 'reverse' ? 0 : -groupWidth;
       track.style.transform = `translateX(${x}px)`;
     };
 
@@ -770,8 +770,13 @@ function setupMarquees() {
       lastTs = ts;
 
       if (!paused && groupWidth > 0) {
-        x += cfg.speed * delta;
-        if (x >= 0) x = -groupWidth;
+        if (cfg.direction === 'reverse') {
+          x -= cfg.speed * delta;
+          if (x <= -groupWidth) x = 0;
+        } else {
+          x += cfg.speed * delta;
+          if (x >= 0) x = -groupWidth;
+        }
         track.style.transform = `translateX(${x}px)`;
       }
 

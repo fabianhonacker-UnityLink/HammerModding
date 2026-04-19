@@ -1370,3 +1370,17 @@ body.intro-booting .bg-lightning {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10), 0 0 18px rgba(255, 82, 82, 0.22);
 }
 
+
+
+.clothing-card-live .card-link {
+  background: rgba(255,59,59,0.10);
+  box-shadow: var(--glow);
+}
+
+.clothing-card-live .price-row strong {
+  font-size: 34px;
+}
+
+.slider-track-clothing .card-link[data-nav-open="contact"] {
+  position: relative;
+}
