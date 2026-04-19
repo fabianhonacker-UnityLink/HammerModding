@@ -21,6 +21,7 @@ const viewportVisibility = new WeakMap();
 let viewportObserver = null;
 let introBooting = false;
 
+const cartStorageKey = 'hm_store_cart';
 const cartDraftStorageKey = 'hm_cart_draft';
 const paidScriptCatalog = {
   blitzer: { id: 'blitzer-script', slug: 'blitzer', name: 'Blitzer Script', price: '15.00', priceLabel: '15,00 €', type: 'paid-script' },
@@ -31,7 +32,7 @@ const paidScriptCatalog = {
 };
 
 const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
-  version: 'phase-3-cart-ready',
+  version: 'phase-4a-topright-cart',
   catalog: paidScriptCatalog,
   lastPreparedItem: null,
 });
@@ -153,6 +154,10 @@ function parseCartPriceToCents(value) {
   return Number.isFinite(amount) ? Math.round(amount * 100) : 0;
 }
 
+function formatCartPrice(cents) {
+  return `${(cents / 100).toFixed(2).replace('.', ',')} €`;
+}
+
 function buildPreparedCartItem(button) {
   if (!button) return null;
 
@@ -179,20 +184,130 @@ function buildPreparedCartItem(button) {
   };
 }
 
-function savePreparedCartDraft(item) {
-  if (!item) return null;
-
-  const draft = [item];
-  hmStoreBridge.lastPreparedItem = item;
-  hmStoreBridge.getDraft = () => draft.map((entry) => ({ ...entry }));
+function loadVisibleCart() {
+  let cart = [];
 
   try {
-    sessionStorage.setItem(cartDraftStorageKey, JSON.stringify(draft));
+    const raw = localStorage.getItem(cartStorageKey);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) cart = parsed;
+    }
   } catch (error) {
-    // sessionStorage kann lokal oder im privaten Modus blockiert sein
+    cart = [];
   }
 
-  return draft;
+  if (!cart.length) {
+    try {
+      const draftRaw = sessionStorage.getItem(cartDraftStorageKey);
+      if (draftRaw) {
+        const draft = JSON.parse(draftRaw);
+        if (Array.isArray(draft) && draft.length) {
+          cart = draft;
+          sessionStorage.removeItem(cartDraftStorageKey);
+        }
+      }
+    } catch (error) {
+      // ignore draft migration failures
+    }
+  }
+
+  return cart
+    .map((entry) => {
+      const catalogItem = paidScriptCatalog[entry?.slug] || paidScriptCatalog[entry?.id] || null;
+      const id = entry?.id || catalogItem?.id || '';
+      const slug = entry?.slug || catalogItem?.slug || '';
+      const name = entry?.name || catalogItem?.name || '';
+      const price = entry?.price || catalogItem?.price || '0';
+      const priceLabel = entry?.priceLabel || catalogItem?.priceLabel || formatCartPrice(parseCartPriceToCents(price));
+      const type = entry?.type || catalogItem?.type || 'paid-script';
+      if (!id || !slug || !name) return null;
+      return {
+        id,
+        slug,
+        name,
+        type,
+        price,
+        priceLabel,
+        priceCents: parseCartPriceToCents(entry?.priceCents || price),
+        quantity: 1,
+        source: entry?.source || 'detail-page',
+      };
+    })
+    .filter(Boolean)
+    .filter((entry, index, array) => array.findIndex((candidate) => candidate.id === entry.id) === index);
+}
+
+function persistVisibleCart(cart) {
+  const normalized = Array.isArray(cart) ? cart : [];
+
+  try {
+    localStorage.setItem(cartStorageKey, JSON.stringify(normalized));
+  } catch (error) {
+    // localStorage may be blocked
+  }
+
+  hmStoreBridge.cart = normalized.map((entry) => ({ ...entry }));
+  hmStoreBridge.getCart = () => normalized.map((entry) => ({ ...entry }));
+  hmStoreBridge.lastPreparedItem = normalized[normalized.length - 1] || null;
+}
+
+function getVisibleCartTotals(cart) {
+  const items = Array.isArray(cart) ? cart : [];
+  const count = items.length;
+  const totalCents = items.reduce((sum, entry) => sum + (entry?.priceCents || 0), 0);
+  return {
+    count,
+    totalCents,
+    totalLabel: formatCartPrice(totalCents),
+  };
+}
+
+function updateCartButtonsState(cart) {
+  const items = Array.isArray(cart) ? cart : [];
+  const cartIds = new Set(items.map((entry) => entry.id));
+  const buttons = document.querySelectorAll('[data-cart-add="true"]');
+
+  buttons.forEach((button) => {
+    const item = buildPreparedCartItem(button);
+    const inCart = item ? cartIds.has(item.id) : false;
+    button.dataset.cartReady = item ? 'true' : 'false';
+    button.dataset.inCart = inCart ? 'true' : 'false';
+    button.classList.toggle('is-in-cart', inCart);
+    button.textContent = inCart ? 'Im Warenkorb' : 'Warenkorb hinzufügen';
+    if (item) {
+      button.setAttribute('aria-label', `${item.name} zum Warenkorb hinzufügen`);
+    }
+  });
+}
+
+function updateCartStatusCard(cart) {
+  const card = document.getElementById('cartStatusFloat');
+  if (!card) return;
+
+  const countEl = document.getElementById('cartStatusCount');
+  const copyEl = document.getElementById('cartStatusCopy');
+  const subtotalEl = document.getElementById('cartStatusSubtotal');
+  const items = Array.isArray(cart) ? cart : [];
+  const totals = getVisibleCartTotals(items);
+
+  if (countEl) countEl.textContent = String(totals.count);
+  if (subtotalEl) subtotalEl.textContent = totals.totalLabel;
+
+  if (copyEl) {
+    if (!items.length) {
+      copyEl.textContent = 'Noch keine Produkte im Warenkorb.';
+    } else if (items.length === 1) {
+      copyEl.textContent = `${items[0].name} liegt aktuell im Warenkorb.`;
+    } else {
+      copyEl.textContent = `${items.length} Produkte liegen aktuell im Warenkorb.`;
+    }
+  }
+}
+
+function refreshVisibleCartUi(cart) {
+  updateCartStatusCard(cart);
+  updateCartButtonsState(cart);
 }
 
 function pulsePreparedCartButton(button) {
@@ -202,6 +317,16 @@ function pulsePreparedCartButton(button) {
     button.classList.add('is-cart-prepared');
     window.setTimeout(() => button.classList.remove('is-cart-prepared'), 1100);
   }, 0);
+}
+
+function addPreparedItemToCart(item) {
+  if (!item) return [];
+  const cart = loadVisibleCart();
+  const existing = cart.find((entry) => entry.id === item.id);
+  if (!existing) cart.push(item);
+  persistVisibleCart(cart);
+  refreshVisibleCartUi(cart);
+  return cart;
 }
 
 function setupPreparedCartButtons() {
@@ -221,11 +346,14 @@ function setupPreparedCartButtons() {
     button.addEventListener('click', () => {
       const item = buildPreparedCartItem(button);
       if (!item) return;
-      savePreparedCartDraft(item);
+      addPreparedItemToCart(item);
       pulsePreparedCartButton(button);
     });
   });
+
+  refreshVisibleCartUi(loadVisibleCart());
 }
+
 
 navItems.forEach((btn) => {
   btn.addEventListener('click', () => {
