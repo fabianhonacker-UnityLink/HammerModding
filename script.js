@@ -21,6 +21,21 @@ const viewportVisibility = new WeakMap();
 let viewportObserver = null;
 let introBooting = false;
 
+const cartDraftStorageKey = 'hm_cart_draft';
+const paidScriptCatalog = {
+  blitzer: { id: 'blitzer-script', slug: 'blitzer', name: 'Blitzer Script', price: '15.00', priceLabel: '15,00 €', type: 'paid-script' },
+  gps: { id: 'gps-system', slug: 'gps', name: 'GPS System', price: '10.00', priceLabel: '10,00 €', type: 'paid-script' },
+  carplay: { id: 'carplay-system', slug: 'carplay', name: 'CarPlay System', price: '10.00', priceLabel: '10,00 €', type: 'paid-script' },
+  'mechaniker-ki': { id: 'ki-mechaniker', slug: 'mechaniker-ki', name: 'KI Mechaniker', price: '10.00', priceLabel: '10,00 €', type: 'paid-script' },
+  outfit: { id: 'outfit-auswahl', slug: 'outfit', name: 'Outfit-Auswahl', price: '5.00', priceLabel: '5,00 €', type: 'paid-script' },
+};
+
+const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
+  version: 'phase-3-cart-ready',
+  catalog: paidScriptCatalog,
+  lastPreparedItem: null,
+});
+
 function getViewportObserver() {
   if (viewportObserver) return viewportObserver;
 
@@ -130,6 +145,88 @@ function goBackFromDetail() {
   showSection(target);
 }
 
+function parseCartPriceToCents(value) {
+  const normalized = String(value || '')
+    .replace(/,/g, '.')
+    .replace(/[^\d.]/g, '');
+  const amount = Number.parseFloat(normalized);
+  return Number.isFinite(amount) ? Math.round(amount * 100) : 0;
+}
+
+function buildPreparedCartItem(button) {
+  if (!button) return null;
+
+  const slug = button.dataset.productSlug || '';
+  const catalogItem = paidScriptCatalog[slug] || null;
+  const name = button.dataset.productName || catalogItem?.name || '';
+  const id = button.dataset.productId || catalogItem?.id || '';
+  const price = button.dataset.productPrice || catalogItem?.price || '0';
+  const priceLabel = button.dataset.productPriceLabel || catalogItem?.priceLabel || '';
+  const type = button.dataset.productType || catalogItem?.type || 'paid-script';
+
+  if (!slug || !name || !id) return null;
+
+  return {
+    id,
+    slug,
+    name,
+    type,
+    price,
+    priceLabel,
+    priceCents: parseCartPriceToCents(price),
+    quantity: 1,
+    source: 'detail-page',
+  };
+}
+
+function savePreparedCartDraft(item) {
+  if (!item) return null;
+
+  const draft = [item];
+  hmStoreBridge.lastPreparedItem = item;
+  hmStoreBridge.getDraft = () => draft.map((entry) => ({ ...entry }));
+
+  try {
+    sessionStorage.setItem(cartDraftStorageKey, JSON.stringify(draft));
+  } catch (error) {
+    // sessionStorage kann lokal oder im privaten Modus blockiert sein
+  }
+
+  return draft;
+}
+
+function pulsePreparedCartButton(button) {
+  if (!button) return;
+  button.classList.remove('is-cart-prepared');
+  window.setTimeout(() => {
+    button.classList.add('is-cart-prepared');
+    window.setTimeout(() => button.classList.remove('is-cart-prepared'), 1100);
+  }, 0);
+}
+
+function setupPreparedCartButtons() {
+  const buttons = document.querySelectorAll('[data-cart-add="true"]');
+
+  buttons.forEach((button) => {
+    const preparedItem = buildPreparedCartItem(button);
+
+    if (!preparedItem) {
+      button.dataset.cartReady = 'false';
+      return;
+    }
+
+    button.dataset.cartReady = 'true';
+    button.setAttribute('aria-label', `${preparedItem.name} zum Warenkorb hinzufügen`);
+
+    button.addEventListener('click', () => {
+      const item = buildPreparedCartItem(button);
+      if (!item) return;
+      savePreparedCartDraft(item);
+      pulsePreparedCartButton(button);
+    });
+  });
+}
+
 navItems.forEach((btn) => {
   btn.addEventListener('click', () => {
     activateNav(btn.dataset.section);
@@ -179,6 +276,8 @@ if (searchInput) {
   });
 }
 
+
+setupPreparedCartButtons();
 
 showSection('home');
 
