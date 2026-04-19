@@ -74,12 +74,13 @@
   <div class="cart-panel-card glass-soft" data-empty="true" id="cartPanelCard">
     <div class="cart-panel-head">
       <strong>Produkte</strong>
-      <small>Phase 4B</small>
+      <small>Phase 4C</small>
     </div>
     <div class="cart-panel-empty" id="cartPanelEmpty">Noch keine bezahlten Scripts ausgewählt.</div>
     <div class="cart-panel-list" id="cartPanelList"></div>
     <div class="cart-panel-footer">
       <button class="cart-clear-button" data-cart-clear="true" id="cartClearButton" type="button">Alles entfernen</button>
+      <button class="cart-request-button" data-cart-request="true" id="cartRequestButton" type="button">Anfrage vorbereiten</button>
       <div class="cart-panel-total">
         <span>Gesamt</span>
         <strong id="cartPanelTotal">0,00 €</strong>
@@ -1133,12 +1134,85 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
 <section class="contact-box glass hidden-section" id="contactSection">
 <div class="section-head">
 <span></span>
-<h3>Kontakt</h3>
+<h3>Kontakt &amp; Bestellung</h3>
 </div>
-<p>Hier können später Discord, Support-Formular und weitere Kontaktwege rein.</p>
+<div class="contact-layout">
+  <div class="contact-main glass-soft">
+    <div class="contact-intro">
+      <div class="eyebrow">Hammer Modding · Anfrage</div>
+      <h2>BESTELLTEXT DIREKT VORBEREITEN<br/><span>&amp; SAUBER WEITERLEITEN</span></h2>
+      <p>
+        Hier wird noch nichts gekauft und nichts automatisch abgeschickt. Du bereitest nur deine Anfrage sauber vor,
+        kopierst den Text und leitest ihn dann über Discord oder später über Tebex weiter.
+      </p>
+    </div>
+    <div class="request-draft-box">
+      <div class="request-draft-head">
+        <strong>Bestelltext</strong>
+        <small>Nur bezahlte Scripts</small>
+      </div>
+      <textarea class="request-draft-text" id="contactRequestText" readonly>Wähle zuerst bezahlte Scripts aus deinem Warenkorb aus.</textarea>
+      <div class="request-draft-actions">
+        <button class="cta primary request-copy-button" data-copy-request="true" id="contactCopyRequestButton" type="button">Text kopieren</button>
+      </div>
+    </div>
+  </div>
+  <div class="contact-side">
+    <article class="contact-info-card glass-soft">
+      <div class="contact-info-head">
+        <strong>Discord</strong>
+        <small>Direkter Kontakt</small>
+      </div>
+      <p>Für Support, Rückfragen und Bestellanfragen aktuell der schnellste Weg.</p>
+      <a aria-label="Hammer Modding Discord öffnen" class="cta secondary" href="https://discord.com/channels/@me/1446689279760924805/1495308982435320020" rel="noopener noreferrer" target="_blank">Discord öffnen</a>
+    </article>
+    <article class="contact-info-card glass-soft">
+      <div class="contact-info-head">
+        <strong>Tebex</strong>
+        <small>Nächster Ausbauschritt</small>
+      </div>
+      <p>Später kann die finale Kaufabwicklung sauber über Tebex laufen, damit Freischaltung und Bindung an den passenden Account klar geregelt werden.</p>
+      <button class="cta secondary is-disabled" disabled type="button">Tebex folgt</button>
+    </article>
+    <article class="contact-info-card glass-soft">
+      <div class="contact-info-head">
+        <strong>Ablauf</strong>
+        <small>Sauber &amp; einfach</small>
+      </div>
+      <ul class="contact-steps">
+        <li>Bezahlte Scripts in den Warenkorb legen</li>
+        <li>Anfrage vorbereiten</li>
+        <li>Text kopieren</li>
+        <li>Über Discord senden oder später über Tebex abschließen</li>
+      </ul>
+    </article>
+  </div>
+</div>
 </section>
 </main>
 </div>
+
+<div class="request-modal-overlay hidden" id="requestModalOverlay" aria-hidden="true">
+  <div class="request-modal glass" aria-labelledby="requestModalTitle" aria-modal="true" role="dialog">
+    <div class="request-modal-head">
+      <div>
+        <div class="eyebrow">Hammer Modding · Anfrage</div>
+        <h3 id="requestModalTitle">BESTELLTEXT VORBEREITET</h3>
+      </div>
+      <button class="request-close-button" data-request-close="true" type="button" aria-label="Anfragefenster schließen">×</button>
+    </div>
+    <p class="request-modal-copy">
+      Das hier ist nur die vorbereitete Anfrage. Kein Checkout, keine Zahlung, keine automatische Bestellung.
+    </p>
+    <textarea class="request-modal-text" id="requestModalText" readonly>Wähle zuerst bezahlte Scripts aus deinem Warenkorb aus.</textarea>
+    <div class="request-modal-actions">
+      <button class="cta primary" data-copy-request="true" id="modalCopyRequestButton" type="button">Text kopieren</button>
+      <button class="cta secondary" data-open-contact-request="true" type="button">Zum Kontaktbereich</button>
+      <button class="cta secondary" data-request-close="true" type="button">Schließen</button>
+    </div>
+  </div>
+</div>
+
 <script src="script.js"></script>
 </body>
 </html>

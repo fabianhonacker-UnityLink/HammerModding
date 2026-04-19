@@ -32,7 +32,7 @@ const paidScriptCatalog = {
 };
 
 const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
-  version: 'phase-4b-topright-cart-panel',
+  version: 'phase-4c-request-flow',
   catalog: paidScriptCatalog,
   lastPreparedItem: null,
 });
@@ -272,6 +272,121 @@ function getVisibleCartTotals(cart) {
   };
 }
 
+
+function buildCartRequestText(cart) {
+  const items = Array.isArray(cart) ? cart : [];
+  const totals = getVisibleCartTotals(items);
+
+  if (!items.length) {
+    return 'Wähle zuerst bezahlte Scripts aus deinem Warenkorb aus.';
+  }
+
+  const lines = [
+    'Hammer Modding Bestellanfrage',
+    '',
+    'Gewünschte Produkte:',
+    ...items.map((item) => `- ${item.name} | ${item.priceLabel}`),
+    '',
+    `Gesamtsumme: ${totals.totalLabel}`,
+    '',
+    'Bitte später über Tebex / saubere Freischaltung abwickeln.',
+    'CFX-Account / Tebex-Konto: [bitte ergänzen]',
+    'Discord-Name: [bitte ergänzen]',
+    'Zusätzliche Hinweise: [optional]',
+  ];
+
+  return lines.join('\n');
+}
+
+function updateRequestDraftFields(cart) {
+  const items = Array.isArray(cart) ? cart : [];
+  const requestText = buildCartRequestText(items);
+  const requestButton = document.getElementById('cartRequestButton');
+  const contactText = document.getElementById('contactRequestText');
+  const modalText = document.getElementById('requestModalText');
+  const copyButtons = document.querySelectorAll('[data-copy-request="true"]');
+
+  if (requestButton) {
+    requestButton.disabled = !items.length;
+  }
+
+  if (contactText) {
+    contactText.value = requestText;
+  }
+
+  if (modalText) {
+    modalText.value = requestText;
+  }
+
+  copyButtons.forEach((button) => {
+    button.disabled = !items.length;
+  });
+
+  hmStoreBridge.requestText = requestText;
+  hmStoreBridge.getRequestText = () => buildCartRequestText(loadVisibleCart());
+}
+
+function openRequestModal() {
+  const cart = loadVisibleCart();
+  if (!cart.length) return;
+
+  const overlay = document.getElementById('requestModalOverlay');
+  if (!overlay) return;
+
+  updateRequestDraftFields(cart);
+  overlay.classList.remove('hidden');
+  overlay.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('request-modal-open');
+}
+
+function closeRequestModal() {
+  const overlay = document.getElementById('requestModalOverlay');
+  if (!overlay) return;
+
+  overlay.classList.add('hidden');
+  overlay.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('request-modal-open');
+}
+
+async function copyPreparedRequestText() {
+  const requestText = buildCartRequestText(loadVisibleCart());
+  if (!requestText || requestText === 'Wähle zuerst bezahlte Scripts aus deinem Warenkorb aus.') return false;
+
+  try {
+    await navigator.clipboard.writeText(requestText);
+    return true;
+  } catch (error) {
+    const helper = document.createElement('textarea');
+    helper.value = requestText;
+    helper.setAttribute('readonly', 'true');
+    helper.style.position = 'fixed';
+    helper.style.opacity = '0';
+    helper.style.pointerEvents = 'none';
+    document.body.appendChild(helper);
+    helper.focus();
+    helper.select();
+
+    let copied = false;
+    try {
+      copied = document.execCommand('copy');
+    } catch (execError) {
+      copied = false;
+    }
+
+    document.body.removeChild(helper);
+    return copied;
+  }
+}
+
+function openContactRequestFlow() {
+  closeRequestModal();
+  activateNav('contact');
+  showSection('contact');
+  const requestText = document.getElementById('contactRequestText');
+  if (requestText) requestText.focus();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function updateCartButtonsState(cart) {
   const items = Array.isArray(cart) ? cart : [];
   const cartIds = new Set(items.map((entry) => entry.id));
@@ -354,6 +469,7 @@ function refreshVisibleCartUi(cart) {
   updateCartStatusCard(cart);
   renderCartPanelItems(cart);
   updateCartButtonsState(cart);
+  updateRequestDraftFields(cart);
 }
 
 function pulsePreparedCartButton(button) {
@@ -425,7 +541,7 @@ navItems.forEach((btn) => {
   });
 });
 
-document.addEventListener('click', (e) => {
+document.addEventListener('click', async (e) => {
   const removeBtn = e.target.closest('[data-cart-remove-id]');
   if (removeBtn) {
     e.preventDefault();
@@ -437,6 +553,47 @@ document.addEventListener('click', (e) => {
   if (clearBtn) {
     e.preventDefault();
     clearVisibleCart();
+    return;
+  }
+
+  const requestBtn = e.target.closest('[data-cart-request="true"]');
+  if (requestBtn) {
+    e.preventDefault();
+    openRequestModal();
+    return;
+  }
+
+  const copyRequestBtn = e.target.closest('[data-copy-request="true"]');
+  if (copyRequestBtn) {
+    e.preventDefault();
+    const copied = await copyPreparedRequestText();
+    if (copied) {
+      const originalText = copyRequestBtn.textContent;
+      copyRequestBtn.textContent = 'Text kopiert';
+      window.setTimeout(() => {
+        copyRequestBtn.textContent = originalText;
+      }, 1400);
+    }
+    return;
+  }
+
+  const openContactBtn = e.target.closest('[data-open-contact-request="true"]');
+  if (openContactBtn) {
+    e.preventDefault();
+    openContactRequestFlow();
+    return;
+  }
+
+  const closeRequestBtn = e.target.closest('[data-request-close="true"]');
+  if (closeRequestBtn) {
+    e.preventDefault();
+    closeRequestModal();
+    return;
+  }
+
+  const overlay = e.target.closest('#requestModalOverlay');
+  if (overlay && e.target === overlay) {
+    closeRequestModal();
     return;
   }
 
@@ -468,6 +625,12 @@ document.addEventListener('click', (e) => {
   if (backBtn) {
     e.preventDefault();
     goBackFromDetail();
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeRequestModal();
   }
 });
 
