@@ -19,6 +19,7 @@ let lastSectionBeforeDetail = 'scripts';
 
 const viewportVisibility = new WeakMap();
 let viewportObserver = null;
+let introBooting = false;
 
 function getViewportObserver() {
   if (viewportObserver) return viewportObserver;
@@ -61,7 +62,13 @@ function syncVideoPlayback() {
   const videos = document.querySelectorAll('video[autoplay]');
   videos.forEach((video) => {
     watchViewport(video);
+    const introPending = video.dataset.introPending === 'true';
     const visible = !document.hidden && isActuallyVisible(video) && isInViewport(video);
+
+    if (introPending) {
+      if (!video.paused) video.pause();
+      return;
+    }
 
     if (!visible) {
       if (!video.paused) video.pause();
@@ -172,7 +179,62 @@ if (searchInput) {
   });
 }
 
+
 showSection('home');
+
+function setupSmoothHomeIntro() {
+  const introVideo = document.querySelector('.home-hero-video[data-smooth-intro="true"]');
+  const introWrap = introVideo?.closest('.hero-video-wrap');
+  if (!introVideo || !introWrap) return;
+
+  introBooting = true;
+  document.body.classList.add('intro-booting');
+  introWrap.classList.add('intro-booting');
+  introVideo.dataset.introPending = 'true';
+
+  let released = false;
+  let revealTimer = null;
+
+  const releaseIntro = () => {
+    if (released) return;
+    released = true;
+
+    window.clearTimeout(revealTimer);
+    revealTimer = window.setTimeout(() => {
+      introVideo.dataset.introPending = 'false';
+      introWrap.classList.remove('intro-booting');
+      introWrap.classList.add('intro-ready');
+      document.body.classList.remove('intro-booting');
+      introBooting = false;
+      syncVideoPlayback();
+    }, 220);
+  };
+
+  const armPlayback = () => {
+    if (document.hidden) return;
+    if (introVideo.readyState >= 2) {
+      releaseIntro();
+    }
+  };
+
+  introVideo.pause();
+  introVideo.currentTime = 0;
+
+  introVideo.addEventListener('loadeddata', armPlayback, { once: true });
+  introVideo.addEventListener('canplay', armPlayback, { once: true });
+
+  if (introVideo.readyState >= 2) {
+    armPlayback();
+  } else {
+    introVideo.load();
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (!released && !document.hidden) armPlayback();
+  });
+}
+
+setupSmoothHomeIntro();
 
 function setupMarquees() {
   const configs = [
@@ -529,7 +591,7 @@ function setupCinematicBackground() {
 
   resizeCanvas();
   spawnDebris();
-  scheduleNextBurst(1000);
+  scheduleNextBurst(introBooting ? 1650 : 1000);
 
   window.addEventListener('resize', () => {
     resizeCanvas();
@@ -537,7 +599,7 @@ function setupCinematicBackground() {
   });
 
   window.addEventListener('mousemove', (e) => {
-    if (lowPowerMode || document.hidden) return;
+    if (lowPowerMode || document.hidden || introBooting) return;
     targetX = (e.clientX / window.innerWidth - 0.5) * 10;
     targetY = (e.clientY / window.innerHeight - 0.5) * 7;
     if (mouseFrame === null) {
@@ -555,7 +617,7 @@ function setupCinematicBackground() {
     }
 
     syncVideoPlayback();
-    scheduleNextBurst(1000);
+    scheduleNextBurst(introBooting ? 1650 : 1000);
   });
 }
 

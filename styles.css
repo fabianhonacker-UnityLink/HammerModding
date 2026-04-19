@@ -197,7 +197,27 @@ body { position: relative; }
   pointer-events: none;
 }
 .home-hero-video {
-  display: block;
+  opacity: 1;
+  transition: opacity .42s ease, transform .42s ease;
+}
+.hero-video-wrap.intro-booting {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.22)),
+    url("assets/content.png") center center / cover no-repeat,
+    rgba(0,0,0,0.30);
+}
+.hero-video-wrap.intro-booting .home-hero-video {
+  opacity: 0;
+  transform: scale(1.01);
+}
+body.intro-booting .debris {
+  animation-play-state: paused !important;
+}
+body.intro-booting .bg-image {
+  animation-play-state: paused;
+}
+body.intro-booting .bg-lightning {
+  opacity: .88;
 }
 .eyebrow {
   display: inline-block; padding: 8px 14px; border-radius: 999px; font-size: 10px; text-transform: uppercase; letter-spacing: .32em;
