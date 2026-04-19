@@ -17,6 +17,39 @@ const searchInput = document.getElementById('searchInput');
 const searchables = document.querySelectorAll('.searchable');
 let lastSectionBeforeDetail = 'scripts';
 
+const viewportVisibility = new WeakMap();
+let viewportObserver = null;
+
+function getViewportObserver() {
+  if (viewportObserver) return viewportObserver;
+
+  viewportObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        viewportVisibility.set(entry.target, entry.isIntersecting && entry.intersectionRatio > 0.05);
+      });
+      syncVideoPlayback();
+    },
+    {
+      threshold: [0, 0.05, 0.15, 0.35],
+      rootMargin: '120px 0px 120px 0px',
+    },
+  );
+
+  return viewportObserver;
+}
+
+function watchViewport(el) {
+  if (!el) return;
+  if (!viewportVisibility.has(el)) viewportVisibility.set(el, true);
+  getViewportObserver().observe(el);
+}
+
+function isInViewport(el) {
+  if (!el) return false;
+  return viewportVisibility.get(el) ?? true;
+}
+
 function isActuallyVisible(el) {
   if (!el) return false;
   if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return false;
@@ -25,17 +58,17 @@ function isActuallyVisible(el) {
 }
 
 function syncVideoPlayback() {
-  const videos = document.querySelectorAll('video');
+  const videos = document.querySelectorAll('video[autoplay]');
   videos.forEach((video) => {
-    const shouldAutoplay = video.hasAttribute('autoplay');
-    const visible = isActuallyVisible(video);
+    watchViewport(video);
+    const visible = !document.hidden && isActuallyVisible(video) && isInViewport(video);
 
     if (!visible) {
-      video.pause();
+      if (!video.paused) video.pause();
       return;
     }
 
-    if (shouldAutoplay) {
+    if (video.paused) {
       const playPromise = video.play();
       if (playPromise && typeof playPromise.catch === 'function') {
         playPromise.catch(() => {});
@@ -158,6 +191,7 @@ function setupMarquees() {
 
     const viewport = track.closest('.marquee-viewport');
     if (!viewport) return;
+    watchViewport(viewport);
 
     const originalMarkup = groups.map((group) => group.innerHTML);
     let paused = false;
@@ -195,11 +229,18 @@ function setupMarquees() {
 
     const step = (ts) => {
       if (!lastTs) lastTs = ts;
+
+      const systemPaused = document.hidden || !isActuallyVisible(viewport) || !isInViewport(viewport);
+      if (systemPaused) {
+        lastTs = ts;
+        requestAnimationFrame(step);
+        return;
+      }
+
       const delta = (ts - lastTs) / 1000;
       lastTs = ts;
 
-      const systemPaused = document.hidden || !isActuallyVisible(viewport);
-      if (!paused && !systemPaused && groupWidth > 0) {
+      if (!paused && groupWidth > 0) {
         x += cfg.speed * delta;
         if (x >= 0) x = -groupWidth;
         track.style.transform = `translateX(${x}px)`;
@@ -226,7 +267,7 @@ function setupCinematicBackground() {
     (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
     (navigator.deviceMemory && navigator.deviceMemory <= 4);
 
-  const ctx = canvas.getContext('2d', { alpha: true });
+  const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
   let w = 0;
   let h = 0;
   let dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, lowPowerMode ? 1.25 : 1.6));
@@ -249,10 +290,9 @@ function setupCinematicBackground() {
 
   const weightedStartX = () => {
     const r = Math.random();
-    if (r < 0.22) return w * (0.05 + Math.random() * 0.18);
-    if (r < 0.44) return w * (0.24 + Math.random() * 0.16);
-    if (r < 0.66) return w * (0.44 + Math.random() * 0.12);
-    if (r < 0.84) return w * (0.68 + Math.random() * 0.16);
+    if (r < 0.22) return w * (0.05 + Math.random() * 0.16);
+    if (r < 0.44) return w * (0.22 + Math.random() * 0.12);
+    if (r < 0.70) return w * (0.70 + Math.random() * 0.12);
     return w * (0.84 + Math.random() * 0.10);
   };
 
@@ -394,46 +434,71 @@ function setupCinematicBackground() {
     }
 
     activeStrikes.push(buildStrike());
-    if (!lowPowerMode && Math.random() > 0.48) {
+    if (!lowPowerMode && Math.random() > 0.56) {
       setTimeout(() => {
         activeStrikes.push(buildStrike());
         ensureLightningLoop();
-      }, 110 + Math.random() * 140);
-    }
-    if (!lowPowerMode && Math.random() > 0.76) {
-      setTimeout(() => {
-        activeStrikes.push(buildStrike());
-        ensureLightningLoop();
-      }, 250 + Math.random() * 160);
+      }, 120 + Math.random() * 140);
     }
 
     triggerFlash();
     ensureLightningLoop();
-    const next = lowPowerMode ? 3200 + Math.random() * 2600 : 2200 + Math.random() * 2800;
+    const next = lowPowerMode ? 3400 + Math.random() * 2800 : 2400 + Math.random() * 3000;
     scheduleNextBurst(next);
   };
 
+  const weightedEdgeX = () => {
+    const r = Math.random();
+    if (r < 0.40) return -8 + Math.random() * 22;
+    if (r < 0.80) return 86 + Math.random() * 22;
+    if (r < 0.90) return 12 + Math.random() * 16;
+    if (r < 0.98) return 72 + Math.random() * 16;
+    return 38 + Math.random() * 24;
+  };
+
+  const weightedEdgeY = () => {
+    const r = Math.random();
+    if (r < 0.32) return -8 + Math.random() * 22;
+    if (r < 0.64) return 78 + Math.random() * 22;
+    if (r < 0.82) return 10 + Math.random() * 18;
+    if (r < 0.96) return 64 + Math.random() * 18;
+    return 38 + Math.random() * 20;
+  };
+
   const spawnDebris = () => {
-    const count = lowPowerMode ? 28 : 54;
+    const count = lowPowerMode ? 24 : 46;
     debrisLayer.innerHTML = '';
     for (let i = 0; i < count; i += 1) {
       const piece = document.createElement('span');
-      const frontBias = Math.random() < (lowPowerMode ? 0.28 : 0.38);
-      const sideBand = Math.random();
-      let startX;
-      if (sideBand < 0.35) startX = -8 + Math.random() * 30;
-      else if (sideBand < 0.70) startX = 68 + Math.random() * 40;
-      else startX = 18 + Math.random() * 64;
-      const lowerBias = Math.random() < 0.58;
-      const startY = lowerBias ? 34 + Math.random() * 66 : -6 + Math.random() * 86;
-      const size = frontBias ? 16 + Math.random() * (lowPowerMode ? 48 : 70) : 8 + Math.random() * (lowPowerMode ? 28 : 42);
-      const driftX = -24 + Math.random() * 48;
-      const driftY = -(22 + Math.random() * 56);
-      const opacity = frontBias ? 0.22 + Math.random() * 0.32 : 0.12 + Math.random() * 0.20;
-      const duration = frontBias ? 12 + Math.random() * 10 : 16 + Math.random() * 12;
+      const startX = weightedEdgeX();
+      const startY = weightedEdgeY();
+      const centerPiece = startX > 32 && startX < 68 && startY > 28 && startY < 72;
+      const frontBias = !centerPiece && Math.random() < (lowPowerMode ? 0.26 : 0.34);
+      const size = centerPiece
+        ? 8 + Math.random() * (lowPowerMode ? 18 : 24)
+        : frontBias
+          ? 16 + Math.random() * (lowPowerMode ? 44 : 66)
+          : 8 + Math.random() * (lowPowerMode ? 26 : 38);
+      const driftX = startX < 50 ? -18 + Math.random() * 38 : -38 + Math.random() * 18;
+      const driftY = startY < 50 ? -(18 + Math.random() * 38) : -(10 + Math.random() * 28);
+      const opacity = centerPiece
+        ? 0.10 + Math.random() * 0.10
+        : frontBias
+          ? 0.20 + Math.random() * 0.28
+          : 0.10 + Math.random() * 0.18;
+      const duration = centerPiece
+        ? 15 + Math.random() * 10
+        : frontBias
+          ? 12 + Math.random() * 10
+          : 16 + Math.random() * 12;
       const delay = -Math.random() * duration;
       const radius = 2 + Math.random() * 8;
-      const depth = frontBias ? 24 + Math.random() * 90 : -30 + Math.random() * 70;
+      const depth = centerPiece
+        ? -20 + Math.random() * 30
+        : frontBias
+          ? 20 + Math.random() * 86
+          : -26 + Math.random() * 62;
+
       piece.className = `debris ${Math.random() > 0.5 ? 'slow' : 'fast'} ${frontBias ? 'front' : ''}`;
       piece.style.width = `${size}px`;
       piece.style.height = `${size * (0.54 + Math.random() * 0.92)}px`;
@@ -458,13 +523,13 @@ function setupCinematicBackground() {
   const applyPointerParallax = () => {
     mouseFrame = null;
     imageLayer.style.transform = `scale(1.12) translate3d(${targetX}px, ${targetY}px, 0)`;
-    debrisLayer.style.transform = `translate3d(${targetX * 1.3}px, ${targetY * 1.3}px, 0)`;
-    canvas.style.transform = `translate3d(${targetX * 0.65}px, ${targetY * 0.65}px, 0)`;
+    debrisLayer.style.transform = `translate3d(${targetX * 1.24}px, ${targetY * 1.24}px, 0)`;
+    canvas.style.transform = `translate3d(${targetX * 0.56}px, ${targetY * 0.56}px, 0)`;
   };
 
   resizeCanvas();
   spawnDebris();
-  scheduleNextBurst(900);
+  scheduleNextBurst(1000);
 
   window.addEventListener('resize', () => {
     resizeCanvas();
@@ -473,8 +538,8 @@ function setupCinematicBackground() {
 
   window.addEventListener('mousemove', (e) => {
     if (lowPowerMode || document.hidden) return;
-    targetX = (e.clientX / window.innerWidth - 0.5) * 14;
-    targetY = (e.clientY / window.innerHeight - 0.5) * 10;
+    targetX = (e.clientX / window.innerWidth - 0.5) * 10;
+    targetY = (e.clientY / window.innerHeight - 0.5) * 7;
     if (mouseFrame === null) {
       mouseFrame = requestAnimationFrame(applyPointerParallax);
     }
@@ -490,7 +555,7 @@ function setupCinematicBackground() {
     }
 
     syncVideoPlayback();
-    scheduleNextBurst(900);
+    scheduleNextBurst(1000);
   });
 }
 
