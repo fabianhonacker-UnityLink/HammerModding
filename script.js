@@ -15,6 +15,7 @@ const detailSections = {
   'zoll-uniform': document.getElementById('zollUniformDetailSection'),
   'serverteam-uniform': document.getElementById('serverteamUniformDetailSection'),
   'rettungsdienst-uniform': document.getElementById('rettungsdienstUniformDetailSection'),
+  'polizei-uniform': document.getElementById('polizeiUniformDetailSection'),
 };
 const searchInput = document.getElementById('searchInput');
 const searchables = document.querySelectorAll('.searchable');
@@ -35,10 +36,11 @@ const storeCatalog = {
   'zoll-uniform': { id: 'zoll-uniform', slug: 'zoll-uniform', name: 'Zoll-Uniform', price: '20.00', priceLabel: '20,00 €', type: 'clothing' },
   'serverteam-uniform': { id: 'serverteam-uniform', slug: 'serverteam-uniform', name: 'Serverteam-Uniform', price: '12.00', priceLabel: '12,00 €', type: 'clothing' },
   'rettungsdienst-uniform': { id: 'rettungsdienst-uniform', slug: 'rettungsdienst-uniform', name: 'Rettungsdienst-Uniform-Set', price: '20.00', priceLabel: '20,00 €', type: 'clothing' },
+  'polizei-uniform': { id: 'polizei-uniform', slug: 'polizei-uniform', name: 'Polizei-Uniform', price: '25.00', priceLabel: '25,00 €', type: 'clothing' },
 };
 
 const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
-  version: 'phase-4f-rettungsdienst-uniform',
+  version: 'phase-4g-polizei-uniform',
   catalog: storeCatalog,
   lastPreparedItem: null,
 });
