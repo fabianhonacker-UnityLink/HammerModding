@@ -234,6 +234,9 @@ function setAccountShellUi(user, profile) {
 
   const logoutButton = document.getElementById('accountInlineLogoutButton');
   if (logoutButton) logoutButton.classList.toggle('hidden-section', !user);
+
+  const authActions = document.getElementById('accountAuthActions');
+  if (authActions) authActions.classList.toggle('hidden-section', Boolean(user));
 }
 
 function updateAccountDock(user, profile) {

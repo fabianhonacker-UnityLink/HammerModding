@@ -1413,11 +1413,9 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
   <div class="account-shell-head">
     <div>
       <div class="eyebrow">Hammer Modding · Mein Konto</div>
-      <h2>MEIN KONTO
-        <span>&amp; PROFILÜBERSICHT</span>
-      </h2>
+      <h2>MEIN KONTO</h2>
     </div>
-    <div class="account-shell-actions">
+    <div class="account-shell-actions" id="accountAuthActions">
       <button class="cta secondary compact-cta" data-auth-open="login" type="button">Einloggen</button>
       <button class="cta primary compact-cta" data-auth-open="register" type="button">Registrieren</button>
     </div>
@@ -1484,8 +1482,6 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
           <div class="status-line"><span>Discord</span><strong id="authDiscordValue">-</strong></div>
           <div class="status-line"><span>CFX / License</span><strong id="authCfxValue">-</strong></div>
           <div class="status-line"><span>Rolle</span><strong id="authRoleValue">-</strong></div>
-          <div class="status-line"><span>User-ID</span><strong id="authUserIdValue">-</strong></div>
-          <div class="status-line"><span>E-Mail bestätigt</span><strong id="authEmailConfirmedValue">-</strong></div>
         </div>
         <div class="foundation-actions auth-session-actions">
           <button class="cta secondary compact-cta" data-auth-refresh="true" type="button">Neu laden</button>
@@ -1526,149 +1522,34 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
 </section>
 
 <section class="section hidden-section" id="systemSection">
-<div class="contact-layout">
-  <div class="contact-main glass-soft">
-    <div class="contact-intro">
-      <div class="eyebrow">Hammer Modding · System</div>
-      <h2>PROFILES, ROLLEN<br/><span>&amp; ECHTE KONTODATEN</span></h2>
-      <p>
-        Hier bereitest du die echte Profiles-Tabelle, Rollenlogik und die Live-Anbindung für Benutzerkonten vor.
-      </p>
-    </div>
-    <div class="foundation-form-shell">
-      <div class="foundation-form-head">
-        <strong>System-Konfiguration</strong>
-      </div>
-      <div class="foundation-form-grid">
-        <label class="foundation-field">
-          <span>Backend-Provider</span>
-          <select class="hm-select" id="dbProviderSelect">
-            <option value="supabase">Supabase</option>
-            <option value="custom">Custom Backend</option>
-          </select>
-        </label>
-        <label class="foundation-field">
-          <span>Auth-Methode</span>
-          <select class="hm-select" id="authProviderSelect">
-            <option value="email-password">E-Mail + Passwort</option>
-            <option value="email-discord">E-Mail + Discord später</option>
-          </select>
-        </label>
-        <label class="foundation-field">
-          <span>Project Ref</span>
-          <input class="hm-input" id="dbProjectRefInput" placeholder="abcd1234xyz" type="text"/>
-        </label>
-        <label class="foundation-field">
-          <span>Public Schema</span>
-          <input class="hm-input" id="dbSchemaInput" placeholder="public" type="text"/>
-        </label>
-        <label class="foundation-field field-span-2">
-          <span>Project URL / API Base</span>
-          <input class="hm-input" id="dbProjectUrlInput" placeholder="https://dein-projekt.supabase.co" type="text"/>
-        </label>
-        <label class="foundation-field field-span-2">
-          <span>Public Anon Key</span>
-          <textarea class="hm-textarea compact-textarea" id="dbAnonKeyInput" placeholder="Nur Public Anon Key – keine Service-Role im Frontend"></textarea>
-        </label>
-        <label class="foundation-field field-span-2">
-          <span>Site URL</span>
-          <input class="hm-input" id="dbSiteUrlInput" placeholder="https://hammer-modding.de" type="text"/>
-        </label>
-        <label class="foundation-field field-span-2">
-          <span>Redirect URL</span>
-          <input class="hm-input" id="dbRedirectUrlInput" placeholder="https://hammer-modding.de/account/callback" type="text"/>
-        </label>
-        <label class="foundation-field">
-          <span>Storage Bucket</span>
-          <input class="hm-input" id="dbStorageBucketInput" placeholder="product-assets" type="text"/>
-        </label>
-        <label class="foundation-field">
-          <span>Products Tabelle</span>
-          <input class="hm-input" id="dbProductsTableInput" placeholder="products" type="text"/>
-        </label>
-        <label class="foundation-field">
-          <span>Admin Rolle</span>
-          <input class="hm-input" id="dbAdminRoleInput" placeholder="admin" type="text"/>
-        </label>
-        <label class="foundation-field">
-          <span>Manager Rolle</span>
-          <input class="hm-input" id="dbManagerRoleInput" placeholder="product_manager" type="text"/>
-        </label>
-        <label class="foundation-field">
-          <span>Bindungsmodus</span>
-          <select class="hm-select" id="bindingModeSelect">
-            <option value="cfx-license">CFX Identifier / License</option>
-            <option value="cfx-account">CFX-Account</option>
-            <option value="discord-cfx">Discord + CFX kombiniert</option>
-          </select>
-        </label>
-        <label class="foundation-field">
-          <span>Webhook / Relay URL</span>
-          <input class="hm-input" id="webhookUrlInput" placeholder="https://api.hammer-modding.de/tebex/webhook" type="text"/>
-        </label>
-        <label class="foundation-field field-span-2">
-          <span>Backend URL</span>
-          <input class="hm-input" id="backendBaseUrlInput" placeholder="https://api.hammer-modding.de" type="text"/>
-        </label>
-      </div>
-      <div class="foundation-actions">
-        <button class="cta primary" data-foundation-save="true" id="foundationSaveButton" type="button">Entwurf speichern</button>
-        <button class="cta secondary" data-foundation-copy="true" id="foundationCopyButton" type="button">Setup kopieren</button>
-        <button class="cta secondary" data-foundation-copy-sql="true" id="foundationCopySqlButton" type="button">SQL kopieren</button>
-        <button class="cta secondary" data-foundation-test="true" id="foundationTestButton" type="button">Live-Verbindung prüfen</button>
-      </div>
-    </div>
-
-    <div class="foundation-grid two-up">
-      <article class="foundation-card foundation-code-card">
-        <div class="foundation-card-head">
-          <strong>SQL Blueprint</strong>
-          
-        </div>
-        <textarea class="request-draft-text foundation-code-text" id="foundationSqlText" readonly>SQL Blueprint wird geladen …</textarea>
-      </article>
-      <article class="foundation-card">
-        <div class="foundation-card-head">
-          <strong>Checkliste</strong>
-        </div>
-        <ul class="foundation-points">
-          <li>Profiles-SQL im Supabase SQL Editor ausführen</li>
-          <li>Registrierung und Login danach live testen</li>
-          <li>Rollen für Admin und Produktmanager festlegen</li>
-          <li>Avatar, Discord und CFX-Daten über das Konto pflegen</li>
-          <li>Systembereich später an Rollen koppeln</li>
-          <li>Tebex danach an Profile und Käufe andocken</li>
-        </ul>
-      </article>
-    </div>
-
-    <div class="request-draft-box foundation-summary-box">
-      <div class="request-draft-head">
-        <strong>System-Zusammenfassung</strong>
-      </div>
-      <textarea class="request-draft-text foundation-summary-text" id="foundationSummaryText" readonly>Phase 6E ist noch nicht initialisiert.</textarea>
+<div class="account-shell glass-soft admin-shell">
+  <div class="account-shell-head admin-shell-head">
+    <div>
+      <div class="eyebrow">Hammer Modding · Verwaltung</div>
+      <h2>VERWALTUNG</h2>
     </div>
   </div>
-  <div class="contact-side">
-    <article class="contact-info-card glass-soft">
-      <div class="contact-info-head">
-        <strong>Status</strong>
+  <div class="admin-panel-grid">
+    <article class="foundation-card glass-soft admin-panel-card">
+      <div class="foundation-card-head">
+        <strong>Produkte</strong>
+        <small>Platzhalter</small>
       </div>
-      <div class="status-stack">
-        <div class="status-line"><span>Provider</span><strong class="status-badge status-badge-neutral" id="foundationProviderBadge">Supabase</strong></div>
-        <div class="status-line"><span>Datenbank</span><strong class="status-badge status-badge-warn" id="foundationDbBadge">Offen</strong></div>
-        <div class="status-line"><span>Redirects</span><strong class="status-badge status-badge-warn" id="foundationRedirectBadge">Offen</strong></div>
-        <div class="status-line"><span>Storage</span><strong class="status-badge status-badge-warn" id="foundationStorageBadge">Offen</strong></div>
-        <div class="status-line"><span>SQL Blueprint</span><strong class="status-badge status-badge-neutral" id="foundationSqlBadge">Bereit</strong></div>
-        <div class="status-line"><span>Live-Test</span><strong class="status-badge status-badge-warn" id="foundationConnectionBadge">Nicht geprüft</strong></div>
-        <div class="status-line"><span>Webhook</span><strong class="status-badge status-badge-warn" id="foundationWebhookBadge">Offen</strong></div>
-      </div>
+      <p class="foundation-copy">Hier kommt später die Produktverwaltung zum Hinzufügen, Bearbeiten und Entfernen von Artikeln rein.</p>
     </article>
-    <article class="contact-info-card glass-soft">
-      <div class="contact-info-head">
-        <strong>Verbindung</strong>
+    <article class="foundation-card glass-soft admin-panel-card">
+      <div class="foundation-card-head">
+        <strong>Benutzer &amp; Rollen</strong>
+        <small>Platzhalter</small>
       </div>
-      <p class="foundation-helper-note" id="foundationConnectionMessage">Noch kein Live-Test gelaufen. Sobald Project URL und Public Anon Key eingetragen sind, kannst du die Verbindung hier prüfen.</p>
+      <p class="foundation-copy">Hier werden später Berechtigungen, Rollen und geschützte Bereiche verwaltet.</p>
+    </article>
+    <article class="foundation-card glass-soft admin-panel-card">
+      <div class="foundation-card-head">
+        <strong>Käufe &amp; Freischaltungen</strong>
+        <small>Platzhalter</small>
+      </div>
+      <p class="foundation-copy">Hier kommt später die Übersicht für Käufe, Freischaltungen und Tebex-Zuordnungen rein.</p>
     </article>
   </div>
 </div>
