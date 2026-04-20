@@ -68,6 +68,7 @@
     <div class="cart-panel-footer">
       <button class="cart-clear-button" data-cart-clear="true" id="cartClearButton" type="button">Alles entfernen</button>
       <button class="cart-request-button" data-cart-request="true" id="cartRequestButton" type="button">Anfrage vorbereiten</button>
+      <button class="cart-bridge-button" data-tebex-open="true" id="cartTebexButton" type="button">Tebex-Bridge</button>
       <div class="cart-panel-total">
         <span>Gesamt</span>
         <strong id="cartPanelTotal">0,00 €</strong>
@@ -84,6 +85,10 @@
       <span id="accountSideName">Gast</span>
       <span aria-hidden="true" class="account-side-dot"></span>
       <span id="accountSideRequests">0 Anfragen</span>
+    </div>
+    <div class="bridge-state-box account-side-bridge">
+      <span class="bridge-state-badge" id="accountSideBridgeBadge">Bridge gesperrt</span>
+      <p class="bridge-state-copy" id="accountSideBridgeCopy">Login + Bindungsdaten nötig, damit Tebex später sauber zuordnen kann.</p>
     </div>
     <div class="account-side-actions">
       <button class="cta secondary account-side-button" data-account-open="login" id="accountSideSecondaryButton" type="button">Anmelden</button>
@@ -1504,7 +1509,41 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
           </div>
           <div class="auth-panel-actions">
             <button class="cta secondary" data-open-contact-request="true" type="button">Zum Kontaktbereich</button>
+            <button class="cta secondary" data-tebex-open="true" type="button">Tebex-Bridge öffnen</button>
             <button class="cta primary" data-account-logout="true" type="button">Abmelden</button>
+          </div>
+          <div class="bridge-profile-block glass">
+            <div class="request-draft-head">
+              <strong>Tebex / Bindung</strong>
+              <small>Phase 5C</small>
+            </div>
+            <p class="bridge-profile-copy">Diese Angaben bilden die Grundlage für spätere Freischaltung, Tebex-Zuordnung und die Bindung an genau einen CFX-Account.</p>
+            <div class="bridge-state-box">
+              <span class="bridge-state-badge" id="accountBridgeBadge">Bridge gesperrt</span>
+              <p class="bridge-state-copy" id="accountBridgeMissing">Melde dich zuerst an und ergänze dann deine Bindungsdaten.</p>
+            </div>
+            <form class="auth-form-grid auth-form-grid-two" id="bridgeProfileForm">
+              <label class="auth-field">
+                <span>Discord</span>
+                <input autocomplete="off" id="bridgeDiscord" maxlength="60" placeholder="z. B. hammeruser#1234" type="text"/>
+              </label>
+              <label class="auth-field">
+                <span>CFX / Tebex Konto</span>
+                <input autocomplete="off" id="bridgeCfx" maxlength="80" placeholder="z. B. CFX-Name oder Tebex-Konto" type="text"/>
+              </label>
+              <label class="auth-field">
+                <span>CFX Identifier / Lizenz</span>
+                <input autocomplete="off" id="bridgeIdentifier" maxlength="120" placeholder="z. B. license:abc123 oder CFX Identifier" type="text"/>
+              </label>
+              <label class="auth-field">
+                <span>Freischaltungs-Hinweis</span>
+                <input autocomplete="off" id="bridgeNote" maxlength="120" placeholder="z. B. nur für Hauptserver / Kunde XY" type="text"/>
+              </label>
+              <div class="auth-panel-actions bridge-profile-actions">
+                <button class="cta primary auth-submit-button" type="submit">Bridge-Profil speichern</button>
+                <button class="cta secondary" data-tebex-open="true" type="button">Tebex-Bridge öffnen</button>
+              </div>
+            </form>
           </div>
           <div class="account-history-block">
             <div class="request-draft-head">
@@ -1512,6 +1551,13 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
               <small>lokal gespeichert</small>
             </div>
             <div class="account-history-list" id="accountHistoryList"></div>
+          </div>
+          <div class="account-history-block">
+            <div class="request-draft-head">
+              <strong>Meine Tebex-Bridge Entwürfe</strong>
+              <small>lokal gespeichert</small>
+            </div>
+            <div class="account-history-list" id="accountBridgeHistoryList"></div>
           </div>
         </div>
       </div>
@@ -1521,9 +1567,9 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
         <strong>Status</strong>
-        <small>Phase 5B</small>
+        <small>Phase 5C</small>
       </div>
-      <p>Konten, Login und Anfrage-Verknüpfung laufen in diesem Schritt lokal im Browser. Die Oberfläche ist aber bereits backend-ready für den späteren echten Ausbau.</p>
+      <p>Konten, Anfrage-Verknüpfung und die vorbereitende Tebex-/Bindungslogik laufen in diesem Schritt lokal im Browser. Die Oberfläche ist damit deutlich näher an einem späteren echten Checkout-Flow.</p>
     </article>
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
@@ -1535,15 +1581,15 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
     </article>
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
-        <strong>Späterer Ausbau</strong>
-        <small>Backend / Tebex</small>
+        <strong>Tebex-Bridge</strong>
+        <small>Phase 5C</small>
       </div>
-      <ul class="contact-steps">
-        <li>Echtes Backend für Registrierung und Login</li>
-        <li>Bestellungen pro Benutzerkonto speichern</li>
-        <li>Freischaltung nach Kauf eindeutig zuordnen</li>
-        <li>Tebex / CFX sauber anbinden</li>
-      </ul>
+      <p>Die Bridge prüft Warenkorb, Konto und CFX-Bindung und erzeugt daraus einen lokalen Checkout-Entwurf für den späteren echten Ausbau.</p>
+      <div class="bridge-state-box">
+        <span class="bridge-state-badge" id="accountBridgeInfoBadge">Nicht bereit</span>
+        <p class="bridge-state-copy" id="accountBridgeInfoCopy">Lege Produkte in den Warenkorb und ergänze deine Bindungsdaten.</p>
+      </div>
+      <div class="account-side-history-list" id="accountSideBridgeHistoryList"></div>
     </article>
   </div>
 </div>
@@ -1586,11 +1632,15 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
     </article>
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
-        <strong>Tebex</strong>
-        <small>Nächster Ausbauschritt</small>
+        <strong>Tebex-Bridge</strong>
+        <small>Phase 5C</small>
       </div>
-      <p>Später kann die finale Kaufabwicklung sauber über Tebex laufen, damit Freischaltung und Bindung an den passenden Account klar geregelt werden.</p>
-      <button class="cta secondary is-disabled" disabled type="button">Tebex folgt</button>
+      <p>Die Kaufabwicklung bleibt weiter lokal vorbereitet, aber Konto, Bindung und späterer Tebex-Abschluss sind jetzt bereits in einer sauberen Bridge-Struktur angelegt.</p>
+      <div class="bridge-state-box">
+        <span class="bridge-state-badge" id="contactTebexBadge">Nicht bereit</span>
+        <p class="bridge-state-copy" id="contactTebexCopy">Lege Produkte in den Warenkorb und ergänze deine Bindungsdaten.</p>
+      </div>
+      <button class="cta secondary" data-tebex-open="true" id="contactTebexButton" type="button">Tebex-Bridge öffnen</button>
     </article>
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
@@ -1599,8 +1649,8 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
       </div>
       <ul class="contact-steps">
         <li>Scripte oder Kleidung in den Warenkorb legen</li>
-        <li>Anfrage vorbereiten</li>
-        <li>Text kopieren</li>
+        <li>Anfrage vorbereiten oder direkt Tebex-Bridge prüfen</li>
+        <li>Bindungsdaten im Konto ergänzen</li>
         <li>Über Discord senden oder später über Tebex abschließen</li>
       </ul>
     </article>
@@ -1626,7 +1676,32 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
     <div class="request-modal-actions">
       <button class="cta primary" data-copy-request="true" id="modalCopyRequestButton" type="button">Text kopieren</button>
       <button class="cta secondary" data-open-contact-request="true" type="button">Zum Kontaktbereich</button>
+      <button class="cta secondary" data-tebex-open="true" type="button">Tebex-Bridge</button>
       <button class="cta secondary" data-request-close="true" type="button">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<div class="request-modal-overlay hidden" id="tebexBridgeOverlay" aria-hidden="true">
+  <div class="request-modal glass tebex-bridge-modal" aria-labelledby="tebexBridgeTitle" aria-modal="true" role="dialog">
+    <div class="request-modal-head">
+      <div>
+        <div class="eyebrow">Hammer Modding · Tebex-Bridge</div>
+        <h3 id="tebexBridgeTitle">CHECKOUT-BRIDGE VORBEREITET</h3>
+      </div>
+      <button class="request-close-button" data-tebex-close="true" type="button" aria-label="Tebex-Bridge schließen">×</button>
+    </div>
+    <p class="request-modal-copy">Das hier ist noch kein echter Tebex-Checkout. Die Bridge prüft nur, ob Warenkorb, Konto und Bindungsdaten sauber genug für den späteren Abschluss vorbereitet sind.</p>
+    <div class="bridge-state-box bridge-modal-state">
+      <span class="bridge-state-badge" id="tebexBridgeStatusBadge">Nicht bereit</span>
+      <p class="bridge-state-copy" id="tebexBridgeStatusCopy">Lege Produkte in den Warenkorb und ergänze deine Bindungsdaten.</p>
+    </div>
+    <textarea class="request-modal-text" id="tebexBridgeText" readonly>Lege zuerst Produkte in den Warenkorb, damit eine Tebex-Bridge erzeugt werden kann.</textarea>
+    <div class="request-modal-actions">
+      <button class="cta primary" data-copy-bridge="true" id="tebexBridgeCopyButton" type="button">Bridge kopieren</button>
+      <button class="cta secondary" data-open-account-bridge="true" type="button">Zum Konto</button>
+      <button class="cta secondary" data-open-contact-request="true" type="button">Zum Kontaktbereich</button>
+      <button class="cta secondary" data-tebex-close="true" type="button">Schließen</button>
     </div>
   </div>
 </div>

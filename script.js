@@ -31,6 +31,7 @@ const cartDraftStorageKey = 'hm_cart_draft';
 const authUsersStorageKey = 'hm_store_auth_users';
 const authSessionStorageKey = 'hm_store_auth_session';
 const authRequestHistoryStorageKey = 'hm_store_auth_requests';
+const authBridgeHistoryStorageKey = 'hm_store_auth_bridge';
 const storeCatalog = {
   blitzer: { id: 'blitzer-script', slug: 'blitzer', name: 'Blitzer Script', price: '15.00', priceLabel: '15,00 €', type: 'paid-script' },
   gps: { id: 'gps-system', slug: 'gps', name: 'GPS System', price: '10.00', priceLabel: '10,00 €', type: 'paid-script' },
@@ -44,7 +45,7 @@ const storeCatalog = {
 };
 
 const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
-  version: 'phase-5b-account-foundation',
+  version: 'phase-5c-tebex-bridge',
   catalog: storeCatalog,
   lastPreparedItem: null,
 });
@@ -241,6 +242,21 @@ function persistAuthRequestHistory(entries) {
   }
 }
 
+function loadAuthBridgeHistory() {
+  const raw = localStorage.getItem(authBridgeHistoryStorageKey);
+  const parsed = safeJsonParse(raw, []);
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+function persistAuthBridgeHistory(entries) {
+  const normalized = Array.isArray(entries) ? entries : [];
+  try {
+    localStorage.setItem(authBridgeHistoryStorageKey, JSON.stringify(normalized));
+  } catch (error) {
+    // ignore blocked storage
+  }
+}
+
 function getCurrentAccount() {
   const userId = loadAuthSessionUserId();
   if (!userId) return null;
@@ -277,6 +293,13 @@ function formatAuthDate(value) {
 function getUserRequestEntries(userId) {
   if (!userId) return [];
   return loadAuthRequestHistory()
+    .filter((entry) => entry.userId === userId)
+    .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+}
+
+function getUserBridgeEntries(userId) {
+  if (!userId) return [];
+  return loadAuthBridgeHistory()
     .filter((entry) => entry.userId === userId)
     .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
 }
@@ -354,11 +377,12 @@ function updateAccountSideCard(user) {
   }
 
   const requestCount = getUserRequestEntries(user.id).length;
+  const bridgeCount = getUserBridgeEntries(user.id).length;
   card.dataset.authState = 'active';
   badge.textContent = 'Eingeloggt';
-  copy.textContent = 'Dein Konto ist aktiv. Anfrage-Text, E-Mail, Discord und CFX/Tebex-Hinweis werden automatisch mit übernommen.';
+  copy.textContent = 'Dein Konto ist aktiv. Anfrage-Text, E-Mail, Discord und CFX-/Tebex-Bindung werden automatisch mit übernommen.';
   name.textContent = user.displayName;
-  requests.textContent = `${requestCount} ${requestCount === 1 ? 'Anfrage' : 'Anfragen'}`;
+  requests.textContent = `${requestCount} ${requestCount === 1 ? 'Anfrage' : 'Anfragen'} · ${bridgeCount} ${bridgeCount === 1 ? 'Bridge' : 'Bridges'}`;
   secondaryButton.textContent = 'Konto öffnen';
   secondaryButton.dataset.accountOpen = 'dashboard';
   secondaryButton.removeAttribute('data-account-logout');
@@ -411,6 +435,47 @@ function renderAccountHistory(user) {
   sideList.innerHTML = entries.slice(0, 3).map(renderAccountHistoryEntry).join('');
 }
 
+function renderBridgeHistoryEntry(entry) {
+  const itemCount = Array.isArray(entry.items) ? entry.items.length : 0;
+  return `
+    <article class="bridge-history-item">
+      <div class="bridge-history-top">
+        <div>
+          <strong>${entry.reference || 'HM-BRIDGE'}</strong>
+          <div class="bridge-history-meta">
+            <span>${itemCount} ${itemCount === 1 ? 'Produkt' : 'Produkte'}</span>
+            <span><span class="account-history-dot" aria-hidden="true"></span>${entry.totalLabel}</span>
+            <span><span class="account-history-dot" aria-hidden="true"></span>${formatAuthDate(entry.updatedAt || entry.createdAt)}</span>
+          </div>
+        </div>
+        <small>${entry.stateLabel || 'Entwurf'}</small>
+      </div>
+    </article>
+  `;
+}
+
+function renderBridgeHistory(user) {
+  const mainList = document.getElementById('accountBridgeHistoryList');
+  const sideList = document.getElementById('accountSideBridgeHistoryList');
+  if (!mainList || !sideList) return;
+
+  if (!user) {
+    mainList.innerHTML = '<p class="account-history-empty">Noch kein Konto aktiv.</p>';
+    sideList.innerHTML = '<p class="account-history-empty">Melde dich an, damit Bridge-Entwürfe deinem Konto zugeordnet werden.</p>';
+    return;
+  }
+
+  const entries = getUserBridgeEntries(user.id);
+  if (!entries.length) {
+    mainList.innerHTML = '<p class="account-history-empty">Noch keine Tebex-Bridge Entwürfe gespeichert.</p>';
+    sideList.innerHTML = '<p class="account-history-empty">Sobald du die Bridge öffnest, erscheint hier dein letzter Entwurf.</p>';
+    return;
+  }
+
+  mainList.innerHTML = entries.slice(0, 6).map(renderBridgeHistoryEntry).join('');
+  sideList.innerHTML = entries.slice(0, 3).map(renderBridgeHistoryEntry).join('');
+}
+
 function renderAccountDashboard(user) {
   const status = document.getElementById('accountDashboardStatus');
   const empty = document.getElementById('accountDashboardEmpty');
@@ -422,6 +487,7 @@ function renderAccountDashboard(user) {
     setVisible(empty, true);
     setVisible(body, false);
     renderAccountHistory(null);
+    renderBridgeHistory(null);
     return;
   }
 
@@ -446,6 +512,326 @@ function renderAccountDashboard(user) {
   });
 
   renderAccountHistory(user);
+  renderBridgeHistory(user);
+}
+
+function getBridgeProfileState(user) {
+  if (!user) {
+    return {
+      isReady: false,
+      statusClass: 'is-locked',
+      badge: 'Bridge gesperrt',
+      copy: 'Melde dich an oder registriere dich, damit Tebex und CFX später sauber zugeordnet werden können.',
+      missing: ['Konto'],
+    };
+  }
+
+  const missing = [];
+  if (!user.discord) missing.push('Discord');
+  if (!user.cfxAccount) missing.push('CFX / Tebex Konto');
+  if (!user.cfxIdentifier) missing.push('CFX Identifier / Lizenz');
+
+  if (!missing.length) {
+    return {
+      isReady: true,
+      statusClass: 'is-ready',
+      badge: 'Bridge bereit',
+      copy: 'Konto und Bindungsdaten sind vollständig genug für den späteren Tebex-Abschluss vorbereitet.',
+      missing,
+    };
+  }
+
+  return {
+    isReady: false,
+    statusClass: 'is-warning',
+    badge: 'Daten fehlen',
+    copy: `Bitte noch ergänzen: ${missing.join(', ')}.`,
+    missing,
+  };
+}
+
+function getCheckoutBridgeState(cart = loadVisibleCart(), user = getCurrentAccount()) {
+  const items = Array.isArray(cart) ? cart : [];
+  const profileState = getBridgeProfileState(user);
+  const missing = [...profileState.missing];
+  if (!items.length) missing.unshift('Produkte im Warenkorb');
+
+  if (!user) {
+    return {
+      isReady: false,
+      statusClass: 'is-locked',
+      badge: 'Nicht bereit',
+      copy: 'Für die Bridge brauchst du mindestens ein Produkt im Warenkorb und ein Konto mit Bindungsdaten.',
+      missing,
+    };
+  }
+
+  if (!items.length) {
+    return {
+      isReady: false,
+      statusClass: 'is-warning',
+      badge: 'Warenkorb fehlt',
+      copy: 'Lege zuerst Produkte in den Warenkorb, damit ein Checkout-Entwurf erzeugt werden kann.',
+      missing,
+    };
+  }
+
+  if (!profileState.isReady) {
+    return {
+      isReady: false,
+      statusClass: 'is-warning',
+      badge: 'Bindung unvollständig',
+      copy: profileState.copy,
+      missing,
+    };
+  }
+
+  return {
+    isReady: true,
+    statusClass: 'is-ready',
+    badge: 'Checkout bereit',
+    copy: 'Warenkorb, Konto und Bindungsdaten sind vorbereitet. Die Bridge kann später sauber an einen echten Tebex-/Backend-Flow angeschlossen werden.',
+    missing: [],
+  };
+}
+
+function setBridgeBadgeState(element, state) {
+  if (!element || !state) return;
+  element.textContent = state.badge;
+  element.classList.remove('is-ready', 'is-warning', 'is-locked');
+  element.classList.add(state.statusClass || 'is-locked');
+}
+
+function populateBridgeProfileForm(user) {
+  const fields = {
+    bridgeDiscord: user?.discord || '',
+    bridgeCfx: user?.cfxAccount || '',
+    bridgeIdentifier: user?.cfxIdentifier || '',
+    bridgeNote: user?.bridgeNote || '',
+  };
+
+  Object.entries(fields).forEach(([id, value]) => {
+    const field = document.getElementById(id);
+    if (field) field.value = value;
+  });
+}
+
+function updateBridgeUi(user = getCurrentAccount(), cart = loadVisibleCart()) {
+  const profileState = getBridgeProfileState(user);
+  const checkoutState = getCheckoutBridgeState(cart, user);
+
+  const accountSideBridgeBadge = document.getElementById('accountSideBridgeBadge');
+  const accountSideBridgeCopy = document.getElementById('accountSideBridgeCopy');
+  const accountBridgeBadge = document.getElementById('accountBridgeBadge');
+  const accountBridgeMissing = document.getElementById('accountBridgeMissing');
+  const accountBridgeInfoBadge = document.getElementById('accountBridgeInfoBadge');
+  const accountBridgeInfoCopy = document.getElementById('accountBridgeInfoCopy');
+  const contactTebexBadge = document.getElementById('contactTebexBadge');
+  const contactTebexCopy = document.getElementById('contactTebexCopy');
+  const tebexBridgeStatusBadge = document.getElementById('tebexBridgeStatusBadge');
+  const tebexBridgeStatusCopy = document.getElementById('tebexBridgeStatusCopy');
+
+  setBridgeBadgeState(accountSideBridgeBadge, profileState);
+  if (accountSideBridgeCopy) accountSideBridgeCopy.textContent = profileState.copy;
+
+  setBridgeBadgeState(accountBridgeBadge, profileState);
+  if (accountBridgeMissing) accountBridgeMissing.textContent = profileState.copy;
+
+  setBridgeBadgeState(accountBridgeInfoBadge, checkoutState);
+  if (accountBridgeInfoCopy) accountBridgeInfoCopy.textContent = checkoutState.copy;
+
+  setBridgeBadgeState(contactTebexBadge, checkoutState);
+  if (contactTebexCopy) contactTebexCopy.textContent = checkoutState.copy;
+
+  setBridgeBadgeState(tebexBridgeStatusBadge, checkoutState);
+  if (tebexBridgeStatusCopy) tebexBridgeStatusCopy.textContent = checkoutState.copy;
+
+  populateBridgeProfileForm(user);
+}
+
+function buildTebexBridgeText(cart = loadVisibleCart(), user = getCurrentAccount(), reference = '') {
+  const items = Array.isArray(cart) ? cart : [];
+  const totals = getVisibleCartTotals(items);
+  const checkoutState = getCheckoutBridgeState(items, user);
+
+  const lines = [
+    'Hammer Modding Tebex-Bridge',
+    `Status: ${checkoutState.badge}`,
+  ];
+
+  if (reference) {
+    lines.push(`Referenz: ${reference}`);
+  }
+
+  lines.push('');
+
+  if (!items.length) {
+    lines.push('Produkte:');
+    lines.push('- Noch keine Produkte im Warenkorb');
+  } else {
+    lines.push('Produkte:');
+    lines.push(...items.map((item) => `- ${item.name} | ${item.priceLabel} | ${getCartItemTypeLabel(item)}`));
+  }
+
+  lines.push('');
+  lines.push(`Gesamtsumme: ${totals.totalLabel}`);
+  lines.push('');
+  lines.push(`Konto: ${user?.displayName || '[nicht eingeloggt]'}`);
+  lines.push(`E-Mail: ${user?.email || '[bitte ergänzen]'}`);
+  lines.push(`Discord: ${user?.discord || '[bitte ergänzen]'}`);
+  lines.push(`CFX / Tebex Konto: ${user?.cfxAccount || '[bitte ergänzen]'}`);
+  lines.push(`CFX Identifier / Lizenz: ${user?.cfxIdentifier || '[bitte ergänzen]'}`);
+  lines.push(`Freischaltungs-Hinweis: ${user?.bridgeNote || '[optional]'}`);
+  lines.push('');
+
+  if (checkoutState.missing.length) {
+    lines.push(`Fehlende Punkte: ${checkoutState.missing.join(', ')}`);
+    lines.push('');
+  }
+
+  lines.push('Wichtiger Hinweis:');
+  lines.push('Diese Bridge ist nur ein lokaler Checkout-Entwurf und noch keine Zahlung oder automatische Freischaltung.');
+  lines.push('Bei echtem Ausbau soll die Freischaltung nur an genau dieses CFX-Profil / diesen Identifier gebunden werden.');
+
+  return lines.join('\n');
+}
+
+function buildCurrentUserBridgeFingerprint(items, totalCents, user) {
+  return `${items.map((item) => item.id).sort().join('|')}::${totalCents}::${user?.cfxAccount || ''}::${user?.cfxIdentifier || ''}`;
+}
+
+function saveCurrentUserBridgeDraft(cart) {
+  const currentUser = getCurrentAccount();
+  const items = Array.isArray(cart) ? cart : [];
+  if (!currentUser || !items.length) return null;
+
+  const totals = getVisibleCartTotals(items);
+  const history = loadAuthBridgeHistory();
+  const fingerprint = buildCurrentUserBridgeFingerprint(items, totals.totalCents, currentUser);
+  const existing = history.find((entry) => entry.userId === currentUser.id && entry.fingerprint === fingerprint);
+  const reference = existing?.reference || `HM-BRIDGE-${Date.now().toString().slice(-6)}`;
+  const checkoutState = getCheckoutBridgeState(items, currentUser);
+  const payloadText = buildTebexBridgeText(items, currentUser, reference);
+  const payload = {
+    userId: currentUser.id,
+    items: items.map((item) => ({ id: item.id, name: item.name, priceLabel: item.priceLabel, type: item.type })),
+    totalLabel: totals.totalLabel,
+    totalCents: totals.totalCents,
+    reference,
+    payloadText,
+    stateLabel: checkoutState.badge,
+    stateClass: checkoutState.statusClass,
+    fingerprint,
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (existing) {
+    Object.assign(existing, payload);
+  } else {
+    history.push({
+      id: generateLocalId('bridge'),
+      createdAt: new Date().toISOString(),
+      ...payload,
+    });
+  }
+
+  persistAuthBridgeHistory(history);
+  updateAccountUi({ keepTab: true });
+  return existing || history[history.length - 1];
+}
+
+async function copyPreparedBridgeText() {
+  const bridgeText = buildTebexBridgeText(loadVisibleCart(), getCurrentAccount());
+  if (!bridgeText) return false;
+
+  try {
+    await navigator.clipboard.writeText(bridgeText);
+    return true;
+  } catch (error) {
+    const helper = document.createElement('textarea');
+    helper.value = bridgeText;
+    helper.setAttribute('readonly', 'true');
+    helper.style.position = 'fixed';
+    helper.style.opacity = '0';
+    helper.style.pointerEvents = 'none';
+    document.body.appendChild(helper);
+    helper.focus();
+    helper.select();
+
+    let copied = false;
+    try {
+      copied = document.execCommand('copy');
+    } catch (execError) {
+      copied = false;
+    }
+
+    document.body.removeChild(helper);
+    return copied;
+  }
+}
+
+function updateBridgeDraftFields(cart = loadVisibleCart()) {
+  const bridgeText = buildTebexBridgeText(cart, getCurrentAccount());
+  const bridgeField = document.getElementById('tebexBridgeText');
+  const copyButton = document.getElementById('tebexBridgeCopyButton');
+  if (bridgeField) bridgeField.value = bridgeText;
+  if (copyButton) copyButton.disabled = !Array.isArray(cart) || !cart.length;
+  hmStoreBridge.bridgeText = bridgeText;
+  hmStoreBridge.getBridgeText = () => buildTebexBridgeText(loadVisibleCart(), getCurrentAccount());
+}
+
+function openTebexBridgeModal() {
+  const overlay = document.getElementById('tebexBridgeOverlay');
+  if (!overlay) return;
+  const cart = loadVisibleCart();
+  if (getCurrentAccount() && cart.length) saveCurrentUserBridgeDraft(cart);
+  updateBridgeUi(getCurrentAccount(), cart);
+  updateBridgeDraftFields(cart);
+  overlay.classList.remove('hidden');
+  overlay.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('request-modal-open');
+}
+
+function closeTebexBridgeModal() {
+  const overlay = document.getElementById('tebexBridgeOverlay');
+  if (!overlay) return;
+  overlay.classList.add('hidden');
+  overlay.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('request-modal-open');
+}
+
+function openAccountBridgeFlow() {
+  closeTebexBridgeModal();
+  openAccountSection(getCurrentAccount() ? 'dashboard' : 'login');
+}
+
+async function handleBridgeProfileSubmit(event) {
+  event.preventDefault();
+  const currentUser = getCurrentAccount();
+  if (!currentUser) {
+    setAccountFeedback('Bitte melde dich zuerst an, bevor du deine Bindungsdaten speicherst.', 'error');
+    openAccountSection('login');
+    return;
+  }
+
+  const users = loadAuthUsers();
+  const target = users.find((user) => user.id === currentUser.id);
+  if (!target) return;
+
+  const discordField = document.getElementById('bridgeDiscord');
+  const cfxField = document.getElementById('bridgeCfx');
+  const identifierField = document.getElementById('bridgeIdentifier');
+  const noteField = document.getElementById('bridgeNote');
+
+  target.discord = discordField?.value.trim() || '';
+  target.cfxAccount = cfxField?.value.trim() || '';
+  target.cfxIdentifier = identifierField?.value.trim() || '';
+  target.bridgeNote = noteField?.value.trim() || '';
+  target.updatedAt = new Date().toISOString();
+
+  persistAuthUsers(users);
+  setAccountFeedback('Bridge-Profil gespeichert. Konto und Bindungsdaten wurden aktualisiert.', 'success');
+  updateAccountUi({ keepTab: true });
 }
 
 function updateAccountUi(options = {}) {
@@ -453,6 +839,8 @@ function updateAccountUi(options = {}) {
   updateAccountSideCard(currentUser);
   renderAccountDashboard(currentUser);
   updateRequestDraftFields(loadVisibleCart());
+  updateBridgeUi(currentUser, loadVisibleCart());
+  updateBridgeDraftFields(loadVisibleCart());
 
   hmStoreBridge.account = currentUser
     ? {
@@ -461,6 +849,8 @@ function updateAccountUi(options = {}) {
         email: currentUser.email,
         discord: currentUser.discord,
         cfxAccount: currentUser.cfxAccount,
+        cfxIdentifier: currentUser.cfxIdentifier,
+        bridgeNote: currentUser.bridgeNote,
       }
     : null;
   hmStoreBridge.getAccount = () => (getCurrentAccount() ? { ...getCurrentAccount() } : null);
@@ -627,6 +1017,8 @@ async function handleRegisterSubmit(event) {
     email,
     discord,
     cfxAccount,
+    cfxIdentifier: '',
+    bridgeNote: '',
     passwordHash: await hashAuthPassword(password),
     createdAt: now,
     lastLoginAt: now,
@@ -656,9 +1048,11 @@ function openAccountSection(tab = 'login') {
 function setupAccountInterface() {
   const loginForm = document.getElementById('loginPanel');
   const registerForm = document.getElementById('registerPanel');
+  const bridgeProfileForm = document.getElementById('bridgeProfileForm');
 
   if (loginForm) loginForm.addEventListener('submit', handleLoginSubmit);
   if (registerForm) registerForm.addEventListener('submit', handleRegisterSubmit);
+  if (bridgeProfileForm) bridgeProfileForm.addEventListener('submit', handleBridgeProfileSubmit);
 
   document.querySelectorAll('[data-auth-tab]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -787,6 +1181,7 @@ function buildCartRequestText(cart) {
     return 'Wähle zuerst Produkte aus deinem Warenkorb aus.';
   }
 
+  const currentUser = getCurrentAccount();
   const lines = [
     'Hammer Modding Bestellanfrage',
     '',
@@ -795,10 +1190,14 @@ function buildCartRequestText(cart) {
     '',
     `Gesamtsumme: ${totals.totalLabel}`,
     '',
+    `Konto: ${currentUser?.displayName || '[bitte ergänzen]'}`,
+    `E-Mail: ${currentUser?.email || '[bitte ergänzen]'}`,
+    `Discord-Name: ${currentUser?.discord || '[bitte ergänzen]'}`,
+    `CFX-Account / Tebex-Konto: ${currentUser?.cfxAccount || '[bitte ergänzen]'}`,
+    `CFX Identifier / Lizenz: ${currentUser?.cfxIdentifier || '[bitte ergänzen]'}`,
+    `Zusätzliche Hinweise: ${currentUser?.bridgeNote || '[optional]'}`,
+    '',
     'Bitte später über Tebex / saubere Freischaltung abwickeln.',
-    'CFX-Account / Tebex-Konto: [bitte ergänzen]',
-    'Discord-Name: [bitte ergänzen]',
-    'Zusätzliche Hinweise: [optional]',
   ];
 
   return lines.join('\n');
@@ -823,6 +1222,8 @@ function updateRequestDraftFields(cart) {
   if (modalText) {
     modalText.value = requestText;
   }
+
+  updateBridgeDraftFields(items);
 
   copyButtons.forEach((button) => {
     button.disabled = !items.length;
@@ -887,6 +1288,7 @@ async function copyPreparedRequestText() {
 
 function openContactRequestFlow() {
   closeRequestModal();
+  closeTebexBridgeModal();
   activateNav('contact');
   showSection('contact');
   const requestText = document.getElementById('contactRequestText');
@@ -1071,6 +1473,13 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+  const tebexOpenBtn = e.target.closest('[data-tebex-open="true"]');
+  if (tebexOpenBtn) {
+    e.preventDefault();
+    openTebexBridgeModal();
+    return;
+  }
+
   const copyRequestBtn = e.target.closest('[data-copy-request="true"]');
   if (copyRequestBtn) {
     e.preventDefault();
@@ -1099,9 +1508,43 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+  const closeTebexBtn = e.target.closest('[data-tebex-close="true"]');
+  if (closeTebexBtn) {
+    e.preventDefault();
+    closeTebexBridgeModal();
+    return;
+  }
+
+  const copyBridgeBtn = e.target.closest('[data-copy-bridge="true"]');
+  if (copyBridgeBtn) {
+    e.preventDefault();
+    const copied = await copyPreparedBridgeText();
+    if (copied) {
+      const originalText = copyBridgeBtn.textContent;
+      copyBridgeBtn.textContent = 'Bridge kopiert';
+      window.setTimeout(() => {
+        copyBridgeBtn.textContent = originalText;
+      }, 1400);
+    }
+    return;
+  }
+
+  const openAccountBridgeBtn = e.target.closest('[data-open-account-bridge="true"]');
+  if (openAccountBridgeBtn) {
+    e.preventDefault();
+    openAccountBridgeFlow();
+    return;
+  }
+
   const overlay = e.target.closest('#requestModalOverlay');
   if (overlay && e.target === overlay) {
     closeRequestModal();
+    return;
+  }
+
+  const tebexOverlay = e.target.closest('#tebexBridgeOverlay');
+  if (tebexOverlay && e.target === tebexOverlay) {
+    closeTebexBridgeModal();
     return;
   }
 

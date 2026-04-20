@@ -392,6 +392,30 @@ body.request-modal-open { overflow: hidden; }
   transform: none;
   box-shadow: none;
 }
+
+.cart-bridge-button {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 46px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: .2s ease;
+}
+.cart-bridge-button:hover {
+  transform: translateY(-1px);
+  background: rgba(255,59,59,0.10);
+  border-color: rgba(255,80,80,0.22);
+}
+.cart-bridge-button[disabled] {
+  opacity: .45;
+  cursor: default;
+  transform: none;
+}
 .request-ready-note {
   margin: 0;
   color: var(--muted);
@@ -570,6 +594,89 @@ body.intro-booting .bg-lightning {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+.bridge-state-box {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+}
+.bridge-state-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,80,80,0.18);
+  background: rgba(255,59,59,0.08);
+  color: #ffe9e9;
+  font-size: 11px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+.bridge-state-badge.is-ready {
+  background: rgba(36, 170, 96, 0.16);
+  border-color: rgba(62, 209, 125, 0.26);
+  color: #dcffeb;
+  box-shadow: 0 0 24px rgba(62, 209, 125, 0.10);
+}
+.bridge-state-badge.is-warning {
+  background: rgba(255, 166, 0, 0.14);
+  border-color: rgba(255, 188, 66, 0.24);
+  color: #fff0cb;
+}
+.bridge-state-badge.is-locked {
+  background: rgba(255,59,59,0.10);
+  border-color: rgba(255,80,80,0.20);
+  color: #ffe3e3;
+}
+.bridge-state-copy,
+.bridge-profile-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.75;
+}
+.bridge-modal-state {
+  margin-bottom: -2px;
+}
+.bridge-history-item {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(5,5,6,0.54);
+}
+.bridge-history-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.bridge-history-top strong {
+  font-size: 15px;
+}
+.bridge-history-top small {
+  color: var(--muted-2);
+  text-transform: uppercase;
+  letter-spacing: .16em;
+}
+.bridge-history-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 13px;
+}
+.bridge-history-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 .request-copy-button {
   min-width: 210px;
@@ -889,13 +996,17 @@ body.intro-booting .bg-lightning {
 .account-meta-row strong {
   text-align: right;
 }
-.account-history-block {
+.account-history-block,
+.bridge-profile-block {
   display: grid;
   gap: 14px;
   padding: 18px;
   border-radius: 22px;
   border: 1px solid rgba(255,255,255,0.08);
   background: rgba(255,255,255,0.03);
+}
+.bridge-profile-actions {
+  grid-column: 1 / -1;
 }
 .account-history-list,
 .account-side-history-list {
@@ -980,6 +1091,9 @@ body.intro-booting .bg-lightning {
   margin: 0;
   color: var(--muted);
   line-height: 1.75;
+}
+.account-side-bridge {
+  margin-top: -2px;
 }
 .account-side-meta {
   display: flex;
@@ -1733,4 +1847,11 @@ body.intro-booting .bg-lightning {
 
 .slider-track-clothing .card-link[data-nav-open="contact"] {
   position: relative;
+}
+
+.tebex-bridge-modal {
+  width: min(940px, 100%);
+}
+.tebex-bridge-modal .request-modal-text {
+  min-height: 320px;
 }
