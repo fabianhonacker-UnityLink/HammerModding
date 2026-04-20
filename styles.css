@@ -2420,3 +2420,32 @@ body.intro-booting .bg-lightning {
     padding: 10px;
   }
 }
+
+
+/* ===== Vertical alignment cleanup: desktop content closer to top ===== */
+@media (min-width: 1201px) {
+  .content {
+    padding-top: 0;
+  }
+
+  .content > .hero.section-home {
+    margin-top: 0;
+  }
+
+  .section-home,
+  .section,
+  .contact-box {
+    margin-top: 8px;
+  }
+
+  .home-marquee-section {
+    margin-top: 8px;
+  }
+
+  .scripts-hero,
+  .clothing-hero,
+  .account-shell,
+  .foundation-form-shell {
+    margin-top: 0;
+  }
+}
