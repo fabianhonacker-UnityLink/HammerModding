@@ -69,31 +69,10 @@
     <div class="cart-panel-footer">
       <button class="cart-clear-button" data-cart-clear="true" id="cartClearButton" type="button">Alles entfernen</button>
       <button class="cart-request-button" data-cart-request="true" id="cartRequestButton" type="button">Anfrage vorbereiten</button>
-      <button class="cart-bridge-button" data-tebex-open="true" id="cartTebexButton" type="button">Tebex-Bridge</button>
       <div class="cart-panel-total">
         <span>Gesamt</span>
         <strong id="cartPanelTotal">0,00 €</strong>
       </div>
-    </div>
-  </div>
-  <div class="account-side-card glass-soft" data-auth-state="guest" id="accountSideCard">
-    <div class="account-side-head">
-      <strong>Konto</strong>
-      <small id="accountSideBadge">Nicht eingeloggt</small>
-    </div>
-    <p class="account-side-copy" id="accountSideCopy">Melde dich an oder registriere dich, damit Anfragen direkt mit deinem Konto verknüpft werden.</p>
-    <div class="account-side-meta" id="accountSideMeta">
-      <span id="accountSideName">Gast</span>
-      <span aria-hidden="true" class="account-side-dot"></span>
-      <span id="accountSideRequests">0 Anfragen</span>
-    </div>
-    <div class="bridge-state-box account-side-bridge">
-      <span class="bridge-state-badge" id="accountSideBridgeBadge">Bridge gesperrt</span>
-      <p class="bridge-state-copy" id="accountSideBridgeCopy">Login + Bindungsdaten nötig, damit Tebex später sauber zuordnen kann.</p>
-    </div>
-    <div class="account-side-actions">
-      <button class="cta secondary account-side-button" data-account-open="login" id="accountSideSecondaryButton" type="button">Anmelden</button>
-      <button class="cta primary account-side-button" data-account-open="register" id="accountSidePrimaryButton" type="button">Registrieren</button>
     </div>
   </div>
 </div>
@@ -1392,350 +1371,252 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
 </article>
 </div>
 </section>
-<section class="section account-only hidden-section" id="accountSection">
-<div class="section-head">
-<span></span>
-<h3>Konto &amp; Zugriff</h3>
-</div>
-<div class="account-layout">
-  <div class="account-main glass-soft">
-    <div class="account-intro">
+<section class="section hidden-section" id="accountSection">
+<div class="contact-layout">
+  <div class="contact-main glass-soft">
+    <div class="contact-intro">
       <div class="eyebrow">Hammer Modding · Konto</div>
-      <h2>LOGIN, REGISTRIEREN<br/><span>&amp; BENUTZERKONTO VERWALTEN</span></h2>
+      <h2>ECHTE KONTEN VORBEREITEN<br/><span>&amp; SAUBER AUFBAUEN</span></h2>
       <p>
-        Hier bereitest du dein Benutzerkonto sauber vor. In diesem Schritt läuft alles noch lokal im Browser,
-        aber die Oberfläche ist schon so aufgebaut, dass später Login, Bestellungen, Freischaltungen und Tebex sauber daran angebunden werden können.
+        Phase 6A ist der Übergang von rein lokaler Demo-Logik zu einem echten System mit Datenbank, Rollen, Login und später geschützten Bereichen.
+        Hier legen wir die sichtbare Grundlage fest, bevor Supabase, echte Sessions und die Tebex-Verknüpfung live angeschlossen werden.
       </p>
     </div>
-    <div aria-label="Konto-Modus" class="account-mode-switch" role="tablist">
-      <button aria-selected="true" class="account-mode-button is-active" data-auth-tab="login" id="loginTabButton" type="button">Anmelden</button>
-      <button aria-selected="false" class="account-mode-button" data-auth-tab="register" id="registerTabButton" type="button">Registrieren</button>
-      <button aria-selected="false" class="account-mode-button" data-auth-tab="dashboard" id="dashboardTabButton" type="button">Benutzerkonto</button>
-    </div>
-    <p aria-live="polite" class="account-feedback hidden" id="accountFeedback"></p>
-    <div class="auth-panels">
-      <form class="auth-panel glass" data-auth-panel="login" id="loginPanel">
-        <div class="auth-panel-head">
-          <strong>Login</strong>
-          <small>Bestehendes Konto</small>
+    <div class="foundation-grid two-up">
+      <article class="foundation-card">
+        <div class="foundation-card-head">
+          <strong>Konto-Felder</strong>
+          <small>später echte DB</small>
         </div>
-        <div class="auth-form-grid">
-          <label class="auth-field">
-            <span>E-Mail</span>
-            <input autocomplete="email" id="loginEmail" placeholder="deine@email.de" required type="email"/>
-          </label>
-          <label class="auth-field">
-            <span>Passwort</span>
-            <input autocomplete="current-password" id="loginPassword" placeholder="Passwort eingeben" required type="password"/>
-          </label>
+        <ul class="foundation-points">
+          <li>Benutzername</li>
+          <li>E-Mail</li>
+          <li>Discord</li>
+          <li>CFX-Identifier / License</li>
+          <li>Rolle &amp; Freigaben</li>
+        </ul>
+      </article>
+      <article class="foundation-card">
+        <div class="foundation-card-head">
+          <strong>Rollenmodell</strong>
+          <small>für späteren Live-Betrieb</small>
         </div>
-        <div class="auth-panel-actions">
-          <button class="cta primary auth-submit-button" type="submit">Einloggen</button>
-          <button class="cta secondary" data-auth-tab="register" type="button">Noch kein Konto?</button>
+        <div class="role-pill-row">
+          <span class="role-pill">Admin</span>
+          <span class="role-pill">Produktmanager</span>
+          <span class="role-pill">Kunde</span>
         </div>
-      </form>
-
-      <form class="auth-panel glass hidden-section" data-auth-panel="register" id="registerPanel">
-        <div class="auth-panel-head">
-          <strong>Registrieren</strong>
-          <small>Neues Konto</small>
+        <p class="foundation-copy">
+          Der Bereich <strong>System</strong> und die spätere Produktverwaltung werden nur für berechtigte Konten sichtbar und serverseitig abgesichert.
+        </p>
+      </article>
+      <article class="foundation-card">
+        <div class="foundation-card-head">
+          <strong>Spätere Kontoseiten</strong>
+          <small>nach echter Auth</small>
         </div>
-        <div class="auth-form-grid auth-form-grid-two">
-          <label class="auth-field">
-            <span>Benutzername</span>
-            <input autocomplete="nickname" id="registerDisplayName" maxlength="40" placeholder="z. B. Fabian / Hammer Kunde" required type="text"/>
-          </label>
-          <label class="auth-field">
-            <span>E-Mail</span>
-            <input autocomplete="email" id="registerEmail" placeholder="deine@email.de" required type="email"/>
-          </label>
-          <label class="auth-field">
-            <span>Discord</span>
-            <input autocomplete="off" id="registerDiscord" maxlength="60" placeholder="z. B. hammeruser#1234" type="text"/>
-          </label>
-          <label class="auth-field">
-            <span>CFX / Tebex Konto</span>
-            <input autocomplete="off" id="registerCfx" maxlength="80" placeholder="z. B. CFX-Name oder Tebex-Konto" type="text"/>
-          </label>
-          <label class="auth-field">
-            <span>Passwort</span>
-            <input autocomplete="new-password" id="registerPassword" minlength="6" placeholder="Mindestens 6 Zeichen" required type="password"/>
-          </label>
-          <label class="auth-field">
-            <span>Passwort wiederholen</span>
-            <input autocomplete="new-password" id="registerPasswordConfirm" minlength="6" placeholder="Passwort wiederholen" required type="password"/>
-          </label>
+        <ul class="foundation-points">
+          <li>Meine Bestellungen</li>
+          <li>Meine Downloads</li>
+          <li>Verknüpfte CFX-Bindungen</li>
+          <li>Produktanfragen &amp; Freigaben</li>
+        </ul>
+      </article>
+      <article class="foundation-card">
+        <div class="foundation-card-head">
+          <strong>Nächster technischer Schritt</strong>
+          <small>heute vorbereitbar</small>
         </div>
-        <div class="auth-panel-actions">
-          <button class="cta primary auth-submit-button" type="submit">Konto erstellen</button>
-          <button class="cta secondary" data-auth-tab="login" type="button">Ich habe schon ein Konto</button>
+        <p class="foundation-copy">
+          Sobald URL, Public Key und die Store-Daten vorliegen, wird aus dieser Grundlage ein echtes Auth- und Datenbanksystem.
+        </p>
+        <div class="foundation-actions">
+          <button class="cta secondary" data-nav-open="system" type="button">Zum System-Fundament</button>
+          <button class="cta secondary" data-nav-open="contact" type="button">Zum Kontakt</button>
         </div>
-      </form>
-
-      <div class="auth-panel glass hidden-section" data-auth-panel="dashboard" id="dashboardPanel">
-        <div class="auth-panel-head">
-          <strong>Benutzerkonto</strong>
-          <small id="accountDashboardStatus">Nicht eingeloggt</small>
-        </div>
-        <div class="account-dashboard-empty" id="accountDashboardEmpty">
-          <p>Melde dich an oder registriere dich, damit Bestellanfragen direkt mit deinem Konto, deiner E-Mail und deinem CFX-/Tebex-Hinweis vorbereitet werden können.</p>
-          <div class="auth-panel-actions">
-            <button class="cta secondary" data-auth-tab="login" type="button">Zum Login</button>
-            <button class="cta primary" data-auth-tab="register" type="button">Zur Registrierung</button>
-          </div>
-        </div>
-        <div class="account-dashboard-body hidden-section" id="accountDashboardBody">
-          <div class="account-summary-grid">
-            <article class="account-summary-card">
-              <span class="account-summary-label">Benutzername</span>
-              <strong id="accountDisplayName">-</strong>
-            </article>
-            <article class="account-summary-card">
-              <span class="account-summary-label">E-Mail</span>
-              <strong id="accountDisplayEmail">-</strong>
-            </article>
-            <article class="account-summary-card">
-              <span class="account-summary-label">Discord</span>
-              <strong id="accountDisplayDiscord">-</strong>
-            </article>
-            <article class="account-summary-card">
-              <span class="account-summary-label">CFX / Tebex</span>
-              <strong id="accountDisplayCfx">-</strong>
-            </article>
-          </div>
-          <div class="account-dashboard-meta">
-            <div class="account-meta-row"><span>Erstellt</span><strong id="accountDisplayCreated">-</strong></div>
-            <div class="account-meta-row"><span>Letzter Login</span><strong id="accountDisplayLastLogin">-</strong></div>
-            <div class="account-meta-row"><span>Gespeicherte Anfragen</span><strong id="accountDisplayRequestCount">0</strong></div>
-          </div>
-          <div class="auth-panel-actions">
-            <button class="cta secondary" data-open-contact-request="true" type="button">Zum Kontaktbereich</button>
-            <button class="cta secondary" data-tebex-open="true" type="button">Tebex-Bridge öffnen</button>
-            <button class="cta secondary" data-open-system="true" type="button">System öffnen</button>
-            <button class="cta primary" data-account-logout="true" type="button">Abmelden</button>
-          </div>
-          <div class="bridge-profile-block glass">
-            <div class="request-draft-head">
-              <strong>Tebex / Bindung</strong>
-              <small>Phase 5C</small>
-            </div>
-            <p class="bridge-profile-copy">Diese Angaben bilden die Grundlage für spätere Freischaltung, Tebex-Zuordnung und die Bindung an genau einen CFX-Account.</p>
-            <div class="bridge-state-box">
-              <span class="bridge-state-badge" id="accountBridgeBadge">Bridge gesperrt</span>
-              <p class="bridge-state-copy" id="accountBridgeMissing">Melde dich zuerst an und ergänze dann deine Bindungsdaten.</p>
-            </div>
-            <form class="auth-form-grid auth-form-grid-two" id="bridgeProfileForm">
-              <label class="auth-field">
-                <span>Discord</span>
-                <input autocomplete="off" id="bridgeDiscord" maxlength="60" placeholder="z. B. hammeruser#1234" type="text"/>
-              </label>
-              <label class="auth-field">
-                <span>CFX / Tebex Konto</span>
-                <input autocomplete="off" id="bridgeCfx" maxlength="80" placeholder="z. B. CFX-Name oder Tebex-Konto" type="text"/>
-              </label>
-              <label class="auth-field">
-                <span>CFX Identifier / Lizenz</span>
-                <input autocomplete="off" id="bridgeIdentifier" maxlength="120" placeholder="z. B. license:abc123 oder CFX Identifier" type="text"/>
-              </label>
-              <label class="auth-field">
-                <span>Freischaltungs-Hinweis</span>
-                <input autocomplete="off" id="bridgeNote" maxlength="120" placeholder="z. B. nur für Hauptserver / Kunde XY" type="text"/>
-              </label>
-              <div class="auth-panel-actions bridge-profile-actions">
-                <button class="cta primary auth-submit-button" type="submit">Bridge-Profil speichern</button>
-                <button class="cta secondary" data-tebex-open="true" type="button">Tebex-Bridge öffnen</button>
-              </div>
-            </form>
-          </div>
-          <div class="account-history-block">
-            <div class="request-draft-head">
-              <strong>Meine Anfragen</strong>
-              <small>lokal gespeichert</small>
-            </div>
-            <div class="account-history-list" id="accountHistoryList"></div>
-          </div>
-          <div class="account-history-block">
-            <div class="request-draft-head">
-              <strong>Meine Tebex-Bridge Entwürfe</strong>
-              <small>lokal gespeichert</small>
-            </div>
-            <div class="account-history-list" id="accountBridgeHistoryList"></div>
-          </div>
-        </div>
-      </div>
+      </article>
     </div>
   </div>
-  <div class="account-side-section">
+  <div class="contact-side">
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
         <strong>Status</strong>
-        <small>Phase 5C</small>
+        <small>Phase 6A</small>
       </div>
-      <p>Konten, Anfrage-Verknüpfung und die vorbereitende Tebex-/Bindungslogik laufen in diesem Schritt lokal im Browser. Die Oberfläche ist damit deutlich näher an einem späteren echten Checkout-Flow.</p>
+      <div class="status-stack">
+        <div class="status-line"><span>Datenbank</span><strong class="status-badge status-badge-warn" id="accountDbStatusBadge">Offen</strong></div>
+        <div class="status-line"><span>Auth</span><strong class="status-badge status-badge-warn" id="accountAuthStatusBadge">Offen</strong></div>
+        <div class="status-line"><span>Tebex-Bridge</span><strong class="status-badge status-badge-warn" id="accountBridgeStatusBadge">Wartet</strong></div>
+      </div>
     </article>
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
-        <strong>Anfrage-Verlauf</strong>
-        <small>dein Konto</small>
+        <strong>Zielbild</strong>
+        <small>echte Konten</small>
       </div>
-      <p>Jede vorbereitete Anfrage kann deinem Konto lokal zugeordnet werden. So bleibt später klar, wer was angefragt hat.</p>
-      <div class="account-side-history-list" id="accountSideHistoryList"></div>
+      <p>Normale Nutzer sehen nur Shop, Käufe und Kontobereich. Admins und Produktmanager erhalten später zusätzlich Zugriff auf System, Backend und Produktpflege.</p>
     </article>
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
-        <strong>Tebex-Bridge</strong>
-        <small>Phase 5C</small>
+        <strong>Produktpflege</strong>
+        <small>für später gemerkt</small>
       </div>
-      <p>Die Bridge prüft Warenkorb, Konto und CFX-Bindung und erzeugt daraus einen lokalen Checkout-Entwurf für den späteren echten Ausbau.</p>
-      <div class="bridge-state-box">
-        <span class="bridge-state-badge" id="accountBridgeInfoBadge">Nicht bereit</span>
-        <p class="bridge-state-copy" id="accountBridgeInfoCopy">Lege Produkte in den Warenkorb und ergänze deine Bindungsdaten.</p>
-      </div>
-      <div class="account-side-history-list" id="accountSideBridgeHistoryList"></div>
+      <p>Ausgewählte Konten sollen später Produkte direkt über die Website mit Bild, Titel, Preis und Beschreibung anlegen und veröffentlichen können.</p>
     </article>
   </div>
 </div>
 </section>
 
-
-<section class="section system-only hidden-section" id="systemSection">
-<div class="section-head">
-<span></span>
-<h3>Backend &amp; Checkout</h3>
-</div>
-<div class="system-layout">
-  <div class="system-main glass-soft">
-    <div class="account-intro">
+<section class="section hidden-section" id="systemSection">
+<div class="contact-layout">
+  <div class="contact-main glass-soft">
+    <div class="contact-intro">
       <div class="eyebrow">Hammer Modding · System</div>
-      <h2>BACKEND, CHECKOUT<br/><span>&amp; WEBHOOK-SETUP VORBEREITEN</span></h2>
+      <h2>DATENBANK-FUNDAMENT<br/><span>&amp; ECHTE ANBINDUNG VORBEREITEN</span></h2>
       <p>
-        In diesem Schritt bleibt alles weiter frontendbasiert, aber die technische Unterstruktur wird sauber vorbereitet:
-        API-Basis, Webhook-/Relay-Ziel, Produkt-Mappings und ein Payload-Entwurf für spätere echte Checkout- und Freischaltungslogik.
+        Hier legst du die Eckdaten für die spätere echte Datenbank, Rollenlogik und Tebex-/Webhook-Anbindung fest.
+        Solange noch keine Live-Zugangsdaten da sind, bleibt das ein sauberer Technik-Entwurf statt einer halben Fake-Anbindung.
       </p>
     </div>
-    <div class="bridge-state-box">
-      <span class="bridge-state-badge" id="systemBackendBadge">Nicht vorbereitet</span>
-      <p class="bridge-state-copy" id="systemBackendCopy">Lege API-/Webhook-Ziele, Paket-Mappings und deine Checkout-Bindung an, damit der spätere echte Backend-Ausbau sauber starten kann.</p>
-    </div>
-
-    <form class="auth-panel glass" id="systemBackendForm">
-      <div class="auth-panel-head">
-        <strong>Checkout-Konfiguration</strong>
-        <small>Phase 5D</small>
+    <div class="foundation-form-shell">
+      <div class="foundation-form-head">
+        <strong>Phase-6A Konfiguration</strong>
+        <small>bereit für echte DB-Anbindung</small>
       </div>
-      <div class="auth-form-grid auth-form-grid-two">
-        <label class="auth-field">
-          <span>Umgebung</span>
-          <select id="systemEnvironment">
-            <option value="local">Local</option>
-            <option value="staging">Staging</option>
-            <option value="live">Live</option>
+      <div class="foundation-form-grid">
+        <label class="foundation-field">
+          <span>Backend-Provider</span>
+          <select class="hm-select" id="dbProviderSelect">
+            <option value="supabase">Supabase</option>
+            <option value="custom">Custom Backend</option>
           </select>
         </label>
-        <label class="auth-field">
-          <span>Sync-Modus</span>
-          <select id="systemOrderMode">
-            <option value="manual-review">Manuelle Prüfung</option>
-            <option value="bridge-relay">Bridge + Relay</option>
-            <option value="full-automation">Vollautomatisch</option>
+        <label class="foundation-field">
+          <span>Auth-Methode</span>
+          <select class="hm-select" id="authProviderSelect">
+            <option value="email-password">E-Mail + Passwort</option>
+            <option value="email-discord">E-Mail + Discord später</option>
           </select>
         </label>
-        <label class="auth-field">
-          <span>API Base URL</span>
-          <input autocomplete="off" id="systemApiBaseUrl" placeholder="z. B. https://api.hammermodding.de" type="url"/>
+        <label class="foundation-field field-span-2">
+          <span>Project URL / API Base</span>
+          <input class="hm-input" id="dbProjectUrlInput" placeholder="https://dein-projekt.supabase.co" type="text"/>
         </label>
-        <label class="auth-field">
-          <span>Webhook / Relay URL</span>
-          <input autocomplete="off" id="systemWebhookUrl" placeholder="z. B. https://api.hammermodding.de/webhooks/orders" type="url"/>
+        <label class="foundation-field field-span-2">
+          <span>Public Anon Key</span>
+          <textarea class="hm-textarea compact-textarea" id="dbAnonKeyInput" placeholder="Public Anon Key – später von dir eintragen"></textarea>
         </label>
-        <label class="auth-field">
-          <span>Store / Kategorie</span>
-          <input autocomplete="off" id="systemStoreLabel" maxlength="80" placeholder="z. B. Hammer Modding Main Store" type="text"/>
+        <label class="foundation-field">
+          <span>Storage Bucket</span>
+          <input class="hm-input" id="dbStorageBucketInput" placeholder="product-assets" type="text"/>
         </label>
-        <label class="auth-field">
+        <label class="foundation-field">
           <span>Bindungsmodus</span>
-          <select id="systemBindingMode">
-            <option value="license-only">Nur Lizenz</option>
-            <option value="cfx-license">CFX + Lizenz</option>
-            <option value="manual-approval">Manuelle Freigabe</option>
+          <select class="hm-select" id="bindingModeSelect">
+            <option value="cfx-license">CFX Identifier / License</option>
+            <option value="cfx-account">CFX-Account</option>
+            <option value="discord-cfx">Discord + CFX kombiniert</option>
           </select>
         </label>
-        <label class="auth-field auth-field-full">
-          <span>Webhook-Key Name / Notiz</span>
-          <input autocomplete="off" id="systemWebhookKeyName" maxlength="120" placeholder="z. B. tebex-order-secret / relay-orders-v1" type="text"/>
+        <label class="foundation-field field-span-2">
+          <span>Backend URL</span>
+          <input class="hm-input" id="backendBaseUrlInput" placeholder="https://api.hammer-modding.de" type="text"/>
+        </label>
+        <label class="foundation-field field-span-2">
+          <span>Webhook / Relay URL</span>
+          <input class="hm-input" id="webhookUrlInput" placeholder="https://api.hammer-modding.de/tebex/webhook" type="text"/>
         </label>
       </div>
-      <div class="auth-panel-actions">
-        <button class="cta primary auth-submit-button" type="submit">System-Konfiguration speichern</button>
-        <button class="cta secondary" data-open-account-bridge="true" type="button">Zum Konto</button>
+      <div class="foundation-actions">
+        <button class="cta primary" data-foundation-save="true" id="foundationSaveButton" type="button">Entwurf speichern</button>
+        <button class="cta secondary" data-foundation-copy="true" id="foundationCopyButton" type="button">Zusammenfassung kopieren</button>
       </div>
-    </form>
-
-    <div class="auth-panel glass">
-      <div class="auth-panel-head">
-        <strong>Produkt-Mappings</strong>
-        <small>Tebex Package IDs</small>
-      </div>
-      <p class="bridge-profile-copy">Hier ordnest du jedem Produkt eine spätere Tebex-Package-ID oder interne Shop-ID zu. So bleibt der Checkout später sauber und nachvollziehbar.</p>
-      <div class="system-mapping-list" id="systemProductMappings"></div>
+      <p class="foundation-note">Noch keine Live-DB aktiv. Diese Phase bereitet die echte Anbindung sauber vor, ohne Secrets oder halbe Checkout-Logik blind einzubauen.</p>
     </div>
-
-    <div class="auth-panel glass">
-      <div class="auth-panel-head">
-        <strong>Backend-Zusammenfassung</strong>
-        <small>kopierbereit</small>
+    <div class="request-draft-box foundation-summary-box">
+      <div class="request-draft-head">
+        <strong>Phase-6A Zusammenfassung</strong>
+        <small>für dich / Ansprechpartnerin</small>
       </div>
-      <textarea class="request-modal-text system-textarea" id="systemBackendSummaryText" readonly>System-Zusammenfassung wird geladen ...</textarea>
-      <div class="request-draft-actions">
-        <button class="cta primary" data-copy-system-summary="true" type="button">Zusammenfassung kopieren</button>
-      </div>
+      <textarea class="request-draft-text foundation-summary-text" id="foundationSummaryText" readonly>Phase 6A ist noch nicht initialisiert.</textarea>
     </div>
-
-    <div class="auth-panel glass">
-      <div class="auth-panel-head">
-        <strong>Payload-Vorschau</strong>
-        <small>für späteres Backend</small>
-      </div>
-      <textarea class="request-modal-text system-textarea system-json-textarea" id="systemBackendPayloadText" readonly>{}</textarea>
-      <div class="request-draft-actions">
-        <button class="cta primary" data-copy-system-payload="true" type="button">Payload kopieren</button>
-        <button class="cta secondary" data-tebex-open="true" type="button">Tebex-Bridge öffnen</button>
-      </div>
+    <div class="foundation-grid three-up">
+      <article class="foundation-card">
+        <div class="foundation-card-head">
+          <strong>profiles</strong>
+          <small>Benutzerkonto</small>
+        </div>
+        <p class="foundation-copy">Benutzername, E-Mail, Discord, CFX-Identifier, Rolle und Kontostatus.</p>
+      </article>
+      <article class="foundation-card">
+        <div class="foundation-card-head">
+          <strong>products</strong>
+          <small>Shopdaten</small>
+        </div>
+        <p class="foundation-copy">Titel, Kategorie, Preis, Beschreibung, Status, Bildpfad und spätere Tebex Package ID.</p>
+      </article>
+      <article class="foundation-card">
+        <div class="foundation-card-head">
+          <strong>orders &amp; order_items</strong>
+          <small>Käufe</small>
+        </div>
+        <p class="foundation-copy">Bestellungen, Einzelpositionen, Zahlungsstatus, Freischaltung und Zuordnung zum Konto.</p>
+      </article>
+      <article class="foundation-card">
+        <div class="foundation-card-head">
+          <strong>account_bindings</strong>
+          <small>Freischaltung</small>
+        </div>
+        <p class="foundation-copy">CFX Identifier, Tebex-Bezug, Discord und spätere Lizenz-/Account-Bindung.</p>
+      </article>
+      <article class="foundation-card">
+        <div class="foundation-card-head">
+          <strong>product_submissions</strong>
+          <small>späteres Manager-Panel</small>
+        </div>
+        <p class="foundation-copy">Entwürfe, Uploads, Freigaben und Veröffentlichungen über berechtigte Benutzerkonten.</p>
+      </article>
+      <article class="foundation-card">
+        <div class="foundation-card-head">
+          <strong>webhook_events</strong>
+          <small>Nachvollziehbarkeit</small>
+        </div>
+        <p class="foundation-copy">Eingehende Tebex-Events, Prüfstatus, Logs und technische Rückverfolgung.</p>
+      </article>
     </div>
   </div>
-
-  <div class="system-side">
+  <div class="contact-side">
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
         <strong>Readiness</strong>
-        <small>Phase 5D</small>
+        <small>live vorbereiten</small>
       </div>
-      <p>Hier siehst du sofort, ob Frontend, Konto, Bindung, Produkt-Mappings und Checkout-Ziele schon sauber genug für den späteren echten Ausbau vorbereitet sind.</p>
-      <div class="system-checklist" id="systemChecklist"></div>
+      <div class="status-stack">
+        <div class="status-line"><span>Provider</span><strong class="status-badge status-badge-neutral" id="foundationProviderBadge">Supabase</strong></div>
+        <div class="status-line"><span>Datenbank</span><strong class="status-badge status-badge-warn" id="foundationDbBadge">Offen</strong></div>
+        <div class="status-line"><span>Auth</span><strong class="status-badge status-badge-warn" id="foundationAuthBadge">Offen</strong></div>
+        <div class="status-line"><span>Webhook</span><strong class="status-badge status-badge-warn" id="foundationWebhookBadge">Offen</strong></div>
+      </div>
     </article>
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
-        <strong>Geplanter Ablauf</strong>
-        <small>späterer Echtbetrieb</small>
+        <strong>Heute klären</strong>
+        <small>mit Ansprechpartnerin</small>
       </div>
       <ul class="contact-steps">
-        <li>Kunde meldet sich an und ergänzt CFX-/Bindungsdaten</li>
-        <li>Produkte landen im Warenkorb und werden Package IDs zugeordnet</li>
-        <li>Frontend sendet später Payload an API / Relay</li>
-        <li>Backend validiert Zahlung, Bindung und Produktzuordnung</li>
-        <li>Freischaltung wird nur für genau dieses Konto / diese Bindung erteilt</li>
+        <li>Store-Token / Webstore-Identifier</li>
+        <li>Package IDs der Produkte</li>
+        <li>Webhook-Ziel später eintragbar</li>
+        <li>Headless API für die Homepage</li>
       </ul>
     </article>
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
-        <strong>Nächster echter Ausbau</strong>
-        <small>außerhalb von HTML/CSS/JS</small>
+        <strong>Später geschützt</strong>
+        <small>nur berechtigte Konten</small>
       </div>
-      <p>Ein echter Backend-Schritt braucht später Servercode, Datenbank, sichere Secrets, echte Sessions und Webhook-Verarbeitung. Diese Seite bereitet dafür jetzt die Struktur und die Datenform vor.</p>
-      <div class="request-draft-actions">
-        <button class="cta secondary" data-open-contact-request="true" type="button">Zum Kontaktbereich</button>
-        <button class="cta secondary" data-open-account-bridge="true" type="button">Zum Konto</button>
-      </div>
+      <p>System, Backend, Produktverwaltung und Freigaben sollen später nur für berechtigte Konten sichtbar und serverseitig abgesichert sein.</p>
+      <button class="cta secondary" data-nav-open="account" type="button">Zum Konto-Modell</button>
     </article>
   </div>
 </div>
@@ -1778,18 +1659,11 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
     </article>
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
-        <strong>Tebex-Bridge</strong>
-        <small>Phase 5C</small>
+        <strong>Tebex</strong>
+        <small>Nächster Ausbauschritt</small>
       </div>
-      <p>Die Kaufabwicklung bleibt weiter lokal vorbereitet, aber Konto, Bindung und späterer Tebex-Abschluss sind jetzt bereits in einer sauberen Bridge-Struktur angelegt.</p>
-      <div class="bridge-state-box">
-        <span class="bridge-state-badge" id="contactTebexBadge">Nicht bereit</span>
-        <p class="bridge-state-copy" id="contactTebexCopy">Lege Produkte in den Warenkorb und ergänze deine Bindungsdaten.</p>
-      </div>
-      <div class="request-draft-actions">
-        <button class="cta secondary" data-tebex-open="true" id="contactTebexButton" type="button">Tebex-Bridge öffnen</button>
-        <button class="cta secondary" data-open-system="true" type="button">System öffnen</button>
-      </div>
+      <p>Später kann die finale Kaufabwicklung sauber über Tebex laufen, damit Freischaltung und Bindung an den passenden Account klar geregelt werden.</p>
+      <button class="cta secondary is-disabled" disabled type="button">Tebex folgt</button>
     </article>
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
@@ -1798,8 +1672,8 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
       </div>
       <ul class="contact-steps">
         <li>Scripte oder Kleidung in den Warenkorb legen</li>
-        <li>Anfrage vorbereiten oder direkt Tebex-Bridge prüfen</li>
-        <li>Bindungsdaten im Konto ergänzen</li>
+        <li>Anfrage vorbereiten</li>
+        <li>Text kopieren</li>
         <li>Über Discord senden oder später über Tebex abschließen</li>
       </ul>
     </article>
@@ -1825,32 +1699,7 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
     <div class="request-modal-actions">
       <button class="cta primary" data-copy-request="true" id="modalCopyRequestButton" type="button">Text kopieren</button>
       <button class="cta secondary" data-open-contact-request="true" type="button">Zum Kontaktbereich</button>
-      <button class="cta secondary" data-tebex-open="true" type="button">Tebex-Bridge</button>
       <button class="cta secondary" data-request-close="true" type="button">Schließen</button>
-    </div>
-  </div>
-</div>
-
-<div class="request-modal-overlay hidden" id="tebexBridgeOverlay" aria-hidden="true">
-  <div class="request-modal glass tebex-bridge-modal" aria-labelledby="tebexBridgeTitle" aria-modal="true" role="dialog">
-    <div class="request-modal-head">
-      <div>
-        <div class="eyebrow">Hammer Modding · Tebex-Bridge</div>
-        <h3 id="tebexBridgeTitle">CHECKOUT-BRIDGE VORBEREITET</h3>
-      </div>
-      <button class="request-close-button" data-tebex-close="true" type="button" aria-label="Tebex-Bridge schließen">×</button>
-    </div>
-    <p class="request-modal-copy">Das hier ist noch kein echter Tebex-Checkout. Die Bridge prüft nur, ob Warenkorb, Konto und Bindungsdaten sauber genug für den späteren Abschluss vorbereitet sind.</p>
-    <div class="bridge-state-box bridge-modal-state">
-      <span class="bridge-state-badge" id="tebexBridgeStatusBadge">Nicht bereit</span>
-      <p class="bridge-state-copy" id="tebexBridgeStatusCopy">Lege Produkte in den Warenkorb und ergänze deine Bindungsdaten.</p>
-    </div>
-    <textarea class="request-modal-text" id="tebexBridgeText" readonly>Lege zuerst Produkte in den Warenkorb, damit eine Tebex-Bridge erzeugt werden kann.</textarea>
-    <div class="request-modal-actions">
-      <button class="cta primary" data-copy-bridge="true" id="tebexBridgeCopyButton" type="button">Bridge kopieren</button>
-      <button class="cta secondary" data-open-account-bridge="true" type="button">Zum Konto</button>
-      <button class="cta secondary" data-open-contact-request="true" type="button">Zum Kontaktbereich</button>
-      <button class="cta secondary" data-tebex-close="true" type="button">Schließen</button>
     </div>
   </div>
 </div>
