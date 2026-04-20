@@ -1231,13 +1231,13 @@ body.intro-booting .bg-lightning {
   animation: hmMarqueeLeft 36s linear infinite;
 }
 .slider-track-paid {
-  animation-duration: 34s;
+  animation-duration: 36s;
 }
 .slider-track-clothing {
-  animation: hmMarqueeRight 32s linear infinite;
+  animation: hmMarqueeRight 36s linear infinite;
 }
 .slider-track-coming {
-  animation-duration: 42s;
+  animation-duration: 36s;
 }
 .slider-track-slower { }
 .slider-track-slowest { }
