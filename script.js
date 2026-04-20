@@ -2184,6 +2184,12 @@ function setupMarquees() {
     let groupWidth = 0;
     let x = 0;
     let lastTs = 0;
+    let resizeObserver = null;
+
+    const applyStartPosition = () => {
+      x = cfg.direction === 'reverse' ? 0 : -groupWidth;
+      track.style.transform = `translateX(${x}px)`;
+    };
 
     const refillGroups = () => {
       const targetWidth = Math.max(viewport.offsetWidth + 320, 1180);
@@ -2200,13 +2206,40 @@ function setupMarquees() {
 
     const recalc = () => {
       refillGroups();
-      groupWidth = firstGroup.scrollWidth;
-      x = cfg.direction === 'reverse' ? 0 : -groupWidth;
-      track.style.transform = `translateX(${x}px)`;
+      groupWidth = Math.max(firstGroup.scrollWidth, firstGroup.getBoundingClientRect().width || 0);
+      if (!groupWidth) {
+        window.requestAnimationFrame(() => {
+          groupWidth = Math.max(firstGroup.scrollWidth, firstGroup.getBoundingClientRect().width || 0);
+          if (groupWidth) applyStartPosition();
+        });
+        return;
+      }
+      applyStartPosition();
+    };
+
+    const bindMediaRecalc = () => {
+      const media = track.querySelectorAll('img, video');
+      media.forEach((el) => {
+        if (el.tagName === 'IMG' && !el.complete) {
+          el.addEventListener('load', recalc, { once: true });
+          el.addEventListener('error', recalc, { once: true });
+        }
+        if (el.tagName === 'VIDEO') {
+          el.addEventListener('loadeddata', recalc, { once: true });
+          el.addEventListener('error', recalc, { once: true });
+        }
+      });
     };
 
     recalc();
+    bindMediaRecalc();
     window.addEventListener('resize', recalc);
+
+    if ('ResizeObserver' in window) {
+      resizeObserver = new ResizeObserver(() => recalc());
+      resizeObserver.observe(viewport);
+      resizeObserver.observe(firstGroup);
+    }
 
     viewport.addEventListener('mouseenter', () => { paused = true; });
     viewport.addEventListener('mouseleave', () => { paused = false; });
@@ -2225,6 +2258,13 @@ function setupMarquees() {
 
       const delta = (ts - lastTs) / 1000;
       lastTs = ts;
+
+      if (!groupWidth) {
+        groupWidth = Math.max(firstGroup.scrollWidth, firstGroup.getBoundingClientRect().width || 0);
+        if (groupWidth && track.style.transform === 'translateX(0px)' && cfg.direction !== 'reverse') {
+          applyStartPosition();
+        }
+      }
 
       if (!paused && groupWidth > 0) {
         if (cfg.direction === 'reverse') {
