@@ -184,10 +184,88 @@ function formatLastPurchase(profile, activity) {
 function mapRoleLabel(role) {
   const normalized = String(role || '').trim().toLowerCase();
   if (normalized === 'admin') return 'Admin';
+  if (normalized === 'developer') return 'Technik';
   if (normalized === 'product_manager') return 'Produktmanager';
   if (normalized === 'customer' || normalized === 'kunde') return 'Kunde';
   if (normalized === 'guest' || normalized === 'gast') return 'Gast';
   return role || 'Gast';
+}
+
+
+function formatPresenceTime(value) {
+  if (!value) return 'gerade eben';
+  return formatRelativeDate(value);
+}
+
+function renderActiveUsers(users = []) {
+  const list = document.getElementById('activeUsersList');
+  if (!list) return;
+  if (!Array.isArray(users) || !users.length) {
+    list.innerHTML = '<div class="active-users-empty" id="activeUsersEmpty">Gerade ist niemand online.</div>';
+    return;
+  }
+
+  list.innerHTML = users
+    .map((user) => {
+      const name = user.username || 'User';
+      const role = mapRoleLabel(user.role || 'customer');
+      const initial = getDisplayInitial(name, 'HM');
+      const avatar = user.avatar_url ? `<img src="${user.avatar_url}" alt="${name}" loading="lazy" decoding="async">` : `<strong>${initial}</strong>`;
+      return `
+        <div class="active-user-row">
+          <div class="active-user-avatar">${avatar}<span class="active-user-dot"></span></div>
+          <div class="active-user-meta">
+            <div class="active-user-name">${name}</div>
+            <div class="active-user-role">${role}</div>
+          </div>
+          <div class="active-user-time">${formatPresenceTime(user.last_seen_at)}</div>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+async function refreshActiveUsersUi() {
+  const list = document.getElementById('activeUsersList');
+  if (!list) return;
+  const client = getSupabaseClient();
+  if (!client) {
+    renderActiveUsers([]);
+    return;
+  }
+
+  try {
+    const { data, error } = await client.rpc('get_active_users');
+    if (error) {
+      renderActiveUsers([]);
+      return;
+    }
+    renderActiveUsers(Array.isArray(data) ? data : []);
+  } catch (error) {
+    renderActiveUsers([]);
+  }
+}
+
+function setupActiveUsersRefresh() {
+  window.clearInterval(activeUsersRefreshTimer);
+  refreshActiveUsersUi();
+  activeUsersRefreshTimer = window.setInterval(refreshActiveUsersUi, 60000);
+}
+
+function setupPresenceHeartbeat() {
+  window.clearInterval(accountPresenceTimer);
+  const user = liveAccountSnapshot.user;
+  if (!user?.id) return;
+  accountPresenceTimer = window.setInterval(() => {
+    patchLiveProfile(user.id, { last_seen_at: new Date().toISOString() }).then((profile) => {
+      if (profile) {
+        liveAccountSnapshot.profile = profile;
+        setAccountShellUi(liveAccountSnapshot.user, profile);
+        updateAccountDock(liveAccountSnapshot.user, profile);
+      }
+      refreshActiveUsersUi();
+    });
+  }, accountPresenceHeartbeatMs);
 }
 
 function setAccountShellUi(user, profile) {
@@ -1480,6 +1558,8 @@ async function refreshLiveAuthUi() {
   updateAccountDock(user, profile);
   hydrateProfileEditor(user, profile);
   updateRequestDraftFields(loadVisibleCart());
+  setupPresenceHeartbeat();
+  refreshActiveUsersUi();
 }
 
 async function handleLiveRegister(event) {
@@ -1616,6 +1696,7 @@ async function handleLiveLogout() {
     return;
   }
   closeAccountDropdown();
+  window.clearInterval(accountPresenceTimer);
   await refreshLiveAuthUi();
 }
 
@@ -1682,6 +1763,7 @@ function setupLiveSupabaseAuth() {
   }
 
   setAuthModalTab('login');
+  setupActiveUsersRefresh();
   refreshLiveAuthUi();
 }
 
