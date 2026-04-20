@@ -164,6 +164,7 @@ function openAuthModal(mode = 'login') {
   if (!overlay) return;
   setAuthModalTab(mode);
   overlay.classList.remove('hidden-section');
+  overlay.setAttribute('aria-hidden', 'false');
   document.body.style.overflow = 'hidden';
 }
 
@@ -171,7 +172,15 @@ function closeAuthModal() {
   const overlay = document.getElementById('authModalOverlay');
   if (!overlay) return;
   overlay.classList.add('hidden-section');
+  overlay.setAttribute('aria-hidden', 'true');
   document.body.style.overflow = '';
+}
+
+function scheduleAuthModalClose(delay = 0) {
+  window.setTimeout(() => {
+    closeAuthModal();
+    closeAccountDropdown();
+  }, delay);
 }
 
 function setAccountShellUi(user, profile) {
@@ -1457,13 +1466,13 @@ async function handleLiveRegister(event) {
     setAuthMessage(
       elements.registerMessage,
       data?.session
-        ? 'Konto erstellt und direkt live eingeloggt.'
-        : 'Konto erstellt. Falls Supabase Mail-Bestätigung verlangt, bitte zuerst die E-Mail bestätigen.',
+        ? 'Konto erstellt und eingeloggt.'
+        : 'Konto erstellt. Bitte E-Mail-Bestätigung prüfen.',
       'success',
     );
     if (data?.session?.user?.id) updateAccountActivity(data.session.user.id, { lastLoginAt: new Date().toISOString(), lastSeenAt: new Date().toISOString() });
     await refreshLiveAuthUi();
-    if (data?.session) closeAuthModal();
+    if (data?.session) scheduleAuthModalClose(150);
   } catch (error) {
     setAuthMessage(elements.registerMessage, `Registrierung fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'warn');
   } finally {
@@ -1505,11 +1514,10 @@ async function handleLiveLogin(event) {
     }
 
     if (elements.loginForm) elements.loginForm.reset();
-    setAuthMessage(elements.loginMessage, 'Login erfolgreich. Die Live-Sitzung ist aktiv.', 'success');
+    setAuthMessage(elements.loginMessage, 'Login erfolgreich.', 'success');
     if (data?.user?.id) updateAccountActivity(data.user.id, { lastLoginAt: new Date().toISOString(), lastSeenAt: new Date().toISOString() });
     await refreshLiveAuthUi();
-    closeAuthModal();
-    closeAccountDropdown();
+    scheduleAuthModalClose(150);
   } catch (error) {
     setAuthMessage(elements.loginMessage, `Login fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'warn');
   } finally {
@@ -1848,6 +1856,14 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeRequestModal();
     closeAuthModal();
+    closeAccountDropdown();
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeAuthModal();
+    closeRequestModal();
     closeAccountDropdown();
   }
 });

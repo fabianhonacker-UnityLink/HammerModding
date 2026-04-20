@@ -1898,3 +1898,5 @@ body.intro-booting .bg-lightning {
   .account-dock-row { grid-template-columns: 1fr 46px; }
   .auth-modal-card { width: min(560px, calc(100vw - 20px)); padding: 16px; }
 }
+
+.auth-modal-overlay.hidden-section { display: none !important; }
