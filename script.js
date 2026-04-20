@@ -28,8 +28,9 @@ let introBooting = false;
 
 const cartStorageKey = 'hm_store_cart';
 const cartDraftStorageKey = 'hm_cart_draft';
-const authAccountsStorageKey = 'hm_store_accounts_phase5a';
-const authSessionStorageKey = 'hm_store_account_session_phase5a';
+const authUsersStorageKey = 'hm_store_auth_users';
+const authSessionStorageKey = 'hm_store_auth_session';
+const authRequestHistoryStorageKey = 'hm_store_auth_requests';
 const storeCatalog = {
   blitzer: { id: 'blitzer-script', slug: 'blitzer', name: 'Blitzer Script', price: '15.00', priceLabel: '15,00 €', type: 'paid-script' },
   gps: { id: 'gps-system', slug: 'gps', name: 'GPS System', price: '10.00', priceLabel: '10,00 €', type: 'paid-script' },
@@ -43,7 +44,7 @@ const storeCatalog = {
 };
 
 const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
-  version: 'phase-5a-auth-interface',
+  version: 'phase-5b-account-foundation',
   catalog: storeCatalog,
   lastPreparedItem: null,
 });
@@ -185,6 +186,491 @@ function formatCartPrice(cents) {
   return `${(cents / 100).toFixed(2).replace('.', ',')} €`;
 }
 
+
+function generateLocalId(prefix = 'hm') {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function safeJsonParse(raw, fallback) {
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function loadAuthUsers() {
+  const raw = localStorage.getItem(authUsersStorageKey);
+  const parsed = safeJsonParse(raw, []);
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+function persistAuthUsers(users) {
+  const normalized = Array.isArray(users) ? users : [];
+  try {
+    localStorage.setItem(authUsersStorageKey, JSON.stringify(normalized));
+  } catch (error) {
+    // ignore blocked storage
+  }
+}
+
+function loadAuthSessionUserId() {
+  return localStorage.getItem(authSessionStorageKey) || '';
+}
+
+function persistAuthSessionUserId(userId) {
+  if (!userId) {
+    localStorage.removeItem(authSessionStorageKey);
+    return;
+  }
+  localStorage.setItem(authSessionStorageKey, userId);
+}
+
+function loadAuthRequestHistory() {
+  const raw = localStorage.getItem(authRequestHistoryStorageKey);
+  const parsed = safeJsonParse(raw, []);
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+function persistAuthRequestHistory(entries) {
+  const normalized = Array.isArray(entries) ? entries : [];
+  try {
+    localStorage.setItem(authRequestHistoryStorageKey, JSON.stringify(normalized));
+  } catch (error) {
+    // ignore blocked storage
+  }
+}
+
+function getCurrentAccount() {
+  const userId = loadAuthSessionUserId();
+  if (!userId) return null;
+  return loadAuthUsers().find((user) => user.id === userId) || null;
+}
+
+async function hashAuthPassword(value) {
+  const normalized = String(value || '');
+
+  if (window.crypto?.subtle && window.TextEncoder) {
+    const bytes = new TextEncoder().encode(normalized);
+    const digest = await window.crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest))
+      .map((part) => part.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  return btoa(unescape(encodeURIComponent(normalized)));
+}
+
+function formatAuthDate(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function getUserRequestEntries(userId) {
+  if (!userId) return [];
+  return loadAuthRequestHistory()
+    .filter((entry) => entry.userId === userId)
+    .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+}
+
+function setAccountFeedback(message, type = 'info') {
+  const feedback = document.getElementById('accountFeedback');
+  if (!feedback) return;
+
+  if (!message) {
+    feedback.textContent = '';
+    feedback.classList.add('hidden');
+    feedback.classList.remove('is-success', 'is-error', 'is-info');
+    return;
+  }
+
+  feedback.textContent = message;
+  feedback.classList.remove('hidden', 'is-success', 'is-error', 'is-info');
+  feedback.classList.add(type === 'success' ? 'is-success' : type === 'error' ? 'is-error' : 'is-info');
+}
+
+function getCurrentAuthTab() {
+  const loginPanel = document.getElementById('loginPanel');
+  const registerPanel = document.getElementById('registerPanel');
+  const dashboardPanel = document.getElementById('dashboardPanel');
+
+  if (dashboardPanel && !dashboardPanel.classList.contains('hidden-section')) return 'dashboard';
+  if (registerPanel && !registerPanel.classList.contains('hidden-section')) return 'register';
+  if (loginPanel && !loginPanel.classList.contains('hidden-section')) return 'login';
+  return 'login';
+}
+
+function setAuthTab(tab) {
+  const currentUser = getCurrentAccount();
+  const resolvedTab = tab === 'dashboard' && !currentUser ? 'login' : tab;
+  const panels = {
+    login: document.getElementById('loginPanel'),
+    register: document.getElementById('registerPanel'),
+    dashboard: document.getElementById('dashboardPanel'),
+  };
+
+  document.querySelectorAll('[data-auth-tab]').forEach((button) => {
+    const isActive = button.dataset.authTab === resolvedTab;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+
+  Object.entries(panels).forEach(([name, panel]) => {
+    setVisible(panel, name === resolvedTab);
+  });
+}
+
+function updateAccountSideCard(user) {
+  const card = document.getElementById('accountSideCard');
+  const badge = document.getElementById('accountSideBadge');
+  const copy = document.getElementById('accountSideCopy');
+  const name = document.getElementById('accountSideName');
+  const requests = document.getElementById('accountSideRequests');
+  const primaryButton = document.getElementById('accountSidePrimaryButton');
+  const secondaryButton = document.getElementById('accountSideSecondaryButton');
+  if (!card || !badge || !copy || !name || !requests || !primaryButton || !secondaryButton) return;
+
+  if (!user) {
+    card.dataset.authState = 'guest';
+    badge.textContent = 'Nicht eingeloggt';
+    copy.textContent = 'Melde dich an oder registriere dich, damit Anfragen direkt mit deinem Konto verknüpft werden.';
+    name.textContent = 'Gast';
+    requests.textContent = '0 Anfragen';
+    secondaryButton.textContent = 'Anmelden';
+    secondaryButton.dataset.accountOpen = 'login';
+    secondaryButton.removeAttribute('data-account-logout');
+    primaryButton.textContent = 'Registrieren';
+    primaryButton.dataset.accountOpen = 'register';
+    primaryButton.removeAttribute('data-account-logout');
+    return;
+  }
+
+  const requestCount = getUserRequestEntries(user.id).length;
+  card.dataset.authState = 'active';
+  badge.textContent = 'Eingeloggt';
+  copy.textContent = 'Dein Konto ist aktiv. Anfrage-Text, E-Mail, Discord und CFX/Tebex-Hinweis werden automatisch mit übernommen.';
+  name.textContent = user.displayName;
+  requests.textContent = `${requestCount} ${requestCount === 1 ? 'Anfrage' : 'Anfragen'}`;
+  secondaryButton.textContent = 'Konto öffnen';
+  secondaryButton.dataset.accountOpen = 'dashboard';
+  secondaryButton.removeAttribute('data-account-logout');
+  primaryButton.textContent = 'Abmelden';
+  primaryButton.dataset.accountOpen = '';
+  primaryButton.setAttribute('data-account-logout', 'true');
+}
+
+function renderAccountHistoryEntry(entry) {
+  const itemCount = Array.isArray(entry.items) ? entry.items.length : 0;
+  return `
+    <article class="account-history-item">
+      <div class="account-history-top">
+        <div>
+          <strong>${itemCount} ${itemCount === 1 ? 'Produkt' : 'Produkte'}</strong>
+          <div class="account-history-meta">
+            <span>${entry.totalLabel}</span>
+            <span><span class="account-history-dot" aria-hidden="true"></span>${formatAuthDate(entry.updatedAt || entry.createdAt)}</span>
+          </div>
+        </div>
+        <small>${entry.kindLabel}</small>
+      </div>
+      <div class="account-history-actions">
+        <button class="account-history-button" data-history-copy-id="${entry.id}" type="button">Text kopieren</button>
+        <button class="account-history-button" data-history-load-id="${entry.id}" type="button">In Kontakt laden</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderAccountHistory(user) {
+  const mainList = document.getElementById('accountHistoryList');
+  const sideList = document.getElementById('accountSideHistoryList');
+  if (!mainList || !sideList) return;
+
+  if (!user) {
+    mainList.innerHTML = '<p class="account-history-empty">Noch kein Konto aktiv.</p>';
+    sideList.innerHTML = '<p class="account-history-empty">Melde dich an, damit vorbereitete Anfragen deinem Konto zugeordnet werden.</p>';
+    return;
+  }
+
+  const entries = getUserRequestEntries(user.id);
+  if (!entries.length) {
+    mainList.innerHTML = '<p class="account-history-empty">Noch keine vorbereiteten Anfragen gespeichert.</p>';
+    sideList.innerHTML = '<p class="account-history-empty">Sobald du eine Anfrage vorbereitest, erscheint sie hier.</p>';
+    return;
+  }
+
+  mainList.innerHTML = entries.slice(0, 6).map(renderAccountHistoryEntry).join('');
+  sideList.innerHTML = entries.slice(0, 3).map(renderAccountHistoryEntry).join('');
+}
+
+function renderAccountDashboard(user) {
+  const status = document.getElementById('accountDashboardStatus');
+  const empty = document.getElementById('accountDashboardEmpty');
+  const body = document.getElementById('accountDashboardBody');
+  if (!status || !empty || !body) return;
+
+  if (!user) {
+    status.textContent = 'Nicht eingeloggt';
+    setVisible(empty, true);
+    setVisible(body, false);
+    renderAccountHistory(null);
+    return;
+  }
+
+  const requests = getUserRequestEntries(user.id);
+  status.textContent = 'Lokal aktiv';
+  setVisible(empty, false);
+  setVisible(body, true);
+
+  const fields = {
+    accountDisplayName: user.displayName || '-',
+    accountDisplayEmail: user.email || '-',
+    accountDisplayDiscord: user.discord || 'Noch nicht hinterlegt',
+    accountDisplayCfx: user.cfxAccount || 'Noch nicht hinterlegt',
+    accountDisplayCreated: formatAuthDate(user.createdAt),
+    accountDisplayLastLogin: formatAuthDate(user.lastLoginAt || user.createdAt),
+    accountDisplayRequestCount: String(requests.length),
+  };
+
+  Object.entries(fields).forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  });
+
+  renderAccountHistory(user);
+}
+
+function updateAccountUi(options = {}) {
+  const currentUser = getCurrentAccount();
+  updateAccountSideCard(currentUser);
+  renderAccountDashboard(currentUser);
+  updateRequestDraftFields(loadVisibleCart());
+
+  hmStoreBridge.account = currentUser
+    ? {
+        id: currentUser.id,
+        displayName: currentUser.displayName,
+        email: currentUser.email,
+        discord: currentUser.discord,
+        cfxAccount: currentUser.cfxAccount,
+      }
+    : null;
+  hmStoreBridge.getAccount = () => (getCurrentAccount() ? { ...getCurrentAccount() } : null);
+
+  const requestedTab = options.keepTab ? getCurrentAuthTab() : currentUser ? 'dashboard' : 'login';
+  setAuthTab(requestedTab);
+}
+
+function buildCurrentUserRequestFingerprint(items, totalCents) {
+  return `${items.map((item) => item.id).sort().join('|')}::${totalCents}`;
+}
+
+function saveCurrentUserRequestDraft(cart) {
+  const currentUser = getCurrentAccount();
+  const items = Array.isArray(cart) ? cart : [];
+  if (!currentUser || !items.length) return null;
+
+  const totals = getVisibleCartTotals(items);
+  const requestText = buildCartRequestText(items);
+  const history = loadAuthRequestHistory();
+  const fingerprint = buildCurrentUserRequestFingerprint(items, totals.totalCents);
+  const existing = history.find((entry) => entry.userId === currentUser.id && entry.fingerprint === fingerprint);
+  const payload = {
+    userId: currentUser.id,
+    items: items.map((item) => ({ id: item.id, name: item.name, priceLabel: item.priceLabel, type: item.type })),
+    totalLabel: totals.totalLabel,
+    totalCents: totals.totalCents,
+    requestText,
+    kindLabel: items.some((item) => item.type === 'clothing') && items.some((item) => item.type === 'paid-script')
+      ? 'Mix'
+      : items.every((item) => item.type === 'clothing')
+        ? 'Kleidung'
+        : 'Scripte',
+    fingerprint,
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (existing) {
+    Object.assign(existing, payload);
+  } else {
+    history.push({
+      id: generateLocalId('request'),
+      createdAt: new Date().toISOString(),
+      ...payload,
+    });
+  }
+
+  persistAuthRequestHistory(history);
+  updateAccountUi({ keepTab: true });
+  return existing || history[history.length - 1];
+}
+
+async function copyHistoryRequestById(requestId) {
+  const entry = loadAuthRequestHistory().find((candidate) => candidate.id === requestId);
+  if (!entry?.requestText) return false;
+
+  try {
+    await navigator.clipboard.writeText(entry.requestText);
+    return true;
+  } catch (error) {
+    const helper = document.createElement('textarea');
+    helper.value = entry.requestText;
+    helper.setAttribute('readonly', 'true');
+    helper.style.position = 'fixed';
+    helper.style.opacity = '0';
+    document.body.appendChild(helper);
+    helper.focus();
+    helper.select();
+    let copied = false;
+    try {
+      copied = document.execCommand('copy');
+    } catch (execError) {
+      copied = false;
+    }
+    document.body.removeChild(helper);
+    return copied;
+  }
+}
+
+function loadHistoryRequestIntoContact(requestId) {
+  const currentUser = getCurrentAccount();
+  const entry = loadAuthRequestHistory().find((candidate) => candidate.id === requestId && candidate.userId === currentUser?.id);
+  if (!entry) return;
+  closeRequestModal();
+  activateNav('contact');
+  showSection('contact');
+  const contactText = document.getElementById('contactRequestText');
+  if (contactText) {
+    contactText.value = entry.requestText;
+    contactText.focus();
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function handleLoginSubmit(event) {
+  event.preventDefault();
+  const emailField = document.getElementById('loginEmail');
+  const passwordField = document.getElementById('loginPassword');
+  if (!emailField || !passwordField) return;
+
+  const email = emailField.value.trim().toLowerCase();
+  const password = passwordField.value;
+  if (!email || !password) {
+    setAccountFeedback('Bitte fülle E-Mail und Passwort aus.', 'error');
+    return;
+  }
+
+  const passwordHash = await hashAuthPassword(password);
+  const users = loadAuthUsers();
+  const user = users.find((entry) => entry.email === email);
+  if (!user || user.passwordHash !== passwordHash) {
+    setAccountFeedback('Login fehlgeschlagen. Bitte prüfe E-Mail und Passwort.', 'error');
+    return;
+  }
+
+  user.lastLoginAt = new Date().toISOString();
+  persistAuthUsers(users);
+  persistAuthSessionUserId(user.id);
+  passwordField.value = '';
+  setAccountFeedback(`Willkommen zurück, ${user.displayName}.`, 'success');
+  updateAccountUi({ keepTab: false });
+}
+
+async function handleRegisterSubmit(event) {
+  event.preventDefault();
+  const displayNameField = document.getElementById('registerDisplayName');
+  const emailField = document.getElementById('registerEmail');
+  const discordField = document.getElementById('registerDiscord');
+  const cfxField = document.getElementById('registerCfx');
+  const passwordField = document.getElementById('registerPassword');
+  const confirmField = document.getElementById('registerPasswordConfirm');
+  if (!displayNameField || !emailField || !discordField || !cfxField || !passwordField || !confirmField) return;
+
+  const displayName = displayNameField.value.trim();
+  const email = emailField.value.trim().toLowerCase();
+  const discord = discordField.value.trim();
+  const cfxAccount = cfxField.value.trim();
+  const password = passwordField.value;
+  const passwordConfirm = confirmField.value;
+
+  if (!displayName || !email || !password || !passwordConfirm) {
+    setAccountFeedback('Bitte fülle alle Pflichtfelder aus.', 'error');
+    return;
+  }
+  if (password.length < 6) {
+    setAccountFeedback('Das Passwort sollte mindestens 6 Zeichen haben.', 'error');
+    return;
+  }
+  if (password !== passwordConfirm) {
+    setAccountFeedback('Die Passwörter stimmen nicht überein.', 'error');
+    return;
+  }
+
+  const users = loadAuthUsers();
+  if (users.some((user) => user.email === email)) {
+    setAccountFeedback('Zu dieser E-Mail existiert bereits ein Konto.', 'error');
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const user = {
+    id: generateLocalId('user'),
+    displayName,
+    email,
+    discord,
+    cfxAccount,
+    passwordHash: await hashAuthPassword(password),
+    createdAt: now,
+    lastLoginAt: now,
+  };
+
+  users.push(user);
+  persistAuthUsers(users);
+  persistAuthSessionUserId(user.id);
+  event.target.reset();
+  setAccountFeedback(`Konto erstellt. Willkommen, ${user.displayName}.`, 'success');
+  updateAccountUi({ keepTab: false });
+}
+
+function logoutCurrentAccount() {
+  persistAuthSessionUserId('');
+  setAccountFeedback('Du wurdest abgemeldet.', 'success');
+  updateAccountUi({ keepTab: false });
+}
+
+function openAccountSection(tab = 'login') {
+  activateNav('account');
+  showSection('account');
+  setAuthTab(tab);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function setupAccountInterface() {
+  const loginForm = document.getElementById('loginPanel');
+  const registerForm = document.getElementById('registerPanel');
+
+  if (loginForm) loginForm.addEventListener('submit', handleLoginSubmit);
+  if (registerForm) registerForm.addEventListener('submit', handleRegisterSubmit);
+
+  document.querySelectorAll('[data-auth-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      setAuthTab(button.dataset.authTab || 'login');
+    });
+  });
+}
+
+function initializeAccountState() {
+  updateAccountUi({ keepTab: false });
+}
+
 function buildPreparedCartItem(button) {
   if (!button) return null;
 
@@ -296,7 +782,6 @@ function getCartItemTypeLabel(item) {
 function buildCartRequestText(cart) {
   const items = Array.isArray(cart) ? cart : [];
   const totals = getVisibleCartTotals(items);
-  const account = loadActiveAccount();
 
   if (!items.length) {
     return 'Wähle zuerst Produkte aus deinem Warenkorb aus.';
@@ -310,284 +795,13 @@ function buildCartRequestText(cart) {
     '',
     `Gesamtsumme: ${totals.totalLabel}`,
     '',
-    'Kontodaten:',
-    `Benutzerkonto: ${account?.username || '[bitte ergänzen]'}`,
-    `E-Mail: ${account?.email || '[bitte ergänzen]'}`,
-    `Discord-Name: ${account?.discord || '[bitte ergänzen]'}`,
-    `CFX-Account / Tebex-Konto: ${account?.cfxId || '[bitte ergänzen]'}`,
-    '',
     'Bitte später über Tebex / saubere Freischaltung abwickeln.',
+    'CFX-Account / Tebex-Konto: [bitte ergänzen]',
+    'Discord-Name: [bitte ergänzen]',
     'Zusätzliche Hinweise: [optional]',
   ];
 
-  if (!account) {
-    lines.splice(8, 0, 'Hinweis: Noch kein Konto aktiv. Login / Registrierung kann später für Bestellungen genutzt werden.', '');
-  }
-
   return lines.join('\n');
-}
-
-function normalizeAuthEmail(value) {
-  return String(value || '').trim().toLowerCase();
-}
-
-function sanitizeAccountProfile(account) {
-  if (!account) return null;
-
-  return {
-    username: account.username || '',
-    email: normalizeAuthEmail(account.email),
-    discord: account.discord || '',
-    cfxId: account.cfxId || '',
-    createdAt: account.createdAt || '',
-  };
-}
-
-function loadStoredAccounts() {
-  try {
-    const raw = localStorage.getItem(authAccountsStorageKey);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    return [];
-  }
-}
-
-function persistStoredAccounts(accounts) {
-  const normalized = Array.isArray(accounts) ? accounts : [];
-
-  try {
-    localStorage.setItem(authAccountsStorageKey, JSON.stringify(normalized));
-  } catch (error) {
-    // ignore auth storage failures
-  }
-
-  hmStoreBridge.accounts = normalized.map((entry) => sanitizeAccountProfile(entry)).filter(Boolean);
-}
-
-function loadActiveAccount() {
-  let sessionEmail = '';
-
-  try {
-    sessionEmail = normalizeAuthEmail(localStorage.getItem(authSessionStorageKey) || '');
-  } catch (error) {
-    sessionEmail = '';
-  }
-
-  if (!sessionEmail) return null;
-
-  const account = loadStoredAccounts().find((entry) => normalizeAuthEmail(entry?.email) === sessionEmail);
-  return sanitizeAccountProfile(account);
-}
-
-function persistActiveAccount(account) {
-  const safe = sanitizeAccountProfile(account);
-  if (!safe?.email) return;
-
-  try {
-    localStorage.setItem(authSessionStorageKey, safe.email);
-  } catch (error) {
-    // ignore auth session failures
-  }
-
-  hmStoreBridge.activeAccount = safe;
-}
-
-function clearActiveAccount() {
-  try {
-    localStorage.removeItem(authSessionStorageKey);
-  } catch (error) {
-    // ignore auth session removal failures
-  }
-
-  hmStoreBridge.activeAccount = null;
-}
-
-function setAuthFeedback(message = '', kind = 'info') {
-  const feedback = document.getElementById('authFeedback');
-  if (!feedback) return;
-
-  feedback.textContent = message;
-  feedback.classList.toggle('hidden', !message);
-  feedback.classList.remove('is-success', 'is-error', 'is-info');
-
-  if (message) {
-    feedback.classList.add(`is-${kind}`);
-  }
-}
-
-function setAuthView(view = 'login') {
-  const switchButtons = document.querySelectorAll('[data-auth-view]');
-  const loginForm = document.getElementById('loginForm');
-  const registerForm = document.getElementById('registerForm');
-  const nextView = view === 'register' ? 'register' : 'login';
-
-  switchButtons.forEach((button) => {
-    button.classList.toggle('active', button.dataset.authView === nextView);
-  });
-
-  if (loginForm) loginForm.classList.toggle('hidden', nextView !== 'login');
-  if (registerForm) registerForm.classList.toggle('hidden', nextView !== 'register');
-}
-
-function openAccountSection(view = 'login') {
-  setAuthView(view);
-  activateNav('account');
-  showSection('account');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function updateAccountUi() {
-  const account = loadActiveAccount();
-  const dockCard = document.getElementById('accountDockCard');
-  const dockBadge = document.getElementById('accountDockBadge');
-  const dockCopy = document.getElementById('accountDockCopy');
-  const dockGuestActions = document.getElementById('accountDockGuestActions');
-  const dockUserActions = document.getElementById('accountDockUserActions');
-  const overviewCard = document.getElementById('accountOverviewCard');
-  const guestPanel = document.getElementById('accountGuestPanel');
-  const userPanel = document.getElementById('accountUserPanel');
-  const displayName = document.getElementById('accountDisplayName');
-  const displayEmail = document.getElementById('accountDisplayEmail');
-  const displayDiscord = document.getElementById('accountDisplayDiscord');
-  const displayCfx = document.getElementById('accountDisplayCfx');
-  const sessionCard = document.getElementById('authSessionCard');
-  const sessionCopy = document.getElementById('authSessionCopy');
-  const authSwitch = document.getElementById('authSwitch');
-  const loginForm = document.getElementById('loginForm');
-  const registerForm = document.getElementById('registerForm');
-
-  if (dockCard) dockCard.dataset.authState = account ? 'user' : 'guest';
-  if (dockBadge) dockBadge.textContent = account ? 'Live' : 'Gast';
-  if (dockCopy) {
-    dockCopy.textContent = account
-      ? `${account.username || 'Benutzerkonto'} ist aktiv. Bestellungen, Downloads und spätere Freischaltungen können daran anknüpfen.`
-      : 'Anmelden oder registrieren, um Bestellungen, Downloads und Kontodaten später gebündelt an einem Ort zu verwalten.';
-  }
-  if (dockGuestActions) dockGuestActions.classList.toggle('hidden', !!account);
-  if (dockUserActions) dockUserActions.classList.toggle('hidden', !account);
-
-  if (overviewCard) overviewCard.dataset.authState = account ? 'user' : 'guest';
-  if (guestPanel) guestPanel.classList.toggle('hidden', !!account);
-  if (userPanel) userPanel.classList.toggle('hidden', !account);
-  if (displayName) displayName.textContent = account?.username || '-';
-  if (displayEmail) displayEmail.textContent = account?.email || '-';
-  if (displayDiscord) displayDiscord.textContent = account?.discord || 'Noch nicht hinterlegt';
-  if (displayCfx) displayCfx.textContent = account?.cfxId || 'Noch nicht hinterlegt';
-
-  if (sessionCard) sessionCard.classList.toggle('hidden', !account);
-  if (sessionCopy) {
-    sessionCopy.textContent = account
-      ? `${account.username || 'Benutzerkonto'} ist aktuell angemeldet. Die echte Backend- und Shop-Verknüpfung folgt im nächsten Ausbauschritt.`
-      : 'Du bist aktuell nicht eingeloggt.';
-  }
-
-  if (authSwitch) authSwitch.classList.toggle('hidden', !!account);
-  if (loginForm) loginForm.classList.toggle('hidden', !!account || !document.querySelector('[data-auth-view="login"].active'));
-  if (registerForm) registerForm.classList.toggle('hidden', !!account || !document.querySelector('[data-auth-view="register"].active'));
-
-  hmStoreBridge.activeAccount = account;
-  hmStoreBridge.getActiveAccount = () => loadActiveAccount();
-
-  updateRequestDraftFields(loadVisibleCart());
-}
-
-function registerLocalAccount(form) {
-  const username = String(form.querySelector('#registerUsername')?.value || '').trim();
-  const email = normalizeAuthEmail(form.querySelector('#registerEmail')?.value || '');
-  const discord = String(form.querySelector('#registerDiscord')?.value || '').trim();
-  const cfxId = String(form.querySelector('#registerCfx')?.value || '').trim();
-  const password = String(form.querySelector('#registerPassword')?.value || '');
-  const passwordConfirm = String(form.querySelector('#registerPasswordConfirm')?.value || '');
-  const accounts = loadStoredAccounts();
-
-  if (!username || !email || !password || !passwordConfirm) {
-    setAuthFeedback('Bitte fülle alle Pflichtfelder aus.', 'error');
-    return;
-  }
-
-  if (password.length < 6) {
-    setAuthFeedback('Das Passwort sollte mindestens 6 Zeichen haben.', 'error');
-    return;
-  }
-
-  if (password !== passwordConfirm) {
-    setAuthFeedback('Die Passwörter stimmen nicht überein.', 'error');
-    return;
-  }
-
-  if (accounts.some((entry) => normalizeAuthEmail(entry?.email) === email)) {
-    setAuthFeedback('Für diese E-Mail existiert bereits ein Konto.', 'error');
-    return;
-  }
-
-  const newAccount = {
-    username,
-    email,
-    discord,
-    cfxId,
-    password,
-    createdAt: new Date().toISOString(),
-  };
-
-  accounts.push(newAccount);
-  persistStoredAccounts(accounts);
-  persistActiveAccount(newAccount);
-  form.reset();
-  setAuthFeedback('Konto lokal erstellt und direkt angemeldet.', 'success');
-  setAuthView('login');
-  updateAccountUi();
-}
-
-function loginLocalAccount(form) {
-  const email = normalizeAuthEmail(form.querySelector('#loginEmail')?.value || '');
-  const password = String(form.querySelector('#loginPassword')?.value || '');
-  const account = loadStoredAccounts().find((entry) => normalizeAuthEmail(entry?.email) === email);
-
-  if (!email || !password) {
-    setAuthFeedback('Bitte gib E-Mail und Passwort ein.', 'error');
-    return;
-  }
-
-  if (!account || String(account.password || '') !== password) {
-    setAuthFeedback('Anmeldung fehlgeschlagen. Bitte Daten prüfen.', 'error');
-    return;
-  }
-
-  persistActiveAccount(account);
-  form.reset();
-  setAuthFeedback('Erfolgreich angemeldet.', 'success');
-  updateAccountUi();
-}
-
-function logoutLocalAccount() {
-  clearActiveAccount();
-  setAuthFeedback('Du wurdest abgemeldet.', 'info');
-  setAuthView('login');
-  updateAccountUi();
-}
-
-function setupAuthInterface() {
-  const loginForm = document.getElementById('loginForm');
-  const registerForm = document.getElementById('registerForm');
-
-  persistStoredAccounts(loadStoredAccounts());
-  updateAccountUi();
-
-  if (loginForm) {
-    loginForm.addEventListener('submit', (event) => {
-      event.preventDefault();
-      loginLocalAccount(loginForm);
-    });
-  }
-
-  if (registerForm) {
-    registerForm.addEventListener('submit', (event) => {
-      event.preventDefault();
-      registerLocalAccount(registerForm);
-    });
-  }
 }
 
 function updateRequestDraftFields(cart) {
@@ -625,6 +839,7 @@ function openRequestModal() {
   const overlay = document.getElementById('requestModalOverlay');
   if (!overlay) return;
 
+  saveCurrentUserRequestDraft(cart);
   updateRequestDraftFields(cart);
   overlay.classList.remove('hidden');
   overlay.setAttribute('aria-hidden', 'false');
@@ -762,6 +977,7 @@ function refreshVisibleCartUi(cart) {
   renderCartPanelItems(cart);
   updateCartButtonsState(cart);
   updateRequestDraftFields(cart);
+  updateAccountUi({ keepTab: true });
 }
 
 function pulsePreparedCartButton(button) {
@@ -834,29 +1050,6 @@ navItems.forEach((btn) => {
 });
 
 document.addEventListener('click', async (e) => {
-  const authViewBtn = e.target.closest('[data-auth-view]');
-  if (authViewBtn) {
-    e.preventDefault();
-    setAuthFeedback('');
-    setAuthView(authViewBtn.dataset.authView || 'login');
-    return;
-  }
-
-  const openAuthBtn = e.target.closest('[data-open-auth]');
-  if (openAuthBtn) {
-    e.preventDefault();
-    setAuthFeedback('');
-    openAccountSection(openAuthBtn.dataset.openAuth || 'login');
-    return;
-  }
-
-  const authLogoutBtn = e.target.closest('[data-auth-logout="true"]');
-  if (authLogoutBtn) {
-    e.preventDefault();
-    logoutLocalAccount();
-    return;
-  }
-
   const removeBtn = e.target.closest('[data-cart-remove-id]');
   if (removeBtn) {
     e.preventDefault();
@@ -912,6 +1105,41 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+  const accountOpenBtn = e.target.closest('[data-account-open]');
+  if (accountOpenBtn && accountOpenBtn.dataset.accountOpen) {
+    e.preventDefault();
+    openAccountSection(accountOpenBtn.dataset.accountOpen);
+    return;
+  }
+
+  const accountLogoutBtn = e.target.closest('[data-account-logout="true"]');
+  if (accountLogoutBtn) {
+    e.preventDefault();
+    logoutCurrentAccount();
+    return;
+  }
+
+  const historyCopyBtn = e.target.closest('[data-history-copy-id]');
+  if (historyCopyBtn) {
+    e.preventDefault();
+    const copied = await copyHistoryRequestById(historyCopyBtn.dataset.historyCopyId || '');
+    if (copied) {
+      const originalText = historyCopyBtn.textContent;
+      historyCopyBtn.textContent = 'Text kopiert';
+      window.setTimeout(() => {
+        historyCopyBtn.textContent = originalText;
+      }, 1400);
+    }
+    return;
+  }
+
+  const historyLoadBtn = e.target.closest('[data-history-load-id]');
+  if (historyLoadBtn) {
+    e.preventDefault();
+    loadHistoryRequestIntoContact(historyLoadBtn.dataset.historyLoadId || '');
+    return;
+  }
+
   const openBtn = e.target.closest('[data-open-script]');
   if (openBtn) {
     e.preventDefault();
@@ -962,8 +1190,9 @@ if (searchInput) {
 }
 
 
-setupAuthInterface();
 setupPreparedCartButtons();
+setupAccountInterface();
+initializeAccountState();
 
 showSection('home');
 
