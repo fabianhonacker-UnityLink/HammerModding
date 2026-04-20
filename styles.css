@@ -3219,3 +3219,12 @@ body.intro-booting .bg-lightning {
 .active-user-row.is-recent .active-user-time {
   color: rgba(255,255,255,0.62);
 }
+
+
+.cart-panel-footer {
+  grid-template-columns: 1fr;
+}
+
+.contact-cta-row .cta[disabled] {
+  opacity: .45;
+}

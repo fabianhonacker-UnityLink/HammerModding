@@ -41,9 +41,33 @@ const storeCatalog = {
   'polizei-uniform': { id: 'polizei-uniform', slug: 'polizei-uniform', name: 'Polizei-Uniform', price: '25.00', priceLabel: '25,00 €', type: 'clothing' },
 };
 
+const TEBEX_PUBLIC_TOKEN = 'xttm-f719ed0c6b0a19fbf46ef11d7ebc29d6ec480014';
+const tebexPackageMap = {
+  blitzer: '7388239',
+  gps: '7390338',
+  carplay: '7387846',
+  outfit: '7388108',
+  'mechaniker-ki': '7393830',
+  'polizei-uniform': '7046414',
+  'zoll-uniform': '7046445',
+  'serverteam-uniform': '7046450',
+  'rettungsdienst-uniform': '7386459',
+  taxi: '7393776',
+  klingel: '7403415',
+  afk: '7388518',
+};
+
+Object.entries(tebexPackageMap).forEach(([slug, packageId]) => {
+  if (storeCatalog[slug]) {
+    storeCatalog[slug].tebexPackageId = packageId;
+  }
+});
+
 const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
-  version: 'phase-6c-live-supabase-auth',
+  version: 'phase-6h-tebex-mapping-prep',
   catalog: storeCatalog,
+  tebexPublicToken: TEBEX_PUBLIC_TOKEN,
+  tebexPackageMap,
   lastPreparedItem: null,
 });
 
@@ -535,6 +559,7 @@ function buildPreparedCartItem(button) {
     priceLabel,
     priceCents: parseCartPriceToCents(price),
     quantity: 1,
+    tebexPackageId: catalogItem?.tebexPackageId || '',
     source: 'detail-page',
   };
 }
@@ -581,6 +606,7 @@ function loadVisibleCart() {
         priceLabel: catalogItem.priceLabel,
         priceCents: parseCartPriceToCents(catalogItem.price),
         quantity: 1,
+        tebexPackageId: catalogItem.tebexPackageId || '',
         source: entry?.source || 'detail-page',
       };
     })
@@ -621,6 +647,50 @@ function getCartItemTypeLabel(item) {
   return 'Produkt';
 }
 
+
+function getTebexPackageId(entryLike) {
+  const catalogItem = getCatalogItem(entryLike);
+  return catalogItem?.tebexPackageId || tebexPackageMap[catalogItem?.slug || ''] || '';
+}
+
+function buildTebexDraftText(cart) {
+  const items = Array.isArray(cart) ? cart : [];
+  const totals = getVisibleCartTotals(items);
+  const user = liveAccountSnapshot.user;
+  const profile = liveAccountSnapshot.profile || {};
+  const meta = user?.user_metadata || {};
+  const username = profile.username || meta.username || '[bitte ergänzen]';
+  const accountEmail = user?.email || '[bitte ergänzen]';
+  const discordName = profile.discord_name || meta.discord_name || '[bitte ergänzen]';
+  const cfxIdentifier = profile.cfx_identifier || meta.cfx_identifier || '[bitte ergänzen]';
+
+  if (!items.length) {
+    return 'Wähle zuerst Produkte aus deinem Warenkorb aus.';
+  }
+
+  const mappedItems = items.map((item) => {
+    const packageId = getTebexPackageId(item) || '[nicht gemappt]';
+    return `- ${item.name} | Package-ID: ${packageId} | ${item.priceLabel}`;
+  });
+
+  return [
+    'Hammer Modding · Tebex-Draft',
+    '',
+    `Public Token aktiv: ${TEBEX_PUBLIC_TOKEN}`,
+    `Produkte im Warenkorb: ${items.length}`,
+    `Gesamtsumme: ${totals.totalLabel}`,
+    '',
+    'Gemappte Tebex-Pakete:',
+    ...mappedItems,
+    '',
+    'Kontodaten:',
+    `Benutzerkonto: ${username}`,
+    `E-Mail: ${accountEmail}`,
+    `Discord-Name: ${discordName}`,
+    `CFX / Tebex-Konto: ${cfxIdentifier}`,
+  ].join('\n');
+}
+
 function buildCartRequestText(cart) {
   const items = Array.isArray(cart) ? cart : [];
   const totals = getVisibleCartTotals(items);
@@ -641,7 +711,7 @@ function buildCartRequestText(cart) {
     'Hammer Modding Bestellanfrage',
     '',
     'Gewünschte Produkte:',
-    ...items.map((item) => `- ${item.name} | ${item.priceLabel} | ${getCartItemTypeLabel(item)}`),
+    ...items.map((item) => `- ${item.name} | ${item.priceLabel} | ${getCartItemTypeLabel(item)} | Tebex-Paket: ${getTebexPackageId(item) || '[folgt]'}`),
     '',
     `Gesamtsumme: ${totals.totalLabel}`,
     '',
@@ -652,7 +722,7 @@ function buildCartRequestText(cart) {
     `CFX-Account / Tebex-Konto: ${cfxIdentifier}`,
     `Rolle: ${role}`,
     '',
-    'Bitte später über Tebex / saubere Freischaltung abwickeln.',
+    'Tebex-Paketzuordnung ist bereits hinterlegt.',
     'Zusätzliche Hinweise: [optional]',
   ];
 
@@ -664,6 +734,7 @@ function updateRequestDraftFields(cart) {
   const items = Array.isArray(cart) ? cart : [];
   const requestText = buildCartRequestText(items);
   const requestButton = document.getElementById('cartRequestButton');
+  const tebexButtons = document.querySelectorAll('[data-copy-tebex-draft="true"]');
   const contactText = document.getElementById('contactRequestText');
   const modalText = document.getElementById('requestModalText');
   const copyButtons = document.querySelectorAll('[data-copy-request="true"]');
@@ -684,8 +755,14 @@ function updateRequestDraftFields(cart) {
     button.disabled = !items.length;
   });
 
+  tebexButtons.forEach((button) => {
+    button.disabled = !items.length;
+  });
+
   hmStoreBridge.requestText = requestText;
   hmStoreBridge.getRequestText = () => buildCartRequestText(loadVisibleCart());
+  hmStoreBridge.tebexDraft = buildTebexDraftText(items);
+  hmStoreBridge.getTebexDraft = () => buildTebexDraftText(loadVisibleCart());
 }
 
 function openRequestModal() {
@@ -714,6 +791,12 @@ async function copyPreparedRequestText() {
   const requestText = buildCartRequestText(loadVisibleCart());
   if (!requestText || requestText === 'Wähle zuerst Produkte aus deinem Warenkorb aus.') return false;
   return copyTextToClipboard(requestText);
+}
+
+async function copyPreparedTebexDraft() {
+  const tebexDraft = buildTebexDraftText(loadVisibleCart());
+  if (!tebexDraft || tebexDraft === 'Wähle zuerst Produkte aus deinem Warenkorb aus.') return false;
+  return copyTextToClipboard(tebexDraft);
 }
 
 function openContactRequestFlow() {
@@ -1357,6 +1440,7 @@ function getSupabaseClient() {
   });
   supabaseClientSignature = signature;
   hmStoreBridge.supabaseFoundation = { projectUrl: foundation.projectUrl, keyPresent: Boolean(foundation.anonKey) };
+  hmStoreBridge.tebex = { publicToken: TEBEX_PUBLIC_TOKEN, mappedPackages: { ...tebexPackageMap } };
   return supabaseClient;
 }
 
@@ -1943,6 +2027,20 @@ document.addEventListener('click', async (e) => {
       copyRequestBtn.textContent = 'Text kopiert';
       window.setTimeout(() => {
         copyRequestBtn.textContent = originalText;
+      }, 1400);
+    }
+    return;
+  }
+
+  const copyTebexBtn = e.target.closest('[data-copy-tebex-draft="true"]');
+  if (copyTebexBtn) {
+    e.preventDefault();
+    const copied = await copyPreparedTebexDraft();
+    if (copied) {
+      const originalText = copyTebexBtn.textContent;
+      copyTebexBtn.textContent = 'Tebex-Draft kopiert';
+      window.setTimeout(() => {
+        copyTebexBtn.textContent = originalText;
       }, 1400);
     }
     return;

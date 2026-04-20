@@ -99,6 +99,7 @@
     <div class="cart-panel-footer">
       <button class="cart-clear-button" data-cart-clear="true" id="cartClearButton" type="button">Alles entfernen</button>
       <button class="cart-request-button" data-cart-request="true" id="cartRequestButton" type="button">Anfrage vorbereiten</button>
+      <button class="cart-clear-button" data-copy-tebex-draft="true" id="cartTebexDraftButton" type="button">Tebex-Draft kopieren</button>
       <div class="cart-panel-total">
         <span>Gesamt</span>
         <strong id="cartPanelTotal">0,00 €</strong>
@@ -1587,7 +1588,7 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
       </p>
       <div class="contact-cta-row">
         <a aria-label="Hammer Modding Discord öffnen" class="cta primary" href="https://discord.com/channels/@me/1446689279760924805/1495308982435320020" rel="noopener noreferrer" target="_blank">Discord öffnen</a>
-        <button class="cta secondary is-disabled" disabled type="button">Tebex folgt</button>
+        <button class="cta secondary" data-copy-tebex-draft="true" id="contactTebexDraftButton" type="button">Tebex-Draft kopieren</button>
       </div>
       <textarea class="request-draft-text request-draft-text-hidden" id="contactRequestText" readonly tabindex="-1" aria-hidden="true">Wähle zuerst Produkte aus deinem Warenkorb aus.</textarea>
     </div>
@@ -1604,10 +1605,10 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
         <strong>Tebex</strong>
-        <small>Später verfügbar</small>
+        <small>Mapping aktiv</small>
       </div>
-      <p>Die finale Kaufabwicklung wird später direkt und sauber über Tebex eingebunden.</p>
-      <button class="cta secondary is-disabled" disabled type="button">Tebex folgt</button>
+      <p>Die aktuellen Produkte sind bereits auf echte Tebex-Pakete gemappt. Der direkte Checkout folgt im nächsten sicheren Server-Schritt.</p>
+      <button class="cta secondary" data-copy-tebex-draft="true" type="button">Tebex-Draft kopieren</button>
     </article>
   </div>
 </div>
@@ -1625,7 +1626,7 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
       <button class="request-close-button" data-request-close="true" type="button" aria-label="Anfragefenster schließen">×</button>
     </div>
     <p class="request-modal-copy">
-      Das hier ist nur die vorbereitete Anfrage. Kein Checkout, keine Zahlung, keine automatische Bestellung.
+      Die Paket-Zuordnung für Tebex ist bereits hinterlegt. Der direkte Checkout folgt im sicheren Server-Schritt.
     </p>
     <textarea class="request-modal-text" id="requestModalText" readonly>Wähle zuerst Produkte aus deinem Warenkorb aus.</textarea>
     <div class="request-modal-actions">
