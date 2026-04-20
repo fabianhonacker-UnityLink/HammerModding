@@ -1493,6 +1493,34 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
         </div>
       </div>
     </article>
+
+    <article class="foundation-form-shell compact-session-shell">
+      <div class="foundation-form-head">
+        <strong>Profil bearbeiten</strong>
+      </div>
+      <form class="foundation-form-grid compact-form-grid" id="profileEditorForm">
+        <label class="foundation-field">
+          <span>Benutzername</span>
+          <input class="hm-input" id="profileUsernameInput" placeholder="Dein Anzeigename" type="text"/>
+        </label>
+        <label class="foundation-field">
+          <span>Discord</span>
+          <input class="hm-input" id="profileDiscordInput" placeholder="Name oder ID" type="text"/>
+        </label>
+        <label class="foundation-field field-span-2">
+          <span>CFX / License</span>
+          <input class="hm-input" id="profileCfxInput" placeholder="license:xxxx oder CFX-Konto" type="text"/>
+        </label>
+        <label class="foundation-field field-span-2">
+          <span>Avatar URL</span>
+          <input class="hm-input" id="profileAvatarInput" placeholder="https://..." type="url"/>
+        </label>
+        <div class="foundation-actions field-span-2">
+          <button class="cta primary compact-cta" id="profileSaveButton" type="submit">Profil speichern</button>
+        </div>
+      </form>
+      <p class="foundation-note auth-message" id="profileEditorMessage"></p>
+    </article>
   </div>
 </div>
 </section>
@@ -1502,9 +1530,9 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
   <div class="contact-main glass-soft">
     <div class="contact-intro">
       <div class="eyebrow">Hammer Modding · System</div>
-      <h2>SUPABASE-LIVE-ANBINDUNG<br/><span>&amp; BACKEND-READY VORBEREITEN</span></h2>
+      <h2>PROFILES, ROLLEN<br/><span>&amp; ECHTE KONTODATEN</span></h2>
       <p>
-        Verwalte hier die Verbindungsdaten, Rollen und Systemwerte deiner Website an einem Ort.
+        Hier bereitest du die echte Profiles-Tabelle, Rollenlogik und die Live-Anbindung für Benutzerkonten vor.
       </p>
     </div>
     <div class="foundation-form-shell">
@@ -1604,12 +1632,12 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
           <strong>Checkliste</strong>
         </div>
         <ul class="foundation-points">
-          <li>Project URL + Public Anon Key eintragen</li>
-          <li>Site URL + Redirect URL festlegen</li>
-          <li>Storage Bucket + Produkt-Tabelle definieren</li>
+          <li>Profiles-SQL im Supabase SQL Editor ausführen</li>
+          <li>Registrierung und Login danach live testen</li>
           <li>Rollen für Admin und Produktmanager festlegen</li>
-          <li>Webhook-/Relay-URL vorbereiten</li>
-          <li>Tebex-Daten danach andocken</li>
+          <li>Avatar, Discord und CFX-Daten über das Konto pflegen</li>
+          <li>Systembereich später an Rollen koppeln</li>
+          <li>Tebex danach an Profile und Käufe andocken</li>
         </ul>
       </article>
     </div>
@@ -1618,7 +1646,7 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
       <div class="request-draft-head">
         <strong>System-Zusammenfassung</strong>
       </div>
-      <textarea class="request-draft-text foundation-summary-text" id="foundationSummaryText" readonly>Phase 6B ist noch nicht initialisiert.</textarea>
+      <textarea class="request-draft-text foundation-summary-text" id="foundationSummaryText" readonly>Phase 6E ist noch nicht initialisiert.</textarea>
     </div>
   </div>
   <div class="contact-side">

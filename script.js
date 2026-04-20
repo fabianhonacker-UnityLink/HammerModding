@@ -173,13 +173,32 @@ function scheduleAuthModalClose(delay = 0) {
   }, delay);
 }
 
+function formatLastPurchase(profile, activity) {
+  const label = profile?.last_purchase_label || activity?.lastPurchaseName || '';
+  const date = profile?.last_purchase_at || activity?.lastPurchaseAt || '';
+  if (!label && !date) return '—';
+  if (label && date) return `${label} · ${formatRelativeDate(date)}`;
+  return label || formatRelativeDate(date);
+}
+
+function mapRoleLabel(role) {
+  const normalized = String(role || '').trim().toLowerCase();
+  if (normalized === 'admin') return 'Admin';
+  if (normalized === 'product_manager') return 'Produktmanager';
+  if (normalized === 'customer' || normalized === 'kunde') return 'Kunde';
+  if (normalized === 'guest' || normalized === 'gast') return 'Gast';
+  return role || 'Gast';
+}
+
 function setAccountShellUi(user, profile) {
   const displayName = profile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'Nicht eingeloggt';
-  const displayRole = profile?.role || (user ? 'kunde' : 'gast');
+  const displayRole = mapRoleLabel(profile?.role || (user ? 'customer' : 'guest'));
   const displayMail = user?.email || 'Keine aktive Sitzung';
   const initial = getDisplayInitial(displayName);
   const activity = user?.id ? getAccountActivity(user.id) : null;
   const onlineNow = Boolean(user);
+  const lastSeen = profile?.last_seen_at || activity?.lastSeenAt || '';
+  const lastLogin = profile?.last_login_at || activity?.lastLoginAt || '';
 
   const mapText = [
     ['accountProfileAvatarInitial', initial],
@@ -187,13 +206,10 @@ function setAccountShellUi(user, profile) {
     ['accountProfileSubline', user ? 'Konto aktiv' : 'Website-Konto'],
     ['accountProfileRolePill', displayRole],
     ['accountProfileMailPill', displayMail],
-    
     ['accountOnlineNowValue', '●'],
-    
-    ['accountLastOnlineValue', activity?.lastSeenAt ? formatRelativeDate(activity.lastSeenAt) : '-'],
-    ['accountLastLoginValue', activity?.lastLoginAt ? formatRelativeDate(activity.lastLoginAt) : '-'],
-    ['accountLastPurchaseValue', activity?.lastPurchaseName || '—'],
-    
+    ['accountLastOnlineValue', lastSeen ? formatRelativeDate(lastSeen) : '-'],
+    ['accountLastLoginValue', lastLogin ? formatRelativeDate(lastLogin) : '-'],
+    ['accountLastPurchaseValue', formatLastPurchase(profile, activity)],
   ];
 
   mapText.forEach(([id, value]) => {
@@ -223,7 +239,7 @@ function setAccountShellUi(user, profile) {
 function updateAccountDock(user, profile) {
   const displayName = profile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'Login / Registrieren';
   const initial = getDisplayInitial(displayName);
-  const meta = user ? `${profile?.role || 'kunde'} · online` : 'Website-Konto';
+  const meta = user ? `${mapRoleLabel(profile?.role || 'customer')} · online` : 'Website-Konto';
   const map = [
     ['accountDockAvatarInitial', initial],
     ['accountDockEyebrow', user ? meta : 'Website-Konto'],
@@ -233,6 +249,31 @@ function updateAccountDock(user, profile) {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
   });
+}
+
+function getProfileEditorElements() {
+  return {
+    form: document.getElementById('profileEditorForm'),
+    usernameInput: document.getElementById('profileUsernameInput'),
+    discordInput: document.getElementById('profileDiscordInput'),
+    cfxInput: document.getElementById('profileCfxInput'),
+    avatarInput: document.getElementById('profileAvatarInput'),
+    message: document.getElementById('profileEditorMessage'),
+    saveButton: document.getElementById('profileSaveButton'),
+  };
+}
+
+function hydrateProfileEditor(user, profile) {
+  const elements = getProfileEditorElements();
+  const isActive = Boolean(user);
+  if (elements.usernameInput) elements.usernameInput.value = profile?.username || user?.user_metadata?.username || '';
+  if (elements.discordInput) elements.discordInput.value = profile?.discord_name || user?.user_metadata?.discord_name || '';
+  if (elements.cfxInput) elements.cfxInput.value = profile?.cfx_identifier || user?.user_metadata?.cfx_identifier || '';
+  if (elements.avatarInput) elements.avatarInput.value = profile?.avatar_url || '';
+  if (elements.saveButton) elements.saveButton.disabled = !isActive;
+  if (elements.message) {
+    setAuthMessage(elements.message, isActive ? '' : 'Melde dich zuerst an, um dein Profil zu bearbeiten.', isActive ? 'neutral' : 'warn');
+  }
 }
 
 function getCatalogItem(entryLike) {
@@ -872,44 +913,30 @@ function sanitizeSqlIdentifier(value, fallback) {
 function buildFoundationSummary(state) {
   const dbReady = Boolean(state.projectUrl && state.anonKey);
   const redirectReady = Boolean(state.siteUrl && state.redirectUrl);
-  const storageReady = Boolean(state.storageBucket && state.productsTable);
   const webhookReady = Boolean(state.webhookUrl);
-  const protectedReady = Boolean(state.adminRole && state.managerRole);
   const lines = [
-    'Hammer Modding – Phase 6C Supabase Live-Anbindung',
+    'Hammer Modding – Phase 6E Profiles & Rollen',
     '',
     `Provider: ${state.provider === 'custom' ? 'Custom Backend' : 'Supabase'}`,
-    `Auth: ${formatAuthProvider(state.authProvider)}`,
     `Project Ref: ${prettifyFoundationValue(state.projectRef)}`,
-    `Project URL / API Base: ${prettifyFoundationValue(state.projectUrl)}`,
-    `Public Anon Key: ${state.anonKey ? 'gesetzt' : 'noch offen'}`,
+    `Project URL: ${prettifyFoundationValue(state.projectUrl)}`,
+    `Public Key: ${state.anonKey ? 'gesetzt' : 'noch offen'}`,
     `Site URL: ${prettifyFoundationValue(state.siteUrl)}`,
     `Redirect URL: ${prettifyFoundationValue(state.redirectUrl)}`,
     `Schema: ${prettifyFoundationValue(state.publicSchema, 'public')}`,
-    `Products Tabelle: ${prettifyFoundationValue(state.productsTable, 'products')}`,
     `Storage Bucket: ${prettifyFoundationValue(state.storageBucket, 'product-assets')}`,
     `Admin Rolle: ${prettifyFoundationValue(state.adminRole, 'admin')}`,
     `Manager Rolle: ${prettifyFoundationValue(state.managerRole, 'product_manager')}`,
     `Bindungsmodus: ${formatBindingMode(state.bindingMode)}`,
-    `Backend URL: ${prettifyFoundationValue(state.backendBaseUrl)}`,
     `Webhook URL: ${prettifyFoundationValue(state.webhookUrl)}`,
     '',
-    'Readiness:',
-    `- Datenbank: ${dbReady ? 'bereit für Live-Test' : 'noch offen'}`,
-    `- Redirects: ${redirectReady ? 'festgelegt' : 'noch offen'}`,
-    `- Storage / Produkte: ${storageReady ? 'festgelegt' : 'noch offen'}`,
-    `- Protected Areas: ${protectedReady ? 'Rollen definiert' : 'noch offen'}`,
-    `- Webhook: ${webhookReady ? 'vorbereitet' : 'noch offen'}`,
-    `- Letzter Live-Test: ${state.lastConnectionStatus === 'success' ? 'erfolgreich' : state.lastConnectionStatus === 'error' ? 'fehlgeschlagen' : 'noch nicht gelaufen'}`,
-    `- Zuletzt geprüft: ${formatConnectionTimestamp(state.lastConnectionCheckedAt)}`,
-    '',
     'Nächste Schritte:',
-    '- SQL Blueprint in Supabase anlegen',
-    '- Redirects und Site URL in Supabase prüfen',
-    '- Auth + Rollen später serverseitig absichern',
-    '- Tebex Store-Daten danach anbinden',
+    `- Profiles SQL in Supabase ausführen`,
+    `- Profil-Trigger + RLS aktivieren`,
+    `- Anmeldung testen: ${dbReady ? 'bereit' : 'noch offen'}`,
+    `- Redirects prüfen: ${redirectReady ? 'bereit' : 'noch offen'}`,
+    `- Webhook später andocken: ${webhookReady ? 'vorbereitet' : 'offen'}`,
   ];
-
   return lines.join('\n');
 }
 
@@ -917,24 +944,19 @@ function buildFoundationSqlBlueprint(state) {
   if (state.provider === 'custom') {
     return [
       '-- Custom Backend gewählt.',
-      '-- Phase 6C: SQL-Basis für echte Konten, Profile und spätere Rollenlogik.',
-      '-- Für einen Custom Stack bitte Tabellen, Rollen und Policies auf euren Backend-Standard übertragen.',
+      '-- Übertragt die Profiles-, Trigger- und Rollenlogik in euren eigenen Stack.',
     ].join('\n');
   }
 
   const schema = sanitizeSqlIdentifier(state.publicSchema, 'public');
-  const productsTable = sanitizeSqlIdentifier(state.productsTable, 'products');
-  const bucket = sanitizeSqlIdentifier(state.storageBucket, 'product_assets');
   const adminRole = sanitizeSqlIdentifier(state.adminRole, 'admin');
   const managerRole = sanitizeSqlIdentifier(state.managerRole, 'product_manager');
 
   return [
-    '-- Hammer Modding · Phase 6B SQL Blueprint',
-    '-- Für Supabase SQL Editor gedacht. Vor Live-Einsatz bitte sauber prüfen.',
+    '-- Hammer Modding · Phase 6E Profiles & Rollen',
+    '-- Diesen Block komplett im Supabase SQL Editor ausführen.',
     '',
     `create schema if not exists ${schema};`,
-    '',
-    `create extension if not exists "pgcrypto";`,
     '',
     `create or replace function ${schema}.touch_updated_at()`,
     'returns trigger',
@@ -948,91 +970,58 @@ function buildFoundationSqlBlueprint(state) {
     '',
     `create table if not exists ${schema}.profiles (`,
     '  id uuid primary key references auth.users(id) on delete cascade,',
-    '  username text unique not null,',
     '  email text,',
-    '  discord_name text,',
-    '  discord_id text,',
-    '  cfx_identifier text,',
+    "  username text not null default '',",
+    "  discord_name text not null default '',",
+    "  cfx_identifier text not null default '',",
+    "  avatar_url text not null default '',",
     `  role text not null default 'customer' check (role in ('customer', '${adminRole}', '${managerRole}')),`,
     '  is_active boolean not null default true,',
+    '  last_login_at timestamptz,',
+    '  last_seen_at timestamptz,',
+    '  last_purchase_at timestamptz,',
+    "  last_purchase_label text not null default '',",
     '  created_at timestamptz not null default now(),',
     '  updated_at timestamptz not null default now()',
     ');',
     '',
-    `create table if not exists ${schema}.${productsTable} (`,
-    '  id uuid primary key default gen_random_uuid(),',
-    '  slug text unique not null,',
-    '  title text not null,',
-    '  category text not null,',
-    '  price_cents integer not null default 0,',
-    '  description text not null,',
-    '  image_path text,',
-    "  status text not null default 'draft' check (status in ('draft', 'published', 'archived')),",
-    '  tebex_package_id text,',
-    '  created_by uuid references auth.users(id),',
-    '  created_at timestamptz not null default now(),',
-    '  updated_at timestamptz not null default now()',
-    ');',
+    `create or replace function ${schema}.handle_new_user()`,
+    'returns trigger',
+    'language plpgsql',
+    'security definer',
+    `set search_path = ${schema}`,
+    'as $$',
+    'begin',
+    `  insert into ${schema}.profiles (id, email, username, discord_name, cfx_identifier)`,
+    '  values (',
+    '    new.id,',
+    '    new.email,',
+    "    coalesce(new.raw_user_meta_data ->> 'username', split_part(new.email, '@', 1), ''),",
+    "    coalesce(new.raw_user_meta_data ->> 'discord_name', ''),",
+    "    coalesce(new.raw_user_meta_data ->> 'cfx_identifier', '')",
+    '  )',
+    '  on conflict (id) do update set',
+    '    email = excluded.email,',
+    `    username = coalesce(nullif(excluded.username, ''), ${schema}.profiles.username),`,
+    `    discord_name = coalesce(nullif(excluded.discord_name, ''), ${schema}.profiles.discord_name),`,
+    `    cfx_identifier = coalesce(nullif(excluded.cfx_identifier, ''), ${schema}.profiles.cfx_identifier),`,
+    '    updated_at = now();',
+    '  return new;',
+    'end;',
+    '$$;',
     '',
-    `create table if not exists ${schema}.orders (`,
-    '  id uuid primary key default gen_random_uuid(),',
-    '  profile_id uuid references auth.users(id) on delete set null,',
-    "  status text not null default 'draft' check (status in ('draft', 'pending', 'paid', 'refunded', 'cancelled')),",
-    "  currency text not null default 'EUR',",
-    '  total_cents integer not null default 0,',
-    '  tebex_basket_id text,',
-    '  tebex_transaction_id text,',
-    "  custom_data jsonb not null default '{}'::jsonb,",
-    '  created_at timestamptz not null default now(),',
-    '  updated_at timestamptz not null default now()',
-    ');',
+    'drop trigger if exists on_auth_user_created on auth.users;',
+    'create trigger on_auth_user_created',
+    '  after insert on auth.users',
+    `  for each row execute procedure ${schema}.handle_new_user();`,
     '',
-    `create table if not exists ${schema}.order_items (`,
-    '  id uuid primary key default gen_random_uuid(),',
-    '  order_id uuid not null references ' + schema + '.orders(id) on delete cascade,',
-    '  product_id uuid references ' + schema + '.' + productsTable + '(id) on delete set null,',
-    '  title_snapshot text not null,',
-    '  unit_price_cents integer not null default 0,',
-    '  quantity integer not null default 1 check (quantity > 0),',
-    '  tebex_package_id text,',
-    '  created_at timestamptz not null default now()',
-    ');',
-    '',
-    `create table if not exists ${schema}.account_bindings (`,
-    '  id uuid primary key default gen_random_uuid(),',
-    '  profile_id uuid not null references auth.users(id) on delete cascade,',
-    `  binding_mode text not null default '${state.bindingMode}',`,
-    '  cfx_identifier text,',
-    '  tebex_account text,',
-    '  discord_id text,',
-    '  is_verified boolean not null default false,',
-    '  created_at timestamptz not null default now(),',
-    '  updated_at timestamptz not null default now()',
-    ');',
-    '',
-    `create table if not exists ${schema}.product_submissions (`,
-    '  id uuid primary key default gen_random_uuid(),',
-    '  submitted_by uuid not null references auth.users(id) on delete cascade,',
-    '  title text not null,',
-    '  category text not null,',
-    '  price_cents integer not null default 0,',
-    '  description text not null,',
-    '  image_path text,',
-    "  review_status text not null default 'draft' check (review_status in ('draft', 'submitted', 'approved', 'rejected')),",
-    '  linked_product_id uuid references ' + schema + '.' + productsTable + '(id) on delete set null,',
-    '  created_at timestamptz not null default now(),',
-    '  updated_at timestamptz not null default now()',
-    ');',
-    '',
-    `create table if not exists ${schema}.webhook_events (`,
-    '  id uuid primary key default gen_random_uuid(),',
-    '  event_type text not null,',
-    "  source text not null default 'tebex',",
-    "  payload jsonb not null default '{}'::jsonb,",
-    '  processed boolean not null default false,',
-    '  processed_at timestamptz,',
-    '  created_at timestamptz not null default now()',
-    ');',
+    `insert into ${schema}.profiles (id, email, username)`,
+    'select',
+    '  u.id,',
+    '  u.email,',
+    "  coalesce(u.raw_user_meta_data ->> 'username', split_part(u.email, '@', 1), '')",
+    'from auth.users u',
+    `where not exists (select 1 from ${schema}.profiles p where p.id = u.id);`,
     '',
     `create or replace function ${schema}.current_app_role()`,
     'returns text',
@@ -1043,30 +1032,27 @@ function buildFoundationSqlBlueprint(state) {
     '$$;',
     '',
     `alter table ${schema}.profiles enable row level security;`,
-    `alter table ${schema}.${productsTable} enable row level security;`,
-    `alter table ${schema}.orders enable row level security;`,
-    `alter table ${schema}.order_items enable row level security;`,
-    `alter table ${schema}.account_bindings enable row level security;`,
-    `alter table ${schema}.product_submissions enable row level security;`,
-    `alter table ${schema}.webhook_events enable row level security;`,
     '',
-    `create policy "profiles_self_select" on ${schema}.profiles for select using (auth.uid() = id or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
-    `create policy "profiles_self_update" on ${schema}.profiles for update using (auth.uid() = id or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
-    `create policy "products_public_read" on ${schema}.${productsTable} for select using (status = 'published' or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
-    `create policy "products_manager_write" on ${schema}.${productsTable} for all using (${schema}.current_app_role() in ('${adminRole}', '${managerRole}')) with check (${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
-    `create policy "orders_owner_read" on ${schema}.orders for select using (profile_id = auth.uid() or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
-    `create policy "bindings_owner_read" on ${schema}.account_bindings for select using (profile_id = auth.uid() or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
-    `create policy "submissions_owner_read" on ${schema}.product_submissions for select using (submitted_by = auth.uid() or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
-    `create policy "submissions_owner_write" on ${schema}.product_submissions for insert with check (auth.uid() = submitted_by or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
-    `create policy "webhooks_admin_only" on ${schema}.webhook_events for select using (${schema}.current_app_role() = '${adminRole}');`,
+    `drop policy if exists profiles_self_select on ${schema}.profiles;`,
+    `drop policy if exists profiles_self_insert on ${schema}.profiles;`,
+    `drop policy if exists profiles_self_update on ${schema}.profiles;`,
     '',
-    `create or replace trigger profiles_touch_updated_at before update on ${schema}.profiles for each row execute function ${schema}.touch_updated_at();`,
-    `create or replace trigger ${productsTable}_touch_updated_at before update on ${schema}.${productsTable} for each row execute function ${schema}.touch_updated_at();`,
-    `create or replace trigger account_bindings_touch_updated_at before update on ${schema}.account_bindings for each row execute function ${schema}.touch_updated_at();`,
-    `create or replace trigger product_submissions_touch_updated_at before update on ${schema}.product_submissions for each row execute function ${schema}.touch_updated_at();`,
+    `create policy profiles_self_select on ${schema}.profiles`,
+    '  for select',
+    `  using (auth.uid() = id or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
     '',
-    `-- Storage Bucket Vorschlag: ${bucket}`,
-    '-- Storage Policies später passend zu Rollen + Freigaben ergänzen.',
+    `create policy profiles_self_insert on ${schema}.profiles`,
+    '  for insert',
+    `  with check (auth.uid() = id or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
+    '',
+    `create policy profiles_self_update on ${schema}.profiles`,
+    '  for update',
+    `  using (auth.uid() = id or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'))`,
+    `  with check (auth.uid() = id or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
+    '',
+    `create or replace trigger profiles_touch_updated_at`,
+    `  before update on ${schema}.profiles`,
+    `  for each row execute function ${schema}.touch_updated_at();`,
   ].join('\n');
 }
 
@@ -1236,7 +1222,6 @@ function getAuthElements() {
     loginForm: document.getElementById('authLoginForm'),
     registerMessage: document.getElementById('authRegisterMessage'),
     loginMessage: document.getElementById('authLoginMessage'),
-    sessionMessage: document.getElementById('authSessionMessage'),
     sessionEmpty: document.getElementById('authSessionEmpty'),
     sessionLive: document.getElementById('authSessionLive'),
     emailValue: document.getElementById('authUserEmailValue'),
@@ -1328,21 +1313,23 @@ function formatAuthErrorMessage(error, fallbackAction = 'Anmeldung') {
   return rawMessage || `${fallbackAction} fehlgeschlagen. Bitte erneut versuchen.`;
 }
 
+function isMissingProfilesTableError(error) {
+  const msg = String(error?.message || '').toLowerCase();
+  return msg.includes('relation') || msg.includes('does not exist') || msg.includes('schema cache');
+}
+
 async function fetchLiveProfile(userId) {
   const client = getSupabaseClient();
   if (!client || !userId) return null;
   try {
     const { data, error } = await client
       .from('profiles')
-      .select('id, username, discord_name, cfx_identifier, role, is_active')
+      .select('id, email, username, discord_name, cfx_identifier, avatar_url, role, is_active, last_login_at, last_seen_at, last_purchase_at, last_purchase_label')
       .eq('id', userId)
       .maybeSingle();
 
     if (error) {
-      const msg = String(error.message || '').toLowerCase();
-      if (msg.includes('relation') || msg.includes('does not exist') || msg.includes('schema cache')) {
-        return null;
-      }
+      if (isMissingProfilesTableError(error)) return null;
       return null;
     }
 
@@ -1358,23 +1345,63 @@ async function upsertLiveProfile(user, profileDraft = {}) {
 
   const payload = {
     id: user.id,
-    username: profileDraft.username || user.user_metadata?.username || user.email?.split('@')[0] || '',
-    discord_name: profileDraft.discord_name || user.user_metadata?.discord_name || '',
-    cfx_identifier: profileDraft.cfx_identifier || user.user_metadata?.cfx_identifier || '',
+    email: user.email || '',
+    username: profileDraft.username ?? user.user_metadata?.username ?? user.email?.split('@')[0] ?? '',
   };
+
+  if (profileDraft.discord_name !== undefined) {
+    payload.discord_name = profileDraft.discord_name;
+  } else if (user.user_metadata?.discord_name) {
+    payload.discord_name = user.user_metadata.discord_name;
+  }
+
+  if (profileDraft.cfx_identifier !== undefined) {
+    payload.cfx_identifier = profileDraft.cfx_identifier;
+  } else if (user.user_metadata?.cfx_identifier) {
+    payload.cfx_identifier = user.user_metadata.cfx_identifier;
+  }
+
+  if (profileDraft.avatar_url !== undefined) {
+    payload.avatar_url = profileDraft.avatar_url;
+  }
+
+  if (profileDraft.last_login_at) payload.last_login_at = profileDraft.last_login_at;
+  if (profileDraft.last_seen_at) payload.last_seen_at = profileDraft.last_seen_at;
+  if (profileDraft.last_purchase_at) payload.last_purchase_at = profileDraft.last_purchase_at;
+  if (profileDraft.last_purchase_label !== undefined) payload.last_purchase_label = profileDraft.last_purchase_label;
 
   try {
     const { data, error } = await client
       .from('profiles')
       .upsert(payload, { onConflict: 'id' })
-      .select('id, username, discord_name, cfx_identifier, role, is_active')
+      .select('id, email, username, discord_name, cfx_identifier, avatar_url, role, is_active, last_login_at, last_seen_at, last_purchase_at, last_purchase_label')
       .maybeSingle();
 
     if (error) {
-      const msg = String(error.message || '').toLowerCase();
-      if (msg.includes('relation') || msg.includes('does not exist') || msg.includes('schema cache')) {
-        return null;
-      }
+      if (isMissingProfilesTableError(error)) return null;
+      return null;
+    }
+
+    return data || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function patchLiveProfile(userId, patch = {}) {
+  const client = getSupabaseClient();
+  if (!client || !userId || !patch || !Object.keys(patch).length) return null;
+
+  try {
+    const { data, error } = await client
+      .from('profiles')
+      .update(patch)
+      .eq('id', userId)
+      .select('id, email, username, discord_name, cfx_identifier, avatar_url, role, is_active, last_login_at, last_seen_at, last_purchase_at, last_purchase_label')
+      .maybeSingle();
+
+    if (error) {
+      if (isMissingProfilesTableError(error)) return null;
       return null;
     }
 
@@ -1401,23 +1428,27 @@ async function refreshLiveAuthUi() {
 
   if (!client) {
     liveAccountSnapshot = { user: null, profile: null, session: null, connectionReady: false };
-    setAuthMessage(elements.sessionMessage, 'Datenbank ist noch nicht vollständig konfiguriert. Trag Project URL und Public Key im Systembereich ein.', 'warn');
     updateAccountStatusBadges(null, null);
     setAccountShellUi(null, null);
     updateAccountDock(null, null);
+    hydrateProfileEditor(null, null);
     updateRequestDraftFields(loadVisibleCart());
     return;
   }
 
-  const { data, error } = await client.auth.getSession();
-  if (error) {
-    setAuthMessage(elements.sessionMessage, `Sitzung konnte nicht geladen werden: ${error.message}`, 'warn');
-  }
+  const { data } = await client.auth.getSession();
 
   const session = data?.session || null;
   const user = session?.user || null;
   if (user?.id) updateAccountActivity(user.id, { lastSeenAt: new Date().toISOString() });
-  const profile = user ? await fetchLiveProfile(user.id) : null;
+
+  let profile = user ? await fetchLiveProfile(user.id) : null;
+  if (user && !profile) {
+    profile = await upsertLiveProfile(user, {
+      last_seen_at: new Date().toISOString(),
+    });
+  }
+
   liveAccountSnapshot = {
     user,
     profile,
@@ -1428,7 +1459,7 @@ async function refreshLiveAuthUi() {
   const displayUsername = profile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || '-';
   const displayDiscord = profile?.discord_name || user?.user_metadata?.discord_name || '-';
   const displayCfx = profile?.cfx_identifier || user?.user_metadata?.cfx_identifier || '-';
-  const displayRole = profile?.role || 'kunde';
+  const displayRole = mapRoleLabel(profile?.role || 'customer');
   const isConfirmed = Boolean(user?.email_confirmed_at);
 
   if (elements.sessionEmpty) elements.sessionEmpty.classList.toggle('hidden-section', Boolean(user));
@@ -1441,15 +1472,10 @@ async function refreshLiveAuthUi() {
   if (elements.userIdValue) elements.userIdValue.textContent = user?.id || '-';
   if (elements.emailConfirmedValue) elements.emailConfirmedValue.textContent = isConfirmed ? 'Ja' : 'Noch offen';
 
-  if (user) {
-    setAuthMessage(elements.sessionMessage, isConfirmed ? 'Konto aktiv.' : 'Konto aktiv. Bitte E-Mail-Bestätigung prüfen.', isConfirmed ? 'success' : 'warn');
-  } else {
-    setAuthMessage(elements.sessionMessage, 'Noch kein Konto aktiv. Melde dich oben rechts an oder registriere dich.', 'neutral');
-  }
-
   updateAccountStatusBadges(user, profile);
   setAccountShellUi(user, profile);
   updateAccountDock(user, profile);
+  hydrateProfileEditor(user, profile);
   updateRequestDraftFields(loadVisibleCart());
 }
 
@@ -1502,6 +1528,8 @@ async function handleLiveRegister(event) {
         username,
         discord_name: discordName,
         cfx_identifier: cfxIdentifier,
+        last_login_at: new Date().toISOString(),
+        last_seen_at: new Date().toISOString(),
       });
     }
 
@@ -1554,7 +1582,10 @@ async function handleLiveLogin(event) {
     if (error) throw error;
 
     if (data?.user) {
-      await upsertLiveProfile(data.user);
+      await upsertLiveProfile(data.user, {
+        last_login_at: new Date().toISOString(),
+        last_seen_at: new Date().toISOString(),
+      });
     }
 
     if (elements.loginForm) elements.loginForm.reset();
@@ -1574,16 +1605,56 @@ async function handleLiveLogin(event) {
 
 async function handleLiveLogout() {
   const client = getSupabaseClient();
-  const elements = getAuthElements();
   if (!client) return;
   const { error } = await client.auth.signOut();
   if (error) {
-    setAuthMessage(elements.sessionMessage, `Logout fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'warn');
+    const editor = getProfileEditorElements();
+    setAuthMessage(editor.message, `Logout fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'warn');
     return;
   }
-  setAuthMessage(elements.sessionMessage, 'Logout erfolgreich.', 'success');
   closeAccountDropdown();
   await refreshLiveAuthUi();
+}
+
+async function handleProfileEditorSave(event) {
+  event.preventDefault();
+  const user = liveAccountSnapshot.user;
+  const elements = getProfileEditorElements();
+  if (!user) {
+    setAuthMessage(elements.message, 'Melde dich zuerst an.', 'warn');
+    return;
+  }
+
+  const payload = {
+    username: elements.usernameInput?.value.trim() || user.email?.split('@')[0] || '',
+    discord_name: elements.discordInput?.value.trim() || '',
+    cfx_identifier: elements.cfxInput?.value.trim() || '',
+    avatar_url: elements.avatarInput?.value.trim() || '',
+    last_seen_at: new Date().toISOString(),
+  };
+
+  if (elements.saveButton) {
+    elements.saveButton.disabled = true;
+    elements.saveButton.textContent = 'Speichere ...';
+  }
+
+  try {
+    const profile = await upsertLiveProfile(user, payload);
+    if (profile) {
+      liveAccountSnapshot.profile = profile;
+      setAuthMessage(elements.message, 'Profil gespeichert.', 'success');
+    } else {
+      setAuthMessage(elements.message, 'Profil konnte noch nicht gespeichert werden. Bitte SQL in Supabase ausführen.', 'warn');
+    }
+    await refreshLiveAuthUi();
+  } catch (error) {
+    setAuthMessage(elements.message, 'Profil konnte nicht gespeichert werden.', 'warn');
+  } finally {
+    if (elements.saveButton) {
+      elements.saveButton.disabled = false;
+      elements.saveButton.textContent = 'Profil speichern';
+    }
+  }
 }
 
 function setupLiveSupabaseAuth() {
@@ -1592,6 +1663,11 @@ function setupLiveSupabaseAuth() {
 
   elements.registerForm.addEventListener('submit', handleLiveRegister);
   elements.loginForm.addEventListener('submit', handleLiveLogin);
+
+  const profileEditor = getProfileEditorElements();
+  if (profileEditor.form) {
+    profileEditor.form.addEventListener('submit', handleProfileEditorSave);
+  }
 
   const client = getSupabaseClient();
   if (client) {
