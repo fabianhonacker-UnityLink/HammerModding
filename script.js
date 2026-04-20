@@ -581,8 +581,8 @@ function openContactRequestFlow() {
   closeRequestModal();
   activateNav('contact');
   showSection('contact');
-  const requestText = document.getElementById('contactRequestText');
-  if (requestText) requestText.focus();
+  const primaryCta = document.querySelector('#contactSection .contact-cta-row .cta');
+  if (primaryCta) primaryCta.focus();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
