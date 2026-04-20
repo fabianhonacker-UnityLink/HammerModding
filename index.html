@@ -1376,30 +1376,30 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
   <div class="contact-main glass-soft">
     <div class="contact-intro">
       <div class="eyebrow">Hammer Modding · Konto</div>
-      <h2>ECHTE KONTEN VORBEREITEN<br/><span>&amp; SAUBER AUFBAUEN</span></h2>
+      <h2>SUPABASE-AUTH VORBEREITEN<br/><span>&amp; GESCHÜTZTE BEREICHE PLANEN</span></h2>
       <p>
-        Phase 6A ist der Übergang von rein lokaler Demo-Logik zu einem echten System mit Datenbank, Rollen, Login und später geschützten Bereichen.
-        Hier legen wir die sichtbare Grundlage fest, bevor Supabase, echte Sessions und die Tebex-Verknüpfung live angeschlossen werden.
+        Phase 6B schiebt das Projekt weg von reiner Browser-Demo und hin zu echter Auth, Rollenlogik und später serverseitig geschützten Bereichen.
+        Der sichtbare Plan dafür steht hier jetzt schon sauber im Hammer-Modding-System.
       </p>
     </div>
     <div class="foundation-grid two-up">
       <article class="foundation-card">
         <div class="foundation-card-head">
-          <strong>Konto-Felder</strong>
-          <small>später echte DB</small>
+          <strong>Auth-Felder</strong>
+          <small>später in Supabase</small>
         </div>
         <ul class="foundation-points">
           <li>Benutzername</li>
           <li>E-Mail</li>
-          <li>Discord</li>
+          <li>Discord-Name / Discord-ID</li>
           <li>CFX-Identifier / License</li>
-          <li>Rolle &amp; Freigaben</li>
+          <li>Rolle, Status und Sichtbarkeiten</li>
         </ul>
       </article>
       <article class="foundation-card">
         <div class="foundation-card-head">
-          <strong>Rollenmodell</strong>
-          <small>für späteren Live-Betrieb</small>
+          <strong>Geschützte Bereiche</strong>
+          <small>nur mit Berechtigung</small>
         </div>
         <div class="role-pill-row">
           <span class="role-pill">Admin</span>
@@ -1407,32 +1407,35 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
           <span class="role-pill">Kunde</span>
         </div>
         <p class="foundation-copy">
-          Der Bereich <strong>System</strong> und die spätere Produktverwaltung werden nur für berechtigte Konten sichtbar und serverseitig abgesichert.
+          <strong>System</strong>, spätere Produktverwaltung, Backend-Module und Freigaben sollen nicht mehr einfach nur per Frontend sichtbar sein,
+          sondern später über Rolle + Datenbank + geschützte Serverlogik freigegeben werden.
         </p>
       </article>
       <article class="foundation-card">
         <div class="foundation-card-head">
           <strong>Spätere Kontoseiten</strong>
-          <small>nach echter Auth</small>
+          <small>nach echter Anbindung</small>
         </div>
         <ul class="foundation-points">
           <li>Meine Bestellungen</li>
           <li>Meine Downloads</li>
-          <li>Verknüpfte CFX-Bindungen</li>
+          <li>Verknüpfte Bindungen</li>
           <li>Produktanfragen &amp; Freigaben</li>
+          <li>Rollenabhängige Bereiche</li>
         </ul>
       </article>
       <article class="foundation-card">
         <div class="foundation-card-head">
-          <strong>Nächster technischer Schritt</strong>
-          <small>heute vorbereitbar</small>
+          <strong>Produktverwaltung später</strong>
+          <small>manager-fähig</small>
         </div>
         <p class="foundation-copy">
-          Sobald URL, Public Key und die Store-Daten vorliegen, wird aus dieser Grundlage ein echtes Auth- und Datenbanksystem.
+          Berechtigte Benutzerkonten sollen später Produkte direkt über die Website anlegen können – mit Bild-Upload,
+          Titel, Preis, Beschreibung, Kategorie und späterem Tebex-Mapping.
         </p>
         <div class="foundation-actions">
-          <button class="cta secondary" data-nav-open="system" type="button">Zum System-Fundament</button>
-          <button class="cta secondary" data-nav-open="contact" type="button">Zum Kontakt</button>
+          <button class="cta secondary" data-nav-open="system" type="button">Zur Supabase-Planung</button>
+          <button class="cta secondary" data-nav-open="contact" type="button">Zum Bestellbereich</button>
         </div>
       </article>
     </div>
@@ -1441,27 +1444,28 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
         <strong>Status</strong>
-        <small>Phase 6A</small>
+        <small>Phase 6B</small>
       </div>
       <div class="status-stack">
         <div class="status-line"><span>Datenbank</span><strong class="status-badge status-badge-warn" id="accountDbStatusBadge">Offen</strong></div>
         <div class="status-line"><span>Auth</span><strong class="status-badge status-badge-warn" id="accountAuthStatusBadge">Offen</strong></div>
+        <div class="status-line"><span>Protected Areas</span><strong class="status-badge status-badge-warn" id="accountAccessStatusBadge">Offen</strong></div>
         <div class="status-line"><span>Tebex-Bridge</span><strong class="status-badge status-badge-warn" id="accountBridgeStatusBadge">Wartet</strong></div>
       </div>
     </article>
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
         <strong>Zielbild</strong>
-        <small>echte Konten</small>
+        <small>echte Benutzerkonten</small>
       </div>
-      <p>Normale Nutzer sehen nur Shop, Käufe und Kontobereich. Admins und Produktmanager erhalten später zusätzlich Zugriff auf System, Backend und Produktpflege.</p>
+      <p>Normale Nutzer sehen Shop, Käufe und Kontobereich. Admins und Produktmanager erhalten später zusätzlich Zugriff auf System, Produktpflege und Backend-nahe Funktionen.</p>
     </article>
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
-        <strong>Produktpflege</strong>
-        <small>für später gemerkt</small>
+        <strong>Für später gemerkt</strong>
+        <small>rollenbasiert</small>
       </div>
-      <p>Ausgewählte Konten sollen später Produkte direkt über die Website mit Bild, Titel, Preis und Beschreibung anlegen und veröffentlichen können.</p>
+      <p>Produkte sollen später nicht mehr händisch in Dateien landen, sondern über berechtigte Website-Konten gepflegt, geprüft und veröffentlicht werden.</p>
     </article>
   </div>
 </div>
@@ -1472,16 +1476,16 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
   <div class="contact-main glass-soft">
     <div class="contact-intro">
       <div class="eyebrow">Hammer Modding · System</div>
-      <h2>DATENBANK-FUNDAMENT<br/><span>&amp; ECHTE ANBINDUNG VORBEREITEN</span></h2>
+      <h2>SUPABASE-LIVE-ANBINDUNG<br/><span>&amp; BACKEND-READY VORBEREITEN</span></h2>
       <p>
-        Hier legst du die Eckdaten für die spätere echte Datenbank, Rollenlogik und Tebex-/Webhook-Anbindung fest.
-        Solange noch keine Live-Zugangsdaten da sind, bleibt das ein sauberer Technik-Entwurf statt einer halben Fake-Anbindung.
+        Phase 6B bereitet die echte Supabase-Richtung vor: saubere Konfiguration, SQL-Blueprint, Redirects,
+        Rollenbasis, Storage und ein erster Live-Verbindungstest – ohne schon blind Secrets oder halbe Serverlogik einzubauen.
       </p>
     </div>
     <div class="foundation-form-shell">
       <div class="foundation-form-head">
-        <strong>Phase-6A Konfiguration</strong>
-        <small>bereit für echte DB-Anbindung</small>
+        <strong>Phase-6B Konfiguration</strong>
+        <small>supabase-ready</small>
       </div>
       <div class="foundation-form-grid">
         <label class="foundation-field">
@@ -1498,17 +1502,45 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
             <option value="email-discord">E-Mail + Discord später</option>
           </select>
         </label>
+        <label class="foundation-field">
+          <span>Project Ref</span>
+          <input class="hm-input" id="dbProjectRefInput" placeholder="abcd1234xyz" type="text"/>
+        </label>
+        <label class="foundation-field">
+          <span>Public Schema</span>
+          <input class="hm-input" id="dbSchemaInput" placeholder="public" type="text"/>
+        </label>
         <label class="foundation-field field-span-2">
           <span>Project URL / API Base</span>
           <input class="hm-input" id="dbProjectUrlInput" placeholder="https://dein-projekt.supabase.co" type="text"/>
         </label>
         <label class="foundation-field field-span-2">
           <span>Public Anon Key</span>
-          <textarea class="hm-textarea compact-textarea" id="dbAnonKeyInput" placeholder="Public Anon Key – später von dir eintragen"></textarea>
+          <textarea class="hm-textarea compact-textarea" id="dbAnonKeyInput" placeholder="Nur Public Anon Key – keine Service-Role im Frontend"></textarea>
+        </label>
+        <label class="foundation-field field-span-2">
+          <span>Site URL</span>
+          <input class="hm-input" id="dbSiteUrlInput" placeholder="https://hammer-modding.de" type="text"/>
+        </label>
+        <label class="foundation-field field-span-2">
+          <span>Redirect URL</span>
+          <input class="hm-input" id="dbRedirectUrlInput" placeholder="https://hammer-modding.de/account/callback" type="text"/>
         </label>
         <label class="foundation-field">
           <span>Storage Bucket</span>
           <input class="hm-input" id="dbStorageBucketInput" placeholder="product-assets" type="text"/>
+        </label>
+        <label class="foundation-field">
+          <span>Products Tabelle</span>
+          <input class="hm-input" id="dbProductsTableInput" placeholder="products" type="text"/>
+        </label>
+        <label class="foundation-field">
+          <span>Admin Rolle</span>
+          <input class="hm-input" id="dbAdminRoleInput" placeholder="admin" type="text"/>
+        </label>
+        <label class="foundation-field">
+          <span>Manager Rolle</span>
+          <input class="hm-input" id="dbManagerRoleInput" placeholder="product_manager" type="text"/>
         </label>
         <label class="foundation-field">
           <span>Bindungsmodus</span>
@@ -1518,96 +1550,91 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
             <option value="discord-cfx">Discord + CFX kombiniert</option>
           </select>
         </label>
+        <label class="foundation-field">
+          <span>Webhook / Relay URL</span>
+          <input class="hm-input" id="webhookUrlInput" placeholder="https://api.hammer-modding.de/tebex/webhook" type="text"/>
+        </label>
         <label class="foundation-field field-span-2">
           <span>Backend URL</span>
           <input class="hm-input" id="backendBaseUrlInput" placeholder="https://api.hammer-modding.de" type="text"/>
         </label>
-        <label class="foundation-field field-span-2">
-          <span>Webhook / Relay URL</span>
-          <input class="hm-input" id="webhookUrlInput" placeholder="https://api.hammer-modding.de/tebex/webhook" type="text"/>
-        </label>
       </div>
       <div class="foundation-actions">
         <button class="cta primary" data-foundation-save="true" id="foundationSaveButton" type="button">Entwurf speichern</button>
-        <button class="cta secondary" data-foundation-copy="true" id="foundationCopyButton" type="button">Zusammenfassung kopieren</button>
+        <button class="cta secondary" data-foundation-copy="true" id="foundationCopyButton" type="button">Setup kopieren</button>
+        <button class="cta secondary" data-foundation-copy-sql="true" id="foundationCopySqlButton" type="button">SQL kopieren</button>
+        <button class="cta secondary" data-foundation-test="true" id="foundationTestButton" type="button">Live-Verbindung prüfen</button>
       </div>
-      <p class="foundation-note">Noch keine Live-DB aktiv. Diese Phase bereitet die echte Anbindung sauber vor, ohne Secrets oder halbe Checkout-Logik blind einzubauen.</p>
+      <p class="foundation-note">Nur Public-Werte hier eintragen. Secrets und Service-Role-Keys gehören später ausschließlich ins Backend.</p>
     </div>
+
+    <div class="foundation-grid two-up">
+      <article class="foundation-card foundation-code-card">
+        <div class="foundation-card-head">
+          <strong>SQL Blueprint</strong>
+          <small>für Supabase SQL Editor</small>
+        </div>
+        <textarea class="request-draft-text foundation-code-text" id="foundationSqlText" readonly>SQL Blueprint wird geladen …</textarea>
+      </article>
+      <article class="foundation-card">
+        <div class="foundation-card-head">
+          <strong>Go-Live Checkliste</strong>
+          <small>sauber statt geraten</small>
+        </div>
+        <ul class="foundation-points">
+          <li>Project URL + Public Anon Key eintragen</li>
+          <li>Site URL + Redirect URL festlegen</li>
+          <li>Storage Bucket + Produkt-Tabelle definieren</li>
+          <li>Rollen für Admin und Produktmanager festlegen</li>
+          <li>Webhook-/Relay-URL vorbereiten</li>
+          <li>Tebex-Daten danach andocken</li>
+        </ul>
+        <div class="foundation-helper-note">Die Verbindung wird erst dann wirklich live, wenn Projekt-Daten, Redirects und später Tebex-/Webhook-Daten sauber gesetzt sind.</div>
+      </article>
+    </div>
+
     <div class="request-draft-box foundation-summary-box">
       <div class="request-draft-head">
-        <strong>Phase-6A Zusammenfassung</strong>
+        <strong>Phase-6B Setup-Zusammenfassung</strong>
         <small>für dich / Ansprechpartnerin</small>
       </div>
-      <textarea class="request-draft-text foundation-summary-text" id="foundationSummaryText" readonly>Phase 6A ist noch nicht initialisiert.</textarea>
-    </div>
-    <div class="foundation-grid three-up">
-      <article class="foundation-card">
-        <div class="foundation-card-head">
-          <strong>profiles</strong>
-          <small>Benutzerkonto</small>
-        </div>
-        <p class="foundation-copy">Benutzername, E-Mail, Discord, CFX-Identifier, Rolle und Kontostatus.</p>
-      </article>
-      <article class="foundation-card">
-        <div class="foundation-card-head">
-          <strong>products</strong>
-          <small>Shopdaten</small>
-        </div>
-        <p class="foundation-copy">Titel, Kategorie, Preis, Beschreibung, Status, Bildpfad und spätere Tebex Package ID.</p>
-      </article>
-      <article class="foundation-card">
-        <div class="foundation-card-head">
-          <strong>orders &amp; order_items</strong>
-          <small>Käufe</small>
-        </div>
-        <p class="foundation-copy">Bestellungen, Einzelpositionen, Zahlungsstatus, Freischaltung und Zuordnung zum Konto.</p>
-      </article>
-      <article class="foundation-card">
-        <div class="foundation-card-head">
-          <strong>account_bindings</strong>
-          <small>Freischaltung</small>
-        </div>
-        <p class="foundation-copy">CFX Identifier, Tebex-Bezug, Discord und spätere Lizenz-/Account-Bindung.</p>
-      </article>
-      <article class="foundation-card">
-        <div class="foundation-card-head">
-          <strong>product_submissions</strong>
-          <small>späteres Manager-Panel</small>
-        </div>
-        <p class="foundation-copy">Entwürfe, Uploads, Freigaben und Veröffentlichungen über berechtigte Benutzerkonten.</p>
-      </article>
-      <article class="foundation-card">
-        <div class="foundation-card-head">
-          <strong>webhook_events</strong>
-          <small>Nachvollziehbarkeit</small>
-        </div>
-        <p class="foundation-copy">Eingehende Tebex-Events, Prüfstatus, Logs und technische Rückverfolgung.</p>
-      </article>
+      <textarea class="request-draft-text foundation-summary-text" id="foundationSummaryText" readonly>Phase 6B ist noch nicht initialisiert.</textarea>
     </div>
   </div>
   <div class="contact-side">
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
         <strong>Readiness</strong>
-        <small>live vorbereiten</small>
+        <small>supabase-live</small>
       </div>
       <div class="status-stack">
         <div class="status-line"><span>Provider</span><strong class="status-badge status-badge-neutral" id="foundationProviderBadge">Supabase</strong></div>
         <div class="status-line"><span>Datenbank</span><strong class="status-badge status-badge-warn" id="foundationDbBadge">Offen</strong></div>
-        <div class="status-line"><span>Auth</span><strong class="status-badge status-badge-warn" id="foundationAuthBadge">Offen</strong></div>
+        <div class="status-line"><span>Redirects</span><strong class="status-badge status-badge-warn" id="foundationRedirectBadge">Offen</strong></div>
+        <div class="status-line"><span>Storage</span><strong class="status-badge status-badge-warn" id="foundationStorageBadge">Offen</strong></div>
+        <div class="status-line"><span>SQL Blueprint</span><strong class="status-badge status-badge-neutral" id="foundationSqlBadge">Bereit</strong></div>
+        <div class="status-line"><span>Live-Test</span><strong class="status-badge status-badge-warn" id="foundationConnectionBadge">Nicht geprüft</strong></div>
         <div class="status-line"><span>Webhook</span><strong class="status-badge status-badge-warn" id="foundationWebhookBadge">Offen</strong></div>
       </div>
     </article>
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
-        <strong>Heute klären</strong>
-        <small>mit Ansprechpartnerin</small>
+        <strong>Live-Test Ergebnis</strong>
+        <small>kein Blindflug</small>
+      </div>
+      <p class="foundation-helper-note" id="foundationConnectionMessage">Noch kein Live-Test gelaufen. Sobald Project URL und Public Anon Key eingetragen sind, kannst du die Verbindung hier prüfen.</p>
+    </article>
+    <article class="contact-info-card glass-soft">
+      <div class="contact-info-head">
+        <strong>Heute noch besorgen</strong>
+        <small>damit 6C/6D sauber folgen</small>
       </div>
       <ul class="contact-steps">
-        <li>Store-Token / Webstore-Identifier</li>
-        <li>Package IDs der Produkte</li>
+        <li>Supabase Project URL</li>
+        <li>Public Anon Key</li>
+        <li>Site URL / Redirect URL</li>
+        <li>Tebex Store-Token / Package IDs</li>
         <li>Webhook-Ziel später eintragbar</li>
-        <li>Headless API für die Homepage</li>
       </ul>
     </article>
     <article class="contact-info-card glass-soft">
@@ -1615,8 +1642,8 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
         <strong>Später geschützt</strong>
         <small>nur berechtigte Konten</small>
       </div>
-      <p>System, Backend, Produktverwaltung und Freigaben sollen später nur für berechtigte Konten sichtbar und serverseitig abgesichert sein.</p>
-      <button class="cta secondary" data-nav-open="account" type="button">Zum Konto-Modell</button>
+      <p>System, Produktpflege, Freigaben und spätere Admin-Aktionen sollen nicht nur optisch versteckt sein, sondern später über Rolle + Backend wirklich geschützt werden.</p>
+      <button class="cta secondary" data-nav-open="account" type="button">Zum Kontomodell</button>
     </article>
   </div>
 </div>

@@ -42,7 +42,7 @@ const storeCatalog = {
 };
 
 const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
-  version: 'phase-6a-database-foundation',
+  version: 'phase-6b-supabase-live-prep',
   catalog: storeCatalog,
   lastPreparedItem: null,
 });
@@ -504,16 +504,27 @@ function clearVisibleCart() {
 }
 
 
-const foundationStorageKey = 'hm_phase6a_foundation';
+
+const foundationStorageKey = 'hm_phase6b_foundation';
 const defaultFoundationState = {
   provider: 'supabase',
   authProvider: 'email-password',
+  projectRef: '',
   projectUrl: '',
   anonKey: '',
+  siteUrl: '',
+  redirectUrl: '',
+  publicSchema: 'public',
   storageBucket: 'product-assets',
+  productsTable: 'products',
+  adminRole: 'admin',
+  managerRole: 'product_manager',
   bindingMode: 'cfx-license',
   backendBaseUrl: '',
   webhookUrl: '',
+  lastConnectionStatus: 'idle',
+  lastConnectionMessage: '',
+  lastConnectionCheckedAt: '',
 };
 
 function loadFoundationState() {
@@ -541,27 +552,47 @@ function getFoundationElements() {
   return {
     providerSelect: document.getElementById('dbProviderSelect'),
     authProviderSelect: document.getElementById('authProviderSelect'),
+    projectRefInput: document.getElementById('dbProjectRefInput'),
     projectUrlInput: document.getElementById('dbProjectUrlInput'),
     anonKeyInput: document.getElementById('dbAnonKeyInput'),
+    siteUrlInput: document.getElementById('dbSiteUrlInput'),
+    redirectUrlInput: document.getElementById('dbRedirectUrlInput'),
+    schemaInput: document.getElementById('dbSchemaInput'),
     storageBucketInput: document.getElementById('dbStorageBucketInput'),
+    productsTableInput: document.getElementById('dbProductsTableInput'),
+    adminRoleInput: document.getElementById('dbAdminRoleInput'),
+    managerRoleInput: document.getElementById('dbManagerRoleInput'),
     bindingModeSelect: document.getElementById('bindingModeSelect'),
     backendBaseUrlInput: document.getElementById('backendBaseUrlInput'),
     webhookUrlInput: document.getElementById('webhookUrlInput'),
     summaryText: document.getElementById('foundationSummaryText'),
+    sqlText: document.getElementById('foundationSqlText'),
+    connectionMessage: document.getElementById('foundationConnectionMessage'),
   };
 }
 
 function collectFoundationStateFromUi() {
   const elements = getFoundationElements();
+  const previous = loadFoundationState();
   return {
     provider: elements.providerSelect?.value || defaultFoundationState.provider,
     authProvider: elements.authProviderSelect?.value || defaultFoundationState.authProvider,
+    projectRef: elements.projectRefInput?.value.trim() || '',
     projectUrl: elements.projectUrlInput?.value.trim() || '',
     anonKey: elements.anonKeyInput?.value.trim() || '',
-    storageBucket: elements.storageBucketInput?.value.trim() || '',
+    siteUrl: elements.siteUrlInput?.value.trim() || '',
+    redirectUrl: elements.redirectUrlInput?.value.trim() || '',
+    publicSchema: elements.schemaInput?.value.trim() || defaultFoundationState.publicSchema,
+    storageBucket: elements.storageBucketInput?.value.trim() || defaultFoundationState.storageBucket,
+    productsTable: elements.productsTableInput?.value.trim() || defaultFoundationState.productsTable,
+    adminRole: elements.adminRoleInput?.value.trim() || defaultFoundationState.adminRole,
+    managerRole: elements.managerRoleInput?.value.trim() || defaultFoundationState.managerRole,
     bindingMode: elements.bindingModeSelect?.value || defaultFoundationState.bindingMode,
     backendBaseUrl: elements.backendBaseUrlInput?.value.trim() || '',
     webhookUrl: elements.webhookUrlInput?.value.trim() || '',
+    lastConnectionStatus: previous.lastConnectionStatus || defaultFoundationState.lastConnectionStatus,
+    lastConnectionMessage: previous.lastConnectionMessage || '',
+    lastConnectionCheckedAt: previous.lastConnectionCheckedAt || '',
   };
 }
 
@@ -569,9 +600,16 @@ function hydrateFoundationUi(state) {
   const elements = getFoundationElements();
   if (elements.providerSelect) elements.providerSelect.value = state.provider || defaultFoundationState.provider;
   if (elements.authProviderSelect) elements.authProviderSelect.value = state.authProvider || defaultFoundationState.authProvider;
+  if (elements.projectRefInput) elements.projectRefInput.value = state.projectRef || '';
   if (elements.projectUrlInput) elements.projectUrlInput.value = state.projectUrl || '';
   if (elements.anonKeyInput) elements.anonKeyInput.value = state.anonKey || '';
-  if (elements.storageBucketInput) elements.storageBucketInput.value = state.storageBucket || '';
+  if (elements.siteUrlInput) elements.siteUrlInput.value = state.siteUrl || '';
+  if (elements.redirectUrlInput) elements.redirectUrlInput.value = state.redirectUrl || '';
+  if (elements.schemaInput) elements.schemaInput.value = state.publicSchema || defaultFoundationState.publicSchema;
+  if (elements.storageBucketInput) elements.storageBucketInput.value = state.storageBucket || defaultFoundationState.storageBucket;
+  if (elements.productsTableInput) elements.productsTableInput.value = state.productsTable || defaultFoundationState.productsTable;
+  if (elements.adminRoleInput) elements.adminRoleInput.value = state.adminRole || defaultFoundationState.adminRole;
+  if (elements.managerRoleInput) elements.managerRoleInput.value = state.managerRole || defaultFoundationState.managerRole;
   if (elements.bindingModeSelect) elements.bindingModeSelect.value = state.bindingMode || defaultFoundationState.bindingMode;
   if (elements.backendBaseUrlInput) elements.backendBaseUrlInput.value = state.backendBaseUrl || '';
   if (elements.webhookUrlInput) elements.webhookUrlInput.value = state.webhookUrl || '';
@@ -606,60 +644,250 @@ function formatBindingMode(value) {
   return 'CFX Identifier / License';
 }
 
+function formatConnectionTimestamp(value) {
+  if (!value) return 'noch nie';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('de-DE');
+}
+
+function sanitizeSqlIdentifier(value, fallback) {
+  const cleaned = String(value || fallback || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return cleaned || fallback;
+}
+
 function buildFoundationSummary(state) {
   const dbReady = Boolean(state.projectUrl && state.anonKey);
+  const redirectReady = Boolean(state.siteUrl && state.redirectUrl);
+  const storageReady = Boolean(state.storageBucket && state.productsTable);
   const webhookReady = Boolean(state.webhookUrl);
-  const backendReady = Boolean(state.backendBaseUrl);
+  const protectedReady = Boolean(state.adminRole && state.managerRole);
   const lines = [
-    'Hammer Modding – Phase 6A Datenbank-Fundament',
+    'Hammer Modding – Phase 6B Supabase Live-Vorbereitung',
     '',
     `Provider: ${state.provider === 'custom' ? 'Custom Backend' : 'Supabase'}`,
     `Auth: ${formatAuthProvider(state.authProvider)}`,
-    `Bindungsmodus: ${formatBindingMode(state.bindingMode)}`,
+    `Project Ref: ${prettifyFoundationValue(state.projectRef)}`,
     `Project URL / API Base: ${prettifyFoundationValue(state.projectUrl)}`,
+    `Public Anon Key: ${state.anonKey ? 'gesetzt' : 'noch offen'}`,
+    `Site URL: ${prettifyFoundationValue(state.siteUrl)}`,
+    `Redirect URL: ${prettifyFoundationValue(state.redirectUrl)}`,
+    `Schema: ${prettifyFoundationValue(state.publicSchema, 'public')}`,
+    `Products Tabelle: ${prettifyFoundationValue(state.productsTable, 'products')}`,
+    `Storage Bucket: ${prettifyFoundationValue(state.storageBucket, 'product-assets')}`,
+    `Admin Rolle: ${prettifyFoundationValue(state.adminRole, 'admin')}`,
+    `Manager Rolle: ${prettifyFoundationValue(state.managerRole, 'product_manager')}`,
+    `Bindungsmodus: ${formatBindingMode(state.bindingMode)}`,
     `Backend URL: ${prettifyFoundationValue(state.backendBaseUrl)}`,
     `Webhook URL: ${prettifyFoundationValue(state.webhookUrl)}`,
-    `Storage Bucket: ${prettifyFoundationValue(state.storageBucket, 'product-assets')}`,
-    `Public Anon Key: ${state.anonKey ? 'gesetzt' : 'noch offen'}`,
-    '',
-    'Tabellen / Module:',
-    '- profiles',
-    '- products',
-    '- orders',
-    '- order_items',
-    '- account_bindings',
-    '- product_submissions',
-    '- webhook_events',
     '',
     'Readiness:',
-    `- Datenbank: ${dbReady ? 'vorbereitet' : 'noch offen'}`,
-    `- Backend: ${backendReady ? 'Entwurf steht' : 'noch offen'}`,
+    `- Datenbank: ${dbReady ? 'bereit für Live-Test' : 'noch offen'}`,
+    `- Redirects: ${redirectReady ? 'festgelegt' : 'noch offen'}`,
+    `- Storage / Produkte: ${storageReady ? 'festgelegt' : 'noch offen'}`,
+    `- Protected Areas: ${protectedReady ? 'Rollen definiert' : 'noch offen'}`,
     `- Webhook: ${webhookReady ? 'vorbereitet' : 'noch offen'}`,
+    `- Letzter Live-Test: ${state.lastConnectionStatus === 'success' ? 'erfolgreich' : state.lastConnectionStatus === 'error' ? 'fehlgeschlagen' : 'noch nicht gelaufen'}`,
+    `- Zuletzt geprüft: ${formatConnectionTimestamp(state.lastConnectionCheckedAt)}`,
     '',
-    'Hinweis:',
-    '- System / Backend später nur für berechtigte Konten sichtbar',
-    '- Produktverwaltung über Website ist für spätere Rollen eingeplant',
-    '- Tebex-Daten werden nachgereicht und danach live angebunden',
+    'Nächste Schritte:',
+    '- SQL Blueprint in Supabase anlegen',
+    '- Redirects und Site URL in Supabase prüfen',
+    '- Auth + Rollen später serverseitig absichern',
+    '- Tebex Store-Daten danach anbinden',
   ];
 
   return lines.join('\n');
 }
 
+function buildFoundationSqlBlueprint(state) {
+  if (state.provider === 'custom') {
+    return [
+      '-- Custom Backend gewählt.',
+      '-- Dieser SQL-Blueprint ist auf Supabase/Postgres ausgelegt.',
+      '-- Für einen Custom Stack bitte Tabellen, Rollen und Policies auf euren Backend-Standard übertragen.',
+    ].join('\n');
+  }
+
+  const schema = sanitizeSqlIdentifier(state.publicSchema, 'public');
+  const productsTable = sanitizeSqlIdentifier(state.productsTable, 'products');
+  const bucket = sanitizeSqlIdentifier(state.storageBucket, 'product_assets');
+  const adminRole = sanitizeSqlIdentifier(state.adminRole, 'admin');
+  const managerRole = sanitizeSqlIdentifier(state.managerRole, 'product_manager');
+
+  return [
+    '-- Hammer Modding · Phase 6B SQL Blueprint',
+    '-- Für Supabase SQL Editor gedacht. Vor Live-Einsatz bitte sauber prüfen.',
+    '',
+    `create schema if not exists ${schema};`,
+    '',
+    `create extension if not exists "pgcrypto";`,
+    '',
+    `create or replace function ${schema}.touch_updated_at()`,
+    'returns trigger',
+    'language plpgsql',
+    'as $$',
+    'begin',
+    '  new.updated_at = now();',
+    '  return new;',
+    'end;',
+    '$$;',
+    '',
+    `create table if not exists ${schema}.profiles (`,
+    '  id uuid primary key references auth.users(id) on delete cascade,',
+    '  username text unique not null,',
+    '  email text,',
+    '  discord_name text,',
+    '  discord_id text,',
+    '  cfx_identifier text,',
+    `  role text not null default 'customer' check (role in ('customer', '${adminRole}', '${managerRole}')),`,
+    '  is_active boolean not null default true,',
+    '  created_at timestamptz not null default now(),',
+    '  updated_at timestamptz not null default now()',
+    ');',
+    '',
+    `create table if not exists ${schema}.${productsTable} (`,
+    '  id uuid primary key default gen_random_uuid(),',
+    '  slug text unique not null,',
+    '  title text not null,',
+    '  category text not null,',
+    '  price_cents integer not null default 0,',
+    '  description text not null,',
+    '  image_path text,',
+    "  status text not null default 'draft' check (status in ('draft', 'published', 'archived')),",
+    '  tebex_package_id text,',
+    '  created_by uuid references auth.users(id),',
+    '  created_at timestamptz not null default now(),',
+    '  updated_at timestamptz not null default now()',
+    ');',
+    '',
+    `create table if not exists ${schema}.orders (`,
+    '  id uuid primary key default gen_random_uuid(),',
+    '  profile_id uuid references auth.users(id) on delete set null,',
+    "  status text not null default 'draft' check (status in ('draft', 'pending', 'paid', 'refunded', 'cancelled')),",
+    "  currency text not null default 'EUR',",
+    '  total_cents integer not null default 0,',
+    '  tebex_basket_id text,',
+    '  tebex_transaction_id text,',
+    "  custom_data jsonb not null default '{}'::jsonb,",
+    '  created_at timestamptz not null default now(),',
+    '  updated_at timestamptz not null default now()',
+    ');',
+    '',
+    `create table if not exists ${schema}.order_items (`,
+    '  id uuid primary key default gen_random_uuid(),',
+    '  order_id uuid not null references ' + schema + '.orders(id) on delete cascade,',
+    '  product_id uuid references ' + schema + '.' + productsTable + '(id) on delete set null,',
+    '  title_snapshot text not null,',
+    '  unit_price_cents integer not null default 0,',
+    '  quantity integer not null default 1 check (quantity > 0),',
+    '  tebex_package_id text,',
+    '  created_at timestamptz not null default now()',
+    ');',
+    '',
+    `create table if not exists ${schema}.account_bindings (`,
+    '  id uuid primary key default gen_random_uuid(),',
+    '  profile_id uuid not null references auth.users(id) on delete cascade,',
+    `  binding_mode text not null default '${state.bindingMode}',`,
+    '  cfx_identifier text,',
+    '  tebex_account text,',
+    '  discord_id text,',
+    '  is_verified boolean not null default false,',
+    '  created_at timestamptz not null default now(),',
+    '  updated_at timestamptz not null default now()',
+    ');',
+    '',
+    `create table if not exists ${schema}.product_submissions (`,
+    '  id uuid primary key default gen_random_uuid(),',
+    '  submitted_by uuid not null references auth.users(id) on delete cascade,',
+    '  title text not null,',
+    '  category text not null,',
+    '  price_cents integer not null default 0,',
+    '  description text not null,',
+    '  image_path text,',
+    "  review_status text not null default 'draft' check (review_status in ('draft', 'submitted', 'approved', 'rejected')),",
+    '  linked_product_id uuid references ' + schema + '.' + productsTable + '(id) on delete set null,',
+    '  created_at timestamptz not null default now(),',
+    '  updated_at timestamptz not null default now()',
+    ');',
+    '',
+    `create table if not exists ${schema}.webhook_events (`,
+    '  id uuid primary key default gen_random_uuid(),',
+    '  event_type text not null,',
+    "  source text not null default 'tebex',",
+    "  payload jsonb not null default '{}'::jsonb,",
+    '  processed boolean not null default false,',
+    '  processed_at timestamptz,',
+    '  created_at timestamptz not null default now()',
+    ');',
+    '',
+    `create or replace function ${schema}.current_app_role()`,
+    'returns text',
+    'language sql',
+    'stable',
+    'as $$',
+    `  select coalesce((select role from ${schema}.profiles where id = auth.uid()), 'guest');`,
+    '$$;',
+    '',
+    `alter table ${schema}.profiles enable row level security;`,
+    `alter table ${schema}.${productsTable} enable row level security;`,
+    `alter table ${schema}.orders enable row level security;`,
+    `alter table ${schema}.order_items enable row level security;`,
+    `alter table ${schema}.account_bindings enable row level security;`,
+    `alter table ${schema}.product_submissions enable row level security;`,
+    `alter table ${schema}.webhook_events enable row level security;`,
+    '',
+    `create policy "profiles_self_select" on ${schema}.profiles for select using (auth.uid() = id or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
+    `create policy "profiles_self_update" on ${schema}.profiles for update using (auth.uid() = id or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
+    `create policy "products_public_read" on ${schema}.${productsTable} for select using (status = 'published' or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
+    `create policy "products_manager_write" on ${schema}.${productsTable} for all using (${schema}.current_app_role() in ('${adminRole}', '${managerRole}')) with check (${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
+    `create policy "orders_owner_read" on ${schema}.orders for select using (profile_id = auth.uid() or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
+    `create policy "bindings_owner_read" on ${schema}.account_bindings for select using (profile_id = auth.uid() or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
+    `create policy "submissions_owner_read" on ${schema}.product_submissions for select using (submitted_by = auth.uid() or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
+    `create policy "submissions_owner_write" on ${schema}.product_submissions for insert with check (auth.uid() = submitted_by or ${schema}.current_app_role() in ('${adminRole}', '${managerRole}'));`,
+    `create policy "webhooks_admin_only" on ${schema}.webhook_events for select using (${schema}.current_app_role() = '${adminRole}');`,
+    '',
+    `create or replace trigger profiles_touch_updated_at before update on ${schema}.profiles for each row execute function ${schema}.touch_updated_at();`,
+    `create or replace trigger ${productsTable}_touch_updated_at before update on ${schema}.${productsTable} for each row execute function ${schema}.touch_updated_at();`,
+    `create or replace trigger account_bindings_touch_updated_at before update on ${schema}.account_bindings for each row execute function ${schema}.touch_updated_at();`,
+    `create or replace trigger product_submissions_touch_updated_at before update on ${schema}.product_submissions for each row execute function ${schema}.touch_updated_at();`,
+    '',
+    `-- Storage Bucket Vorschlag: ${bucket}`,
+    '-- Storage Policies später passend zu Rollen + Freigaben ergänzen.',
+  ].join('\n');
+}
+
 function updateFoundationStatus(state) {
   const providerLabel = state.provider === 'custom' ? 'Custom' : 'Supabase';
   const dbReady = Boolean(state.projectUrl && state.anonKey);
-  const dbPartial = Boolean(state.projectUrl || state.anonKey);
+  const dbPartial = Boolean(state.projectUrl || state.anonKey || state.projectRef);
   const authReady = Boolean(state.authProvider);
+  const redirectReady = Boolean(state.siteUrl && state.redirectUrl);
+  const redirectPartial = Boolean(state.siteUrl || state.redirectUrl);
+  const storageReady = Boolean(state.storageBucket && state.productsTable);
+  const storagePartial = Boolean(state.storageBucket || state.productsTable);
+  const protectedReady = Boolean(state.adminRole && state.managerRole);
   const webhookReady = Boolean(state.webhookUrl);
   const bridgeWaiting = webhookReady && dbReady ? 'Vorbereitet' : 'Wartet';
+  const connectionStatus = state.lastConnectionStatus || 'idle';
+  const connectionMessage = state.lastConnectionMessage || 'Noch kein Live-Test gelaufen. Sobald Project URL und Public Anon Key eingetragen sind, kannst du die Verbindung hier prüfen.';
 
   setBadgeState('foundationProviderBadge', providerLabel, 'draft');
   setBadgeState('foundationDbBadge', dbReady ? 'Bereit' : dbPartial ? 'Entwurf' : 'Offen', dbReady ? 'ready' : dbPartial ? 'draft' : 'warn');
-  setBadgeState('foundationAuthBadge', authReady ? 'Festgelegt' : 'Offen', authReady ? 'ready' : 'warn');
+  setBadgeState('foundationRedirectBadge', redirectReady ? 'Bereit' : redirectPartial ? 'Entwurf' : 'Offen', redirectReady ? 'ready' : redirectPartial ? 'draft' : 'warn');
+  setBadgeState('foundationStorageBadge', storageReady ? 'Bereit' : storagePartial ? 'Entwurf' : 'Offen', storageReady ? 'ready' : storagePartial ? 'draft' : 'warn');
+  setBadgeState('foundationSqlBadge', 'Bereit', 'ready');
+  setBadgeState('foundationConnectionBadge', connectionStatus === 'success' ? 'Verbunden' : connectionStatus === 'error' ? 'Fehler' : 'Nicht geprüft', connectionStatus === 'success' ? 'ready' : connectionStatus === 'error' ? 'warn' : 'draft');
   setBadgeState('foundationWebhookBadge', webhookReady ? 'Bereit' : 'Offen', webhookReady ? 'ready' : 'warn');
 
   setBadgeState('accountDbStatusBadge', dbReady ? 'Bereit' : dbPartial ? 'Entwurf' : 'Offen', dbReady ? 'ready' : dbPartial ? 'draft' : 'warn');
   setBadgeState('accountAuthStatusBadge', authReady ? 'Festgelegt' : 'Offen', authReady ? 'ready' : 'warn');
+  setBadgeState('accountAccessStatusBadge', protectedReady ? 'Geplant' : 'Offen', protectedReady ? 'ready' : 'warn');
   setBadgeState('accountBridgeStatusBadge', bridgeWaiting, bridgeWaiting === 'Vorbereitet' ? 'ready' : 'warn');
 
   const summaryText = document.getElementById('foundationSummaryText');
@@ -667,8 +895,81 @@ function updateFoundationStatus(state) {
     summaryText.value = buildFoundationSummary(state);
   }
 
+  const sqlText = document.getElementById('foundationSqlText');
+  if (sqlText) {
+    sqlText.value = buildFoundationSqlBlueprint(state);
+  }
+
+  const connectionMessageEl = document.getElementById('foundationConnectionMessage');
+  if (connectionMessageEl) {
+    connectionMessageEl.textContent = connectionMessage;
+    connectionMessageEl.classList.remove('foundation-helper-note-success', 'foundation-helper-note-warn');
+    connectionMessageEl.classList.add(connectionStatus === 'success' ? 'foundation-helper-note-success' : connectionStatus === 'error' ? 'foundation-helper-note-warn' : 'foundation-helper-note');
+  }
+
   hmStoreBridge.foundation = { ...state };
   hmStoreBridge.getFoundationSummary = () => buildFoundationSummary(state);
+  hmStoreBridge.getFoundationSql = () => buildFoundationSqlBlueprint(state);
+}
+
+async function testFoundationConnection() {
+  const current = collectFoundationStateFromUi();
+
+  if (current.provider !== 'supabase') {
+    const next = persistFoundationState({
+      ...current,
+      lastConnectionStatus: 'error',
+      lastConnectionMessage: 'Live-Test ist aktuell nur für Supabase vorbereitet.',
+      lastConnectionCheckedAt: new Date().toISOString(),
+    });
+    updateFoundationStatus(next);
+    return { ok: false, message: next.lastConnectionMessage };
+  }
+
+  if (!current.projectUrl || !current.anonKey) {
+    const next = persistFoundationState({
+      ...current,
+      lastConnectionStatus: 'error',
+      lastConnectionMessage: 'Für den Live-Test fehlen Project URL oder Public Anon Key.',
+      lastConnectionCheckedAt: new Date().toISOString(),
+    });
+    updateFoundationStatus(next);
+    return { ok: false, message: next.lastConnectionMessage };
+  }
+
+  const cleanUrl = current.projectUrl.replace(/\/$/, '');
+
+  try {
+    const response = await fetch(`${cleanUrl}/auth/v1/settings`, {
+      method: 'GET',
+      headers: {
+        apikey: current.anonKey,
+        Authorization: `Bearer ${current.anonKey}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const next = persistFoundationState({
+      ...current,
+      lastConnectionStatus: 'success',
+      lastConnectionMessage: 'Supabase antwortet. Project URL und Public Anon Key wirken erreichbar.',
+      lastConnectionCheckedAt: new Date().toISOString(),
+    });
+    updateFoundationStatus(next);
+    return { ok: true, message: next.lastConnectionMessage };
+  } catch (error) {
+    const next = persistFoundationState({
+      ...current,
+      lastConnectionStatus: 'error',
+      lastConnectionMessage: `Live-Test fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`,
+      lastConnectionCheckedAt: new Date().toISOString(),
+    });
+    updateFoundationStatus(next);
+    return { ok: false, message: next.lastConnectionMessage };
+  }
 }
 
 function setupFoundationPlanner() {
@@ -679,9 +980,16 @@ function setupFoundationPlanner() {
   const inputs = [
     'dbProviderSelect',
     'authProviderSelect',
+    'dbProjectRefInput',
     'dbProjectUrlInput',
     'dbAnonKeyInput',
+    'dbSiteUrlInput',
+    'dbRedirectUrlInput',
+    'dbSchemaInput',
     'dbStorageBucketInput',
+    'dbProductsTableInput',
+    'dbAdminRoleInput',
+    'dbManagerRoleInput',
     'bindingModeSelect',
     'backendBaseUrlInput',
     'webhookUrlInput',
@@ -691,10 +999,24 @@ function setupFoundationPlanner() {
 
   inputs.forEach((input) => {
     input.addEventListener('input', () => {
-      updateFoundationStatus(collectFoundationStateFromUi());
+      const persisted = loadFoundationState();
+      const live = {
+        ...collectFoundationStateFromUi(),
+        lastConnectionStatus: persisted.lastConnectionStatus || defaultFoundationState.lastConnectionStatus,
+        lastConnectionMessage: persisted.lastConnectionMessage || '',
+        lastConnectionCheckedAt: persisted.lastConnectionCheckedAt || '',
+      };
+      updateFoundationStatus(live);
     });
     input.addEventListener('change', () => {
-      updateFoundationStatus(collectFoundationStateFromUi());
+      const persisted = loadFoundationState();
+      const live = {
+        ...collectFoundationStateFromUi(),
+        lastConnectionStatus: persisted.lastConnectionStatus || defaultFoundationState.lastConnectionStatus,
+        lastConnectionMessage: persisted.lastConnectionMessage || '',
+        lastConnectionCheckedAt: persisted.lastConnectionCheckedAt || '',
+      };
+      updateFoundationStatus(live);
     });
   });
 }
@@ -728,6 +1050,7 @@ async function copyTextToClipboard(text) {
 }
 
 function setupPreparedCartButtons() {
+
   const buttons = document.querySelectorAll('[data-cart-add="true"]');
 
   buttons.forEach((button) => {
@@ -818,11 +1141,41 @@ document.addEventListener('click', async (e) => {
     const copied = await copyTextToClipboard(summaryText);
     if (copied) {
       const originalText = foundationCopyBtn.textContent;
-      foundationCopyBtn.textContent = 'Zusammenfassung kopiert';
+      foundationCopyBtn.textContent = 'Setup kopiert';
       window.setTimeout(() => {
         foundationCopyBtn.textContent = originalText;
       }, 1400);
     }
+    return;
+  }
+
+  const foundationCopySqlBtn = e.target.closest('[data-foundation-copy-sql="true"]');
+  if (foundationCopySqlBtn) {
+    e.preventDefault();
+    const sqlText = document.getElementById('foundationSqlText')?.value || '';
+    const copied = await copyTextToClipboard(sqlText);
+    if (copied) {
+      const originalText = foundationCopySqlBtn.textContent;
+      foundationCopySqlBtn.textContent = 'SQL kopiert';
+      window.setTimeout(() => {
+        foundationCopySqlBtn.textContent = originalText;
+      }, 1400);
+    }
+    return;
+  }
+
+  const foundationTestBtn = e.target.closest('[data-foundation-test="true"]');
+  if (foundationTestBtn) {
+    e.preventDefault();
+    const originalText = foundationTestBtn.textContent;
+    foundationTestBtn.textContent = 'Prüfe Verbindung ...';
+    foundationTestBtn.disabled = true;
+    await testFoundationConnection();
+    foundationTestBtn.textContent = 'Live-Verbindung geprüft';
+    window.setTimeout(() => {
+      foundationTestBtn.textContent = originalText;
+      foundationTestBtn.disabled = false;
+    }, 1600);
     return;
   }
 

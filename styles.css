@@ -1600,3 +1600,31 @@ body.intro-booting .bg-lightning {
     grid-column: auto;
   }
 }
+
+
+.foundation-code-card {
+  gap: 14px;
+}
+.foundation-code-text {
+  min-height: 520px;
+  font: 500 12px/1.6 Consolas, "Courier New", monospace;
+}
+.foundation-helper-note {
+  margin-top: 14px;
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--muted);
+  line-height: 1.7;
+}
+.foundation-helper-note-success {
+  background: rgba(65, 190, 120, 0.10);
+  border-color: rgba(65, 190, 120, 0.22);
+  color: #dff7ea;
+}
+.foundation-helper-note-warn {
+  background: rgba(255, 79, 79, 0.10);
+  border-color: rgba(255, 79, 79, 0.22);
+  color: #ffd6d6;
+}
