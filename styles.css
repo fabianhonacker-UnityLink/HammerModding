@@ -1756,29 +1756,6 @@ body.intro-booting .bg-lightning {
 .account-dock-copy small { font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: var(--muted-2); }
 .account-dock-copy strong { font-size: 14px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .account-dock-chevron { color: var(--muted-2); font-size: 12px; }
-.account-dropdown {
-  border-radius: 22px;
-  padding: 14px;
-  display: grid;
-  gap: 12px;
-}
-.account-dropdown-head { display: flex; align-items: center; gap: 12px; }
-.account-dropdown-copy { display: grid; gap: 4px; min-width: 0; }
-.account-dropdown-copy strong { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.account-dropdown-copy small { color: var(--muted); line-height: 1.4; }
-.account-dropdown-actions,
-.account-dropdown-menu { display: grid; gap: 10px; }
-.account-dropdown-link {
-  min-height: 42px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.03);
-  color: var(--text);
-  text-align: left;
-  padding: 0 14px;
-  cursor: pointer;
-}
-.account-dropdown-link-danger { color: #ffd1d1; }
 .compact-cta { min-height: 42px; padding: 0 16px; font-size: 13px; }
 
 .account-shell {
@@ -1900,3 +1877,5 @@ body.intro-booting .bg-lightning {
 }
 
 .auth-modal-overlay.hidden-section { display: none !important; }
+
+.auth-modal-panel.hidden-section { display: none !important; }

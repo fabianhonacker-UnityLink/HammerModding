@@ -127,25 +127,15 @@ function getDisplayInitial(name, fallback = 'HM') {
 }
 
 function closeAccountDropdown() {
-  const dropdown = document.getElementById('accountDropdown');
-  if (!dropdown) return;
   isAccountDropdownOpen = false;
-  dropdown.classList.add('hidden-section');
 }
 
 function openAccountDropdown() {
-  const dropdown = document.getElementById('accountDropdown');
-  if (!dropdown) return;
-  isAccountDropdownOpen = true;
-  dropdown.classList.remove('hidden-section');
+  isAccountDropdownOpen = false;
 }
 
 function toggleAccountDropdown() {
-  if (isAccountDropdownOpen) {
-    closeAccountDropdown();
-  } else {
-    openAccountDropdown();
-  }
+  isAccountDropdownOpen = false;
 }
 
 function setAuthModalTab(mode = 'login') {
@@ -211,7 +201,7 @@ function setAccountShellUi(user, profile) {
     if (el) el.textContent = value;
   });
 
-  const statusDotIds = ['accountProfileStatusDot', 'accountDockStatusDot', 'accountDropdownStatusDot'];
+  const statusDotIds = ['accountProfileStatusDot', 'accountDockStatusDot'];
   statusDotIds.forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -231,18 +221,11 @@ function updateAccountDock(user, profile) {
     ['accountDockAvatarInitial', initial],
     ['accountDockEyebrow', user ? meta : 'Website-Konto'],
     ['accountDockName', displayName],
-    ['accountDropdownAvatarInitial', initial],
-    ['accountDropdownName', user ? displayName : 'Nicht eingeloggt'],
-    ['accountDropdownMeta', user ? (user.email || meta) : 'Website-Konto'],
   ];
   map.forEach(([id, value]) => {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
   });
-  const loggedOut = document.getElementById('accountDropdownLoggedOut');
-  const loggedIn = document.getElementById('accountDropdownLoggedIn');
-  if (loggedOut) loggedOut.classList.toggle('hidden-section', Boolean(user));
-  if (loggedIn) loggedIn.classList.toggle('hidden-section', !user);
 }
 
 function getCatalogItem(entryLike) {
@@ -1401,9 +1384,9 @@ async function refreshLiveAuthUi() {
   if (elements.emailConfirmedValue) elements.emailConfirmedValue.textContent = isConfirmed ? 'Ja' : 'Noch offen';
 
   if (user) {
-    setAuthMessage(elements.sessionMessage, isConfirmed ? 'Sitzung aktiv. Konto ist live verbunden.' : 'Sitzung aktiv. Falls Mail-Bestätigung aktiv ist, bitte Postfach prüfen.', isConfirmed ? 'success' : 'warn');
+    setAuthMessage(elements.sessionMessage, isConfirmed ? 'Konto aktiv.' : 'Konto aktiv. Bitte E-Mail-Bestätigung prüfen.', isConfirmed ? 'success' : 'warn');
   } else {
-    setAuthMessage(elements.sessionMessage, 'Noch kein Live-Login aktiv. Registriere oder logge dich ein, um echte Konten direkt zu testen.', 'neutral');
+    setAuthMessage(elements.sessionMessage, 'Noch kein Konto aktiv. Melde dich oben rechts an oder registriere dich.', 'neutral');
   }
 
   updateAccountStatusBadges(user, profile);
@@ -1502,7 +1485,7 @@ async function handleLiveLogin(event) {
 
   if (elements.loginSubmitButton) {
     elements.loginSubmitButton.disabled = true;
-    elements.loginSubmitButton.textContent = 'Logge ein ...';
+    elements.loginSubmitButton.textContent = 'Einloggen ...';
   }
 
   try {
@@ -1629,7 +1612,9 @@ document.addEventListener('click', async (e) => {
   if (accountDockButton) {
     e.preventDefault();
     if (liveAccountSnapshot.user) {
-      toggleAccountDropdown();
+      showSection('account');
+      activateNav('account');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       openAuthModal('login');
     }
@@ -1686,11 +1671,6 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  const accountDropdown = document.getElementById('accountDropdown');
-  const accountDock = document.getElementById('accountDock');
-  if (isAccountDropdownOpen && accountDropdown && accountDock && !accountDock.contains(e.target)) {
-    closeAccountDropdown();
-  }
 
   const removeBtn = e.target.closest('[data-cart-remove-id]');
   if (removeBtn) {
