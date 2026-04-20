@@ -1237,7 +1237,7 @@ body.intro-booting .bg-lightning {
   animation: hmMarqueeRight 36s linear infinite;
 }
 .slider-track-coming {
-  animation-duration: 36s;
+  animation-duration: 30s;
 }
 .slider-track-slower { }
 .slider-track-slowest { }
