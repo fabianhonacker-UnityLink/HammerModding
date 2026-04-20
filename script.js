@@ -60,6 +60,181 @@ let liveAccountSnapshot = {
   session: null,
   connectionReady: false,
 };
+const accountActivityStorageKey = 'hm_account_activity';
+let currentAuthModalMode = 'login';
+let isAccountDropdownOpen = false;
+
+
+function formatRelativeDate(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function loadAccountActivityStore() {
+  try {
+    const raw = localStorage.getItem(accountActivityStorageKey);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function persistAccountActivityStore(store) {
+  try {
+    localStorage.setItem(accountActivityStorageKey, JSON.stringify(store || {}));
+  } catch (error) {
+    // ignore
+  }
+}
+
+function getAccountActivity(userId) {
+  if (!userId) return null;
+  const store = loadAccountActivityStore();
+  return store[userId] || null;
+}
+
+function updateAccountActivity(userId, patch = {}) {
+  if (!userId) return null;
+  const store = loadAccountActivityStore();
+  const next = {
+    lastSeenAt: '',
+    lastLoginAt: '',
+    lastPurchaseName: '',
+    lastPurchasePrice: '',
+    ...(store[userId] || {}),
+    ...patch,
+  };
+  store[userId] = next;
+  persistAccountActivityStore(store);
+  return next;
+}
+
+function getDisplayInitial(name, fallback = 'HM') {
+  const value = String(name || '').trim();
+  if (!value) return fallback;
+  const parts = value.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+}
+
+function closeAccountDropdown() {
+  const dropdown = document.getElementById('accountDropdown');
+  if (!dropdown) return;
+  isAccountDropdownOpen = false;
+  dropdown.classList.add('hidden-section');
+}
+
+function openAccountDropdown() {
+  const dropdown = document.getElementById('accountDropdown');
+  if (!dropdown) return;
+  isAccountDropdownOpen = true;
+  dropdown.classList.remove('hidden-section');
+}
+
+function toggleAccountDropdown() {
+  if (isAccountDropdownOpen) {
+    closeAccountDropdown();
+  } else {
+    openAccountDropdown();
+  }
+}
+
+function setAuthModalTab(mode = 'login') {
+  currentAuthModalMode = mode === 'register' ? 'register' : 'login';
+  document.querySelectorAll('[data-auth-tab]').forEach((button) => {
+    button.classList.toggle('is-active', button.dataset.authTab === currentAuthModalMode);
+  });
+  const loginPanel = document.getElementById('authLoginPanel');
+  const registerPanel = document.getElementById('authRegisterPanel');
+  if (loginPanel) loginPanel.classList.toggle('hidden-section', currentAuthModalMode !== 'login');
+  if (registerPanel) registerPanel.classList.toggle('hidden-section', currentAuthModalMode !== 'register');
+}
+
+function openAuthModal(mode = 'login') {
+  const overlay = document.getElementById('authModalOverlay');
+  if (!overlay) return;
+  setAuthModalTab(mode);
+  overlay.classList.remove('hidden-section');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeAuthModal() {
+  const overlay = document.getElementById('authModalOverlay');
+  if (!overlay) return;
+  overlay.classList.add('hidden-section');
+  document.body.style.overflow = '';
+}
+
+function setAccountShellUi(user, profile) {
+  const displayName = profile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'Nicht eingeloggt';
+  const displayRole = profile?.role || (user ? 'kunde' : 'gast');
+  const displayMail = user?.email || 'Keine aktive Sitzung';
+  const initial = getDisplayInitial(displayName);
+  const activity = user?.id ? getAccountActivity(user.id) : null;
+  const onlineNow = Boolean(user);
+
+  const mapText = [
+    ['accountProfileAvatarInitial', initial],
+    ['accountProfileName', displayName],
+    ['accountProfileSubline', user ? 'Konto aktiv · direkt mit Supabase verbunden' : 'Website-Konto · Bitte oben rechts einloggen'],
+    ['accountProfileRolePill', displayRole],
+    ['accountProfileMailPill', displayMail],
+    ['accountProfileHint', user ? 'Dein Konto ist live verbunden. Später ergänzen sich hier Bestellungen, Downloads und Rechte automatisch.' : 'Login und Registrierung laufen jetzt kompakt oben rechts über das Konto-Menü.'],
+    ['accountOnlineNowValue', onlineNow ? 'Ja' : 'Nein'],
+    ['accountOnlineNowMeta', onlineNow ? 'Deine Sitzung ist gerade aktiv' : 'Momentan keine aktive Sitzung'],
+    ['accountLastOnlineValue', activity?.lastSeenAt ? formatRelativeDate(activity.lastSeenAt) : '-'],
+    ['accountLastLoginValue', activity?.lastLoginAt ? formatRelativeDate(activity.lastLoginAt) : '-'],
+    ['accountLastPurchaseValue', activity?.lastPurchaseName || 'Noch offen'],
+    ['accountLastPurchaseMeta', activity?.lastPurchaseName ? activity.lastPurchasePrice || '' : 'Sobald Bestellungen echt gespeichert werden'],
+  ];
+
+  mapText.forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  });
+
+  const statusDotIds = ['accountProfileStatusDot', 'accountDockStatusDot', 'accountDropdownStatusDot'];
+  statusDotIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('account-status-online', onlineNow);
+    el.classList.toggle('account-status-offline', !onlineNow);
+  });
+
+  const logoutButton = document.getElementById('accountInlineLogoutButton');
+  if (logoutButton) logoutButton.classList.toggle('hidden-section', !user);
+}
+
+function updateAccountDock(user, profile) {
+  const displayName = profile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'Login / Registrieren';
+  const initial = getDisplayInitial(displayName);
+  const meta = user ? `${profile?.role || 'kunde'} · online` : 'Website-Konto';
+  const map = [
+    ['accountDockAvatarInitial', initial],
+    ['accountDockEyebrow', user ? meta : 'Website-Konto'],
+    ['accountDockName', displayName],
+    ['accountDropdownAvatarInitial', initial],
+    ['accountDropdownName', user ? displayName : 'Nicht eingeloggt'],
+    ['accountDropdownMeta', user ? (user.email || meta) : 'Website-Konto'],
+  ];
+  map.forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  });
+  const loggedOut = document.getElementById('accountDropdownLoggedOut');
+  const loggedIn = document.getElementById('accountDropdownLoggedIn');
+  if (loggedOut) loggedOut.classList.toggle('hidden-section', Boolean(user));
+  if (loggedIn) loggedIn.classList.toggle('hidden-section', !user);
+}
 
 function getCatalogItem(entryLike) {
   if (!entryLike) return null;
@@ -1178,6 +1353,8 @@ async function refreshLiveAuthUi() {
     liveAccountSnapshot = { user: null, profile: null, session: null, connectionReady: false };
     setAuthMessage(elements.sessionMessage, 'Supabase ist noch nicht vollständig konfiguriert. Trag Project URL und Public Key im Systembereich ein.', 'warn');
     updateAccountStatusBadges(null, null);
+    setAccountShellUi(null, null);
+    updateAccountDock(null, null);
     updateRequestDraftFields(loadVisibleCart());
     return;
   }
@@ -1189,6 +1366,7 @@ async function refreshLiveAuthUi() {
 
   const session = data?.session || null;
   const user = session?.user || null;
+  if (user?.id) updateAccountActivity(user.id, { lastSeenAt: new Date().toISOString() });
   const profile = user ? await fetchLiveProfile(user.id) : null;
   liveAccountSnapshot = {
     user,
@@ -1220,6 +1398,8 @@ async function refreshLiveAuthUi() {
   }
 
   updateAccountStatusBadges(user, profile);
+  setAccountShellUi(user, profile);
+  updateAccountDock(user, profile);
   updateRequestDraftFields(loadVisibleCart());
 }
 
@@ -1281,7 +1461,9 @@ async function handleLiveRegister(event) {
         : 'Konto erstellt. Falls Supabase Mail-Bestätigung verlangt, bitte zuerst die E-Mail bestätigen.',
       'success',
     );
+    if (data?.session?.user?.id) updateAccountActivity(data.session.user.id, { lastLoginAt: new Date().toISOString(), lastSeenAt: new Date().toISOString() });
     await refreshLiveAuthUi();
+    if (data?.session) closeAuthModal();
   } catch (error) {
     setAuthMessage(elements.registerMessage, `Registrierung fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'warn');
   } finally {
@@ -1324,7 +1506,10 @@ async function handleLiveLogin(event) {
 
     if (elements.loginForm) elements.loginForm.reset();
     setAuthMessage(elements.loginMessage, 'Login erfolgreich. Die Live-Sitzung ist aktiv.', 'success');
+    if (data?.user?.id) updateAccountActivity(data.user.id, { lastLoginAt: new Date().toISOString(), lastSeenAt: new Date().toISOString() });
     await refreshLiveAuthUi();
+    closeAuthModal();
+    closeAccountDropdown();
   } catch (error) {
     setAuthMessage(elements.loginMessage, `Login fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'warn');
   } finally {
@@ -1345,6 +1530,7 @@ async function handleLiveLogout() {
     return;
   }
   setAuthMessage(elements.sessionMessage, 'Logout erfolgreich. Keine Live-Sitzung mehr aktiv.', 'success');
+  closeAccountDropdown();
   await refreshLiveAuthUi();
 }
 
@@ -1362,6 +1548,7 @@ function setupLiveSupabaseAuth() {
     });
   }
 
+  setAuthModalTab('login');
   refreshLiveAuthUi();
 }
 
@@ -1430,6 +1617,73 @@ navItems.forEach((btn) => {
 });
 
 document.addEventListener('click', async (e) => {
+  const accountDockButton = e.target.closest('#accountDockButton');
+  if (accountDockButton) {
+    e.preventDefault();
+    if (liveAccountSnapshot.user) {
+      toggleAccountDropdown();
+    } else {
+      openAuthModal('login');
+    }
+    return;
+  }
+
+  const authOpen = e.target.closest('[data-auth-open]');
+  if (authOpen) {
+    e.preventDefault();
+    openAuthModal(authOpen.dataset.authOpen || 'login');
+    closeAccountDropdown();
+    return;
+  }
+
+  const authClose = e.target.closest('[data-auth-close="true"]');
+  if (authClose) {
+    e.preventDefault();
+    closeAuthModal();
+    return;
+  }
+
+  const authTab = e.target.closest('[data-auth-tab]');
+  if (authTab) {
+    e.preventDefault();
+    setAuthModalTab(authTab.dataset.authTab || 'login');
+    return;
+  }
+
+  const accountDirect = e.target.closest('[data-account-direct]');
+  if (accountDirect) {
+    e.preventDefault();
+    const section = accountDirect.dataset.accountDirect || 'system';
+    showSection(section);
+    activateNav(section);
+    closeAccountDropdown();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+
+  const accountNav = e.target.closest('[data-account-nav]');
+  if (accountNav) {
+    e.preventDefault();
+    const section = accountNav.dataset.accountNav || 'account';
+    showSection(section);
+    activateNav(section);
+    closeAccountDropdown();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+
+  const authOverlay = e.target.closest('#authModalOverlay');
+  if (authOverlay && e.target === authOverlay) {
+    closeAuthModal();
+    return;
+  }
+
+  const accountDropdown = document.getElementById('accountDropdown');
+  const accountDock = document.getElementById('accountDock');
+  if (isAccountDropdownOpen && accountDropdown && accountDock && !accountDock.contains(e.target)) {
+    closeAccountDropdown();
+  }
+
   const removeBtn = e.target.closest('[data-cart-remove-id]');
   if (removeBtn) {
     e.preventDefault();
@@ -1593,6 +1847,8 @@ document.addEventListener('click', async (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeRequestModal();
+    closeAuthModal();
+    closeAccountDropdown();
   }
 });
 

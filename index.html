@@ -40,8 +40,6 @@
 <button class="nav-item" data-section="clothing">Kleidung</button>
 <button class="nav-item" data-section="scripts">Scripte</button>
 <button class="nav-item" data-section="free">Free Scripts</button>
-<button class="nav-item" data-section="account">Konto</button>
-<button class="nav-item" data-section="system">System</button>
 <button class="nav-item" data-section="contact">Kontakt</button>
 </nav>
 <div class="discord-card glass-soft">
@@ -56,8 +54,45 @@
 <header class="mobile-top glass">
 <button class="menu-btn">☰</button>
 <span>HAMMER MODDING</span>
-<button class="menu-btn">🛒</button>
+<button class="menu-btn" data-auth-open="login">👤</button>
 </header>
+<div class="account-dock" id="accountDock">
+  <div class="account-dock-row">
+    <button class="account-dock-button glass-soft" id="accountDockButton" type="button">
+      <span class="account-dock-avatar" id="accountDockAvatar">
+        <span class="account-dock-status-dot" id="accountDockStatusDot"></span>
+        <strong id="accountDockAvatarInitial">HM</strong>
+      </span>
+      <span class="account-dock-copy">
+        <small id="accountDockEyebrow">Website-Konto</small>
+        <strong id="accountDockName">Login / Registrieren</strong>
+      </span>
+      <span class="account-dock-chevron">▾</span>
+    </button>
+    <button aria-label="System öffnen" class="account-icon-button glass-soft" data-account-direct="system" type="button">⚙</button>
+  </div>
+  <div class="account-dropdown glass-soft hidden-section" id="accountDropdown">
+    <div class="account-dropdown-head">
+      <div class="account-dropdown-avatar">
+        <span class="account-dock-status-dot" id="accountDropdownStatusDot"></span>
+        <strong id="accountDropdownAvatarInitial">HM</strong>
+      </div>
+      <div class="account-dropdown-copy">
+        <strong id="accountDropdownName">Nicht eingeloggt</strong>
+        <small id="accountDropdownMeta">Website-Konto</small>
+      </div>
+    </div>
+    <div class="account-dropdown-actions" id="accountDropdownLoggedOut">
+      <button class="cta primary compact-cta" data-auth-open="login" type="button">Einloggen</button>
+      <button class="cta secondary compact-cta" data-auth-open="register" type="button">Registrieren</button>
+    </div>
+    <div class="account-dropdown-menu hidden-section" id="accountDropdownLoggedIn">
+      <button class="account-dropdown-link" data-account-nav="account" type="button">Mein Konto</button>
+      <button class="account-dropdown-link" data-account-nav="system" type="button">Einstellungen / System</button>
+      <button class="account-dropdown-link account-dropdown-link-danger" data-auth-logout="true" type="button">Logout</button>
+    </div>
+  </div>
+</div>
 <div class="cart-status-dock" id="cartStatusDock" aria-live="polite">
   <div class="cart-panel-card glass-soft" data-empty="true" id="cartPanelCard">
     <div class="cart-panel-head">
@@ -1372,160 +1407,134 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
 </div>
 </section>
 <section class="section hidden-section" id="accountSection">
-<div class="contact-layout">
-  <div class="contact-main glass-soft">
-    <div class="contact-intro">
-      <div class="eyebrow">Hammer Modding · Konto</div>
-      <h2>ECHTE SUPABASE-KONTEN<br/><span>&amp; LIVE-AUTH DIREKT TESTEN</span></h2>
+<div class="account-shell glass-soft">
+  <div class="account-shell-head">
+    <div>
+      <div class="eyebrow">Hammer Modding · Mein Konto</div>
+      <h2>MEIN KONTO
+        <span>&amp; PROFILÜBERSICHT</span>
+      </h2>
       <p>
-        Phase 6C schiebt den Kontobereich jetzt auf echte Supabase-Auth: Registrierung, Login, Sitzung und erste Live-Daten laufen direkt
-        gegen dein Projekt. Rollen, Profile und geschützte Bereiche werden darauf sauber weiter aufgebaut.
+        Kompakter Kontobereich mit Profil, Status und späteren Aktivitätsdaten. Login und Registrierung laufen jetzt oben rechts über das Account-Menü, damit die Seite ruhiger und aufgeräumter bleibt.
       </p>
     </div>
-    <div class="auth-live-grid">
-      <article class="foundation-form-shell auth-live-shell">
-        <div class="foundation-form-head">
-          <strong>Live Konto anlegen</strong>
-          <small>Supabase Auth</small>
-        </div>
-        <form class="foundation-form-grid" id="authRegisterForm">
-          <label class="foundation-field">
-            <span>Benutzername</span>
-            <input class="hm-input" id="registerUsernameInput" placeholder="z. B. Fabian" type="text" required/>
-          </label>
-          <label class="foundation-field">
-            <span>E-Mail</span>
-            <input class="hm-input" id="registerEmailInput" placeholder="name@beispiel.de" type="email" required/>
-          </label>
-          <label class="foundation-field">
-            <span>Discord</span>
-            <input class="hm-input" id="registerDiscordInput" placeholder="Name oder ID" type="text"/>
-          </label>
-          <label class="foundation-field">
-            <span>CFX Identifier / License</span>
-            <input class="hm-input" id="registerCfxInput" placeholder="license:xxxx oder CFX-Konto" type="text"/>
-          </label>
-          <label class="foundation-field field-span-2">
-            <span>Passwort</span>
-            <input class="hm-input" id="registerPasswordInput" placeholder="Mindestens 6 Zeichen" type="password" minlength="6" required/>
-          </label>
-          <div class="foundation-actions field-span-2">
-            <button class="cta primary" id="registerSubmitButton" type="submit">Konto erstellen</button>
-          </div>
-        </form>
-        <p class="foundation-note auth-message" id="authRegisterMessage">Lege hier direkt ein echtes Website-Konto im Supabase-Projekt an.</p>
-      </article>
-
-      <article class="foundation-form-shell auth-live-shell">
-        <div class="foundation-form-head">
-          <strong>Live anmelden</strong>
-          <small>echte Sitzung</small>
-        </div>
-        <form class="foundation-form-grid" id="authLoginForm">
-          <label class="foundation-field">
-            <span>E-Mail</span>
-            <input class="hm-input" id="loginEmailInput" placeholder="name@beispiel.de" type="email" required/>
-          </label>
-          <label class="foundation-field">
-            <span>Passwort</span>
-            <input class="hm-input" id="loginPasswordInput" placeholder="Dein Passwort" type="password" required/>
-          </label>
-          <div class="foundation-actions field-span-2">
-            <button class="cta primary" id="loginSubmitButton" type="submit">Jetzt einloggen</button>
-          </div>
-        </form>
-        <p class="foundation-note auth-message" id="authLoginMessage">Sobald du dich einloggst, wird die Sitzung direkt gegen Supabase geprüft.</p>
-      </article>
-
-      <article class="foundation-form-shell auth-live-shell auth-session-shell">
-        <div class="foundation-form-head">
-          <strong>Aktive Live-Sitzung</strong>
-          <small>supabase verbunden</small>
-        </div>
-        <div class="auth-session-empty" id="authSessionEmpty">
-          Noch kein Nutzer live eingeloggt. Nach Registrierung oder Login siehst du hier direkt Konto, Rolle und Bindungsdaten.
-        </div>
-        <div class="hidden-section" id="authSessionLive">
-          <div class="status-stack auth-session-stack">
-            <div class="status-line"><span>E-Mail</span><strong id="authUserEmailValue">-</strong></div>
-            <div class="status-line"><span>Benutzername</span><strong id="authUsernameValue">-</strong></div>
-            <div class="status-line"><span>Discord</span><strong id="authDiscordValue">-</strong></div>
-            <div class="status-line"><span>CFX / License</span><strong id="authCfxValue">-</strong></div>
-            <div class="status-line"><span>Rolle</span><strong id="authRoleValue">-</strong></div>
-            <div class="status-line"><span>User-ID</span><strong id="authUserIdValue">-</strong></div>
-            <div class="status-line"><span>E-Mail bestätigt</span><strong id="authEmailConfirmedValue">-</strong></div>
-          </div>
-          <div class="foundation-actions auth-session-actions">
-            <button class="cta secondary" data-auth-refresh="true" type="button">Sitzung neu laden</button>
-            <button class="cta primary" data-auth-logout="true" type="button">Logout</button>
-          </div>
-        </div>
-        <p class="foundation-note auth-message" id="authSessionMessage">Wenn das SQL für Profile später läuft, ergänzt sich hier automatisch auch die Rollen- und Profildatenbank sauber dazu.</p>
-      </article>
-    </div>
-    <div class="foundation-grid two-up">
-      <article class="foundation-card">
-        <div class="foundation-card-head">
-          <strong>Auth-Felder</strong>
-          <small>später in Supabase</small>
-        </div>
-        <ul class="foundation-points">
-          <li>Benutzername</li>
-          <li>E-Mail</li>
-          <li>Discord-Name / Discord-ID</li>
-          <li>CFX-Identifier / License</li>
-          <li>Rolle, Status und Sichtbarkeiten</li>
-        </ul>
-      </article>
-      <article class="foundation-card">
-        <div class="foundation-card-head">
-          <strong>Geschützte Bereiche</strong>
-          <small>nur mit Berechtigung</small>
-        </div>
-        <div class="role-pill-row">
-          <span class="role-pill">Admin</span>
-          <span class="role-pill">Produktmanager</span>
-          <span class="role-pill">Kunde</span>
-        </div>
-        <p class="foundation-copy">
-          <strong>System</strong>, spätere Produktverwaltung, Backend-Module und Freigaben sollen nicht mehr einfach nur per Frontend sichtbar sein,
-          sondern später über Rolle + Datenbank + geschützte Serverlogik freigegeben werden.
-        </p>
-      </article>
-      <article class="foundation-card">
-        <div class="foundation-card-head">
-          <strong>Spätere Kontoseiten</strong>
-          <small>nach echter Anbindung</small>
-        </div>
-        <ul class="foundation-points">
-          <li>Meine Bestellungen</li>
-          <li>Meine Downloads</li>
-          <li>Verknüpfte Bindungen</li>
-          <li>Produktanfragen &amp; Freigaben</li>
-          <li>Rollenabhängige Bereiche</li>
-        </ul>
-      </article>
-      <article class="foundation-card">
-        <div class="foundation-card-head">
-          <strong>Produktverwaltung später</strong>
-          <small>manager-fähig</small>
-        </div>
-        <p class="foundation-copy">
-          Berechtigte Benutzerkonten sollen später Produkte direkt über die Website anlegen können – mit Bild-Upload,
-          Titel, Preis, Beschreibung, Kategorie und späterem Tebex-Mapping.
-        </p>
-        <div class="foundation-actions">
-          <button class="cta secondary" data-nav-open="system" type="button">Zur Supabase-Planung</button>
-          <button class="cta secondary" data-nav-open="contact" type="button">Zum Bestellbereich</button>
-        </div>
-      </article>
+    <div class="account-shell-actions">
+      <button class="cta secondary compact-cta" data-auth-open="login" type="button">Einloggen</button>
+      <button class="cta primary compact-cta" data-auth-open="register" type="button">Registrieren</button>
     </div>
   </div>
-  <div class="contact-side">
+
+  <div class="account-dashboard-grid">
+    <article class="account-summary-card glass-soft">
+      <div class="account-summary-main">
+        <div class="account-profile-avatar" id="accountProfileAvatar">
+          <span class="profile-status-dot" id="accountProfileStatusDot"></span>
+          <strong id="accountProfileAvatarInitial">HM</strong>
+        </div>
+        <div class="account-summary-copy">
+          <h3 id="accountProfileName">Nicht eingeloggt</h3>
+          <p id="accountProfileSubline">Website-Konto · Bitte oben rechts einloggen</p>
+          <div class="account-meta-pills">
+            <span class="account-meta-pill" id="accountProfileRolePill">Gast</span>
+            <span class="account-meta-pill" id="accountProfileMailPill">Keine aktive Sitzung</span>
+          </div>
+        </div>
+      </div>
+      <p class="foundation-note" id="accountProfileHint">Sobald du eingeloggt bist, siehst du hier Profilname, Rolle, Mail, Status und später auch echte Kauf- und Aktivitätsdaten.</p>
+      <div class="foundation-actions account-summary-actions">
+        <button class="cta secondary compact-cta" data-account-nav="system" type="button">Einstellungen</button>
+        <button class="cta primary compact-cta hidden-section" data-auth-logout="true" id="accountInlineLogoutButton" type="button">Logout</button>
+      </div>
+    </article>
+
+    <article class="account-activity-card glass-soft">
+      <div class="foundation-card-head">
+        <strong>Aktivität</strong>
+        <small>Profilstatus</small>
+      </div>
+      <div class="account-activity-grid">
+        <div class="account-activity-tile">
+          <span>Gerade online</span>
+          <strong id="accountOnlineNowValue">Nein</strong>
+          <small id="accountOnlineNowMeta">Kein Nutzer aktiv</small>
+        </div>
+        <div class="account-activity-tile">
+          <span>Zuletzt online</span>
+          <strong id="accountLastOnlineValue">-</strong>
+          <small>Wird laufend aktualisiert</small>
+        </div>
+        <div class="account-activity-tile">
+          <span>Zuletzt eingeloggt</span>
+          <strong id="accountLastLoginValue">-</strong>
+          <small>Merkt sich deine letzte Sitzung</small>
+        </div>
+        <div class="account-activity-tile">
+          <span>Zuletzt gekauft</span>
+          <strong id="accountLastPurchaseValue">Noch offen</strong>
+          <small id="accountLastPurchaseMeta">Sobald Bestellungen echt gespeichert werden</small>
+        </div>
+      </div>
+    </article>
+
+    <article class="foundation-form-shell auth-session-shell compact-session-shell">
+      <div class="foundation-form-head">
+        <strong>Live-Sitzung</strong>
+        <small>Supabase verbunden</small>
+      </div>
+      <div class="auth-session-empty" id="authSessionEmpty">
+        Noch kein Nutzer live eingeloggt. Öffne oben rechts das Konto-Menü und logge dich ein oder registriere dich.
+      </div>
+      <div class="hidden-section" id="authSessionLive">
+        <div class="status-stack auth-session-stack">
+          <div class="status-line"><span>E-Mail</span><strong id="authUserEmailValue">-</strong></div>
+          <div class="status-line"><span>Benutzername</span><strong id="authUsernameValue">-</strong></div>
+          <div class="status-line"><span>Discord</span><strong id="authDiscordValue">-</strong></div>
+          <div class="status-line"><span>CFX / License</span><strong id="authCfxValue">-</strong></div>
+          <div class="status-line"><span>Rolle</span><strong id="authRoleValue">-</strong></div>
+          <div class="status-line"><span>User-ID</span><strong id="authUserIdValue">-</strong></div>
+          <div class="status-line"><span>E-Mail bestätigt</span><strong id="authEmailConfirmedValue">-</strong></div>
+        </div>
+        <div class="foundation-actions auth-session-actions">
+          <button class="cta secondary compact-cta" data-auth-refresh="true" type="button">Neu laden</button>
+          <button class="cta primary compact-cta" data-auth-logout="true" type="button">Logout</button>
+        </div>
+      </div>
+      <p class="foundation-note auth-message" id="authSessionMessage">Wenn das SQL für Profile später läuft, ergänzt sich hier automatisch auch Rollen, Avatar und Aktivitätsdatenbank sauber dazu.</p>
+    </article>
+  </div>
+
+  <div class="foundation-grid two-up compact-foundation-grid">
+    <article class="foundation-card">
+      <div class="foundation-card-head">
+        <strong>Geschützte Bereiche</strong>
+        <small>rollenbasiert</small>
+      </div>
+      <div class="role-pill-row">
+        <span class="role-pill">Admin</span>
+        <span class="role-pill">Produktmanager</span>
+        <span class="role-pill">Kunde</span>
+      </div>
+      <p class="foundation-copy">System, Produktpflege und Backend-nahe Bereiche sollen später nur noch über Rolle + Datenbank + geschützte Serverlogik erreichbar sein.</p>
+    </article>
+    <article class="foundation-card">
+      <div class="foundation-card-head">
+        <strong>Kontoziele</strong>
+        <small>später live</small>
+      </div>
+      <ul class="foundation-points">
+        <li>Profilbild / Avatar</li>
+        <li>Zuletzt online / zuletzt eingeloggt</li>
+        <li>Zuletzt gekauft / letzte Bestellung</li>
+        <li>Meine Downloads und Freischaltungen</li>
+      </ul>
+    </article>
+  </div>
+
+  <div class="contact-side account-sidecards">
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
         <strong>Status</strong>
-        <small>Phase 6C</small>
+        <small>Phase 6D</small>
       </div>
       <div class="status-stack">
         <div class="status-line"><span>Datenbank</span><strong class="status-badge status-badge-warn" id="accountDbStatusBadge">Offen</strong></div>
@@ -1536,17 +1545,10 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
     </article>
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
-        <strong>Zielbild</strong>
-        <small>echte Benutzerkonten</small>
+        <strong>Hinweis</strong>
+        <small>oben rechts</small>
       </div>
-      <p>Normale Nutzer sehen Shop, Käufe und Kontobereich. Admins und Produktmanager erhalten später zusätzlich Zugriff auf System, Produktpflege und Backend-nahe Funktionen.</p>
-    </article>
-    <article class="contact-info-card glass-soft">
-      <div class="contact-info-head">
-        <strong>Für später gemerkt</strong>
-        <small>rollenbasiert</small>
-      </div>
-      <p>Produkte sollen später nicht mehr händisch in Dateien landen, sondern über berechtigte Website-Konten gepflegt, geprüft und veröffentlicht werden.</p>
+      <p>Login und Registrierung laufen jetzt kompakt über das Konto-Menü oben rechts. Dein Konto erreichst du danach direkt über Avatar, Namen und Dropdown.</p>
     </article>
   </div>
 </div>
@@ -1808,6 +1810,68 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
       <button class="cta primary" data-copy-request="true" id="modalCopyRequestButton" type="button">Text kopieren</button>
       <button class="cta secondary" data-open-contact-request="true" type="button">Zum Kontaktbereich</button>
       <button class="cta secondary" data-request-close="true" type="button">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<div class="auth-modal-overlay hidden-section" id="authModalOverlay">
+  <div class="auth-modal-card glass" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+    <div class="auth-modal-head">
+      <div>
+        <small>Hammer Modding · Konto</small>
+        <strong id="authModalTitle">Login &amp; Registrierung</strong>
+      </div>
+      <button class="auth-modal-close" data-auth-close="true" type="button" aria-label="Schließen">✕</button>
+    </div>
+    <div class="auth-modal-tabs">
+      <button class="auth-tab is-active" data-auth-tab="login" type="button">Anmelden</button>
+      <button class="auth-tab" data-auth-tab="register" type="button">Registrieren</button>
+    </div>
+
+    <div class="auth-modal-panel" id="authLoginPanel">
+      <form class="foundation-form-grid compact-form-grid" id="authLoginForm">
+        <label class="foundation-field field-span-2">
+          <span>E-Mail</span>
+          <input class="hm-input" id="loginEmailInput" placeholder="name@beispiel.de" type="email" required/>
+        </label>
+        <label class="foundation-field field-span-2">
+          <span>Passwort</span>
+          <input class="hm-input" id="loginPasswordInput" placeholder="Dein Passwort" type="password" required/>
+        </label>
+        <div class="foundation-actions field-span-2">
+          <button class="cta primary compact-cta" id="loginSubmitButton" type="submit">Jetzt einloggen</button>
+        </div>
+      </form>
+      <p class="foundation-note auth-message" id="authLoginMessage">Sobald du dich einloggst, wird die Sitzung direkt gegen Supabase geprüft.</p>
+    </div>
+
+    <div class="auth-modal-panel hidden-section" id="authRegisterPanel">
+      <form class="foundation-form-grid compact-form-grid" id="authRegisterForm">
+        <label class="foundation-field">
+          <span>Benutzername</span>
+          <input class="hm-input" id="registerUsernameInput" placeholder="z. B. Fabian" type="text" required/>
+        </label>
+        <label class="foundation-field">
+          <span>E-Mail</span>
+          <input class="hm-input" id="registerEmailInput" placeholder="name@beispiel.de" type="email" required/>
+        </label>
+        <label class="foundation-field">
+          <span>Discord</span>
+          <input class="hm-input" id="registerDiscordInput" placeholder="Name oder ID" type="text"/>
+        </label>
+        <label class="foundation-field">
+          <span>CFX Identifier / License</span>
+          <input class="hm-input" id="registerCfxInput" placeholder="license:xxxx oder CFX-Konto" type="text"/>
+        </label>
+        <label class="foundation-field field-span-2">
+          <span>Passwort</span>
+          <input class="hm-input" id="registerPasswordInput" placeholder="Mindestens 6 Zeichen" type="password" minlength="6" required/>
+        </label>
+        <div class="foundation-actions field-span-2">
+          <button class="cta primary compact-cta" id="registerSubmitButton" type="submit">Konto erstellen</button>
+        </div>
+      </form>
+      <p class="foundation-note auth-message" id="authRegisterMessage">Lege hier direkt ein echtes Website-Konto im Supabase-Projekt an.</p>
     </div>
   </div>
 </div>
