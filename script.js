@@ -184,16 +184,16 @@ function setAccountShellUi(user, profile) {
   const mapText = [
     ['accountProfileAvatarInitial', initial],
     ['accountProfileName', displayName],
-    ['accountProfileSubline', user ? 'Konto aktiv · direkt mit Supabase verbunden' : 'Website-Konto · Bitte oben rechts einloggen'],
+    ['accountProfileSubline', user ? 'Konto aktiv' : 'Website-Konto'],
     ['accountProfileRolePill', displayRole],
     ['accountProfileMailPill', displayMail],
-    ['accountProfileHint', user ? 'Dein Konto ist live verbunden. Später ergänzen sich hier Bestellungen, Downloads und Rechte automatisch.' : 'Login und Registrierung laufen jetzt kompakt oben rechts über das Konto-Menü.'],
-    ['accountOnlineNowValue', onlineNow ? 'Ja' : 'Nein'],
-    ['accountOnlineNowMeta', onlineNow ? 'Deine Sitzung ist gerade aktiv' : 'Momentan keine aktive Sitzung'],
+    
+    ['accountOnlineNowValue', '●'],
+    
     ['accountLastOnlineValue', activity?.lastSeenAt ? formatRelativeDate(activity.lastSeenAt) : '-'],
     ['accountLastLoginValue', activity?.lastLoginAt ? formatRelativeDate(activity.lastLoginAt) : '-'],
-    ['accountLastPurchaseValue', activity?.lastPurchaseName || 'Noch offen'],
-    ['accountLastPurchaseMeta', activity?.lastPurchaseName ? activity.lastPurchasePrice || '' : 'Sobald Bestellungen echt gespeichert werden'],
+    ['accountLastPurchaseValue', activity?.lastPurchaseName || '—'],
+    
   ];
 
   mapText.forEach(([id, value]) => {
@@ -208,6 +208,13 @@ function setAccountShellUi(user, profile) {
     el.classList.toggle('account-status-online', onlineNow);
     el.classList.toggle('account-status-offline', !onlineNow);
   });
+
+  const onlineIndicator = document.getElementById('accountOnlineNowValue');
+  if (onlineIndicator) {
+    onlineIndicator.dataset.online = onlineNow ? 'true' : 'false';
+    onlineIndicator.setAttribute('aria-label', onlineNow ? 'Online' : 'Offline');
+    onlineIndicator.title = onlineNow ? 'Online' : 'Offline';
+  }
 
   const logoutButton = document.getElementById('accountInlineLogoutButton');
   if (logoutButton) logoutButton.classList.toggle('hidden-section', !user);

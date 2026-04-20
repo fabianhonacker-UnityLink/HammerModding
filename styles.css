@@ -2449,3 +2449,65 @@ body.intro-booting .bg-lightning {
     margin-top: 0;
   }
 }
+
+
+/* Phase 6D User Facing Cleanup */
+.account-shell-head p {
+  display: none;
+}
+
+.account-summary-copy > p#accountProfileSubline {
+  margin-bottom: 8px;
+}
+
+.account-activity-card .foundation-card-head small,
+.foundation-form-head small:empty,
+.contact-info-head small:empty {
+  display: none;
+}
+
+.account-activity-tile small,
+.foundation-note:empty {
+  display: none;
+}
+
+.account-activity-tile-online {
+  align-items: flex-start;
+}
+
+.activity-led {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  line-height: 1;
+  font-size: 24px;
+  color: rgba(255,255,255,0.18);
+  text-shadow: none;
+}
+
+.activity-led[data-online="true"] {
+  color: #22d37b;
+  text-shadow: 0 0 10px rgba(34,211,123,0.8), 0 0 20px rgba(34,211,123,0.45);
+}
+
+.activity-led[data-online="false"] {
+  color: rgba(255,255,255,0.22);
+  text-shadow: none;
+}
+
+#accountSection .foundation-form-head,
+#systemSection .foundation-card-head,
+#systemSection .contact-info-head {
+  min-height: 22px;
+}
+
+#systemSection .contact-side {
+  gap: 14px;
+}
+
+#systemSection .contact-info-card p,
+#systemSection .foundation-helper-note {
+  margin-top: 0;
+}

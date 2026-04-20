@@ -1392,9 +1392,6 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
       <h2>MEIN KONTO
         <span>&amp; PROFILÜBERSICHT</span>
       </h2>
-      <p>
-        Kompakter Kontobereich mit Profil, Status und späteren Aktivitätsdaten. Login und Registrierung laufen jetzt oben rechts über das Account-Menü, damit die Seite ruhiger und aufgeräumter bleibt.
-      </p>
     </div>
     <div class="account-shell-actions">
       <button class="cta secondary compact-cta" data-auth-open="login" type="button">Einloggen</button>
@@ -1411,14 +1408,13 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
         </div>
         <div class="account-summary-copy">
           <h3 id="accountProfileName">Nicht eingeloggt</h3>
-          <p id="accountProfileSubline">Website-Konto · Bitte oben rechts einloggen</p>
+          <p id="accountProfileSubline">Website-Konto</p>
           <div class="account-meta-pills">
             <span class="account-meta-pill" id="accountProfileRolePill">Gast</span>
             <span class="account-meta-pill" id="accountProfileMailPill">Keine aktive Sitzung</span>
           </div>
         </div>
       </div>
-      <p class="foundation-note" id="accountProfileHint">Sobald du eingeloggt bist, siehst du hier Profilname, Rolle, Mail, Status und später auch echte Kauf- und Aktivitätsdaten.</p>
       <div class="foundation-actions account-summary-actions">
         <button class="cta secondary compact-cta" data-account-nav="system" type="button">Einstellungen</button>
         <button class="cta primary compact-cta hidden-section" data-auth-logout="true" id="accountInlineLogoutButton" type="button">Logout</button>
@@ -1428,39 +1424,34 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
     <article class="account-activity-card glass-soft">
       <div class="foundation-card-head">
         <strong>Aktivität</strong>
-        <small>Profilstatus</small>
+        
       </div>
       <div class="account-activity-grid">
-        <div class="account-activity-tile">
-          <span>Gerade online</span>
-          <strong id="accountOnlineNowValue">Nein</strong>
-          <small id="accountOnlineNowMeta">Kein Nutzer aktiv</small>
+        <div class="account-activity-tile account-activity-tile-online">
+          <span>Online</span>
+          <strong class="activity-led" data-online="false" id="accountOnlineNowValue">●</strong>
         </div>
         <div class="account-activity-tile">
           <span>Zuletzt online</span>
           <strong id="accountLastOnlineValue">-</strong>
-          <small>Wird laufend aktualisiert</small>
         </div>
         <div class="account-activity-tile">
           <span>Zuletzt eingeloggt</span>
           <strong id="accountLastLoginValue">-</strong>
-          <small>Merkt sich deine letzte Sitzung</small>
         </div>
         <div class="account-activity-tile">
           <span>Zuletzt gekauft</span>
-          <strong id="accountLastPurchaseValue">Noch offen</strong>
-          <small id="accountLastPurchaseMeta">Sobald Bestellungen echt gespeichert werden</small>
+          <strong id="accountLastPurchaseValue">-</strong>
         </div>
       </div>
     </article>
 
     <article class="foundation-form-shell auth-session-shell compact-session-shell">
       <div class="foundation-form-head">
-        <strong>Live-Sitzung</strong>
-        <small>Supabase verbunden</small>
+        <strong>Kontodaten</strong>
       </div>
       <div class="auth-session-empty" id="authSessionEmpty">
-        Noch kein Nutzer live eingeloggt. Öffne oben rechts das Konto-Menü und logge dich ein oder registriere dich.
+        Noch kein Konto aktiv.
       </div>
       <div class="hidden-section" id="authSessionLive">
         <div class="status-stack auth-session-stack">
@@ -1477,56 +1468,6 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
           <button class="cta primary compact-cta" data-auth-logout="true" type="button">Logout</button>
         </div>
       </div>
-      <p class="foundation-note auth-message" id="authSessionMessage">Wenn das SQL für Profile später läuft, ergänzt sich hier automatisch auch Rollen, Avatar und Aktivitätsdatenbank sauber dazu.</p>
-    </article>
-  </div>
-
-  <div class="foundation-grid two-up compact-foundation-grid">
-    <article class="foundation-card">
-      <div class="foundation-card-head">
-        <strong>Geschützte Bereiche</strong>
-        <small>rollenbasiert</small>
-      </div>
-      <div class="role-pill-row">
-        <span class="role-pill">Admin</span>
-        <span class="role-pill">Produktmanager</span>
-        <span class="role-pill">Kunde</span>
-      </div>
-      <p class="foundation-copy">System, Produktpflege und Backend-nahe Bereiche sollen später nur noch über Rolle + Datenbank + geschützte Serverlogik erreichbar sein.</p>
-    </article>
-    <article class="foundation-card">
-      <div class="foundation-card-head">
-        <strong>Kontoziele</strong>
-        <small>später live</small>
-      </div>
-      <ul class="foundation-points">
-        <li>Profilbild / Avatar</li>
-        <li>Zuletzt online / zuletzt eingeloggt</li>
-        <li>Zuletzt gekauft / letzte Bestellung</li>
-        <li>Meine Downloads und Freischaltungen</li>
-      </ul>
-    </article>
-  </div>
-
-  <div class="contact-side account-sidecards">
-    <article class="contact-info-card glass-soft">
-      <div class="contact-info-head">
-        <strong>Status</strong>
-        <small>Phase 6D</small>
-      </div>
-      <div class="status-stack">
-        <div class="status-line"><span>Datenbank</span><strong class="status-badge status-badge-warn" id="accountDbStatusBadge">Offen</strong></div>
-        <div class="status-line"><span>Auth</span><strong class="status-badge status-badge-warn" id="accountAuthStatusBadge">Offen</strong></div>
-        <div class="status-line"><span>Protected Areas</span><strong class="status-badge status-badge-warn" id="accountAccessStatusBadge">Offen</strong></div>
-        <div class="status-line"><span>Tebex-Bridge</span><strong class="status-badge status-badge-warn" id="accountBridgeStatusBadge">Wartet</strong></div>
-      </div>
-    </article>
-    <article class="contact-info-card glass-soft">
-      <div class="contact-info-head">
-        <strong>Hinweis</strong>
-        <small>oben rechts</small>
-      </div>
-      <p>Login und Registrierung laufen jetzt kompakt über das Konto-Menü oben rechts. Dein Konto erreichst du danach direkt über Avatar, Namen und Dropdown.</p>
     </article>
   </div>
 </div>
@@ -1539,14 +1480,12 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
       <div class="eyebrow">Hammer Modding · System</div>
       <h2>SUPABASE-LIVE-ANBINDUNG<br/><span>&amp; BACKEND-READY VORBEREITEN</span></h2>
       <p>
-        Phase 6C hängt jetzt dein echtes Supabase-Projekt an: Live-Konfiguration, SQL-Blueprint, direkte Verbindung, echte Registrierung
-        und Login-Basis – sauber vorbereitet für Profile, Rollen und spätere geschützte Bereiche.
+        Verwalte hier die Verbindungsdaten, Rollen und Systemwerte deiner Website an einem Ort.
       </p>
     </div>
     <div class="foundation-form-shell">
       <div class="foundation-form-head">
-        <strong>Phase-6C Live-Konfiguration</strong>
-        <small>live verbunden</small>
+        <strong>System-Konfiguration</strong>
       </div>
       <div class="foundation-form-grid">
         <label class="foundation-field">
@@ -1626,21 +1565,19 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
         <button class="cta secondary" data-foundation-copy-sql="true" id="foundationCopySqlButton" type="button">SQL kopieren</button>
         <button class="cta secondary" data-foundation-test="true" id="foundationTestButton" type="button">Live-Verbindung prüfen</button>
       </div>
-      <p class="foundation-note">Nur Public-Werte hier eintragen. Secrets und Service-Role-Keys gehören später ausschließlich ins Backend.</p>
     </div>
 
     <div class="foundation-grid two-up">
       <article class="foundation-card foundation-code-card">
         <div class="foundation-card-head">
           <strong>SQL Blueprint</strong>
-          <small>für Supabase SQL Editor</small>
+          
         </div>
         <textarea class="request-draft-text foundation-code-text" id="foundationSqlText" readonly>SQL Blueprint wird geladen …</textarea>
       </article>
       <article class="foundation-card">
         <div class="foundation-card-head">
-          <strong>Go-Live Checkliste</strong>
-          <small>sauber statt geraten</small>
+          <strong>Checkliste</strong>
         </div>
         <ul class="foundation-points">
           <li>Project URL + Public Anon Key eintragen</li>
@@ -1650,14 +1587,12 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
           <li>Webhook-/Relay-URL vorbereiten</li>
           <li>Tebex-Daten danach andocken</li>
         </ul>
-        <div class="foundation-helper-note">Die Verbindung wird erst dann wirklich live, wenn Projekt-Daten, Redirects und später Tebex-/Webhook-Daten sauber gesetzt sind.</div>
       </article>
     </div>
 
     <div class="request-draft-box foundation-summary-box">
       <div class="request-draft-head">
-        <strong>Phase-6B Setup-Zusammenfassung</strong>
-        <small>für dich / Ansprechpartnerin</small>
+        <strong>System-Zusammenfassung</strong>
       </div>
       <textarea class="request-draft-text foundation-summary-text" id="foundationSummaryText" readonly>Phase 6B ist noch nicht initialisiert.</textarea>
     </div>
@@ -1665,8 +1600,7 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
   <div class="contact-side">
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
-        <strong>Readiness</strong>
-        <small>supabase-live</small>
+        <strong>Status</strong>
       </div>
       <div class="status-stack">
         <div class="status-line"><span>Provider</span><strong class="status-badge status-badge-neutral" id="foundationProviderBadge">Supabase</strong></div>
@@ -1680,31 +1614,9 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
     </article>
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
-        <strong>Live-Test Ergebnis</strong>
-        <small>kein Blindflug</small>
+        <strong>Verbindung</strong>
       </div>
       <p class="foundation-helper-note" id="foundationConnectionMessage">Noch kein Live-Test gelaufen. Sobald Project URL und Public Anon Key eingetragen sind, kannst du die Verbindung hier prüfen.</p>
-    </article>
-    <article class="contact-info-card glass-soft">
-      <div class="contact-info-head">
-        <strong>Heute noch besorgen</strong>
-        <small>damit 6C/6D sauber folgen</small>
-      </div>
-      <ul class="contact-steps">
-        <li>Supabase Project URL</li>
-        <li>Public Anon Key</li>
-        <li>Site URL / Redirect URL</li>
-        <li>Tebex Store-Token / Package IDs</li>
-        <li>Webhook-Ziel später eintragbar</li>
-      </ul>
-    </article>
-    <article class="contact-info-card glass-soft">
-      <div class="contact-info-head">
-        <strong>Später geschützt</strong>
-        <small>nur berechtigte Konten</small>
-      </div>
-      <p>System, Produktpflege, Freigaben und spätere Admin-Aktionen sollen nicht nur optisch versteckt sein, sondern später über Rolle + Backend wirklich geschützt werden.</p>
-      <button class="cta secondary" data-nav-open="account" type="button">Zum Kontomodell</button>
     </article>
   </div>
 </div>
