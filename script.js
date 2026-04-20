@@ -1588,8 +1588,10 @@ function setupLiveSupabaseAuth() {
 
   const client = getSupabaseClient();
   if (client) {
-    client.auth.onAuthStateChange(async () => {
-      await refreshLiveAuthUi();
+    client.auth.onAuthStateChange(() => {
+      window.setTimeout(() => {
+        refreshLiveAuthUi();
+      }, 0);
     });
   }
 
