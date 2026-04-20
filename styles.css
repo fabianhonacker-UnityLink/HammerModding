@@ -2595,3 +2595,213 @@ body.intro-booting .bg-lightning {
     flex-direction: column;
   }
 }
+
+/* Phase 6D clothing sync + right stats */
+.store-stats-card {
+  margin-top: 12px;
+  border-radius: 22px;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+.store-stats-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.store-stats-head strong {
+  font-size: 15px;
+  letter-spacing: .03em;
+}
+.store-stats-head small {
+  font-size: 10px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+.store-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.store-stat-tile {
+  min-height: 82px;
+  border-radius: 18px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  display: grid;
+  align-content: center;
+  gap: 6px;
+}
+.store-stat-tile strong {
+  font-size: 24px;
+  line-height: 1;
+}
+.store-stat-tile span {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.clothing-hero {
+  grid-template-columns: 0.86fr 1.14fr;
+  gap: 16px;
+  border-radius: 24px;
+  padding: 18px;
+  margin-bottom: 18px;
+  align-items: center;
+}
+.clothing-hero-copy h2 {
+  margin: 10px 0 0;
+  font-size: clamp(22px, 2.6vw, 38px);
+  line-height: 1.02;
+  letter-spacing: .02em;
+  max-width: 520px;
+}
+.clothing-hero-copy p {
+  margin: 12px 0 0;
+  line-height: 1.65;
+  max-width: 520px;
+  font-size: 14px;
+}
+.clothing-hero-media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 260px;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.28);
+  box-shadow: 0 0 24px rgba(255,40,40,0.14);
+}
+.clothing-subline {
+  margin: -4px 0 16px;
+  font-size: 14px;
+  line-height: 1.65;
+  max-width: 860px;
+}
+
+.scripts-grid {
+  gap: 14px;
+}
+.scripts-grid .product-card {
+  padding: 18px;
+  border-radius: 24px;
+}
+.scripts-grid .card-badge {
+  padding: 7px 11px;
+  font-size: 10px;
+  letter-spacing: .18em;
+}
+.scripts-grid .card-main {
+  margin-top: 12px;
+  gap: 12px;
+}
+.scripts-grid .card-main h4 {
+  font-size: 18px;
+}
+.scripts-grid .card-main p {
+  font-size: 13px;
+  line-height: 1.55;
+  margin-top: 8px;
+}
+.scripts-grid .price-row {
+  margin-top: 12px;
+  gap: 8px;
+}
+.scripts-grid .price-row strong {
+  font-size: 24px;
+}
+.scripts-grid .price-row small {
+  font-size: 9px;
+  letter-spacing: .2em;
+}
+.scripts-grid .card-link {
+  min-height: 42px;
+  padding: 0 16px;
+  margin-top: 14px;
+  font-size: 14px;
+}
+.scripts-grid .card-main-vertical img {
+  aspect-ratio: 16 / 8.8;
+  border-radius: 18px;
+}
+
+.free-grid {
+  gap: 14px;
+}
+.free-script-card {
+  padding: 18px;
+  border-radius: 24px;
+}
+.free-script-card .card-badge {
+  padding: 7px 11px;
+  font-size: 10px;
+  letter-spacing: .18em;
+}
+.free-script-card .card-main {
+  gap: 14px;
+  margin-top: 12px;
+  align-items: center;
+}
+.free-script-card .card-main > div {
+  min-width: 0;
+}
+.free-script-card .card-main h4 {
+  font-size: 18px;
+}
+.free-script-card .card-main p {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.free-script-card .price-row {
+  margin-top: 12px;
+}
+.free-script-card .price-row strong {
+  font-size: 24px;
+}
+.free-script-card .price-row small {
+  font-size: 9px;
+  letter-spacing: .2em;
+}
+.free-script-card .card-main img {
+  max-width: 200px;
+  aspect-ratio: 16 / 9;
+  border-radius: 18px;
+}
+.free-script-card .card-link {
+  min-height: 42px;
+  padding: 0 16px;
+  margin-top: 14px;
+  font-size: 14px;
+}
+
+@media (max-width: 980px) {
+  .clothing-hero {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+  .clothing-hero-copy h2 {
+    font-size: clamp(22px, 7vw, 30px);
+  }
+  .clothing-hero-media {
+    min-height: 220px;
+  }
+  .store-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .store-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .free-script-card .card-main img {
+    max-width: none;
+  }
+}
