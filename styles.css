@@ -1227,7 +1227,17 @@ body.intro-booting .bg-lightning {
   display: flex;
   width: max-content;
   will-change: transform;
-  transform: translateX(0);
+  transform: translate3d(0, 0, 0);
+  animation: hmMarqueeLeft 36s linear infinite;
+}
+.slider-track-paid {
+  animation-duration: 34s;
+}
+.slider-track-clothing {
+  animation: hmMarqueeRight 32s linear infinite;
+}
+.slider-track-coming {
+  animation-duration: 42s;
 }
 .slider-track-slower { }
 .slider-track-slowest { }
@@ -1236,7 +1246,17 @@ body.intro-booting .bg-lightning {
   gap: 18px;
   padding-right: 18px;
 }
-.home-marquee-section:hover .slider-track {
+.marquee-viewport:hover .slider-track,
+.marquee-viewport:focus-within .slider-track {
+  animation-play-state: paused;
+}
+@keyframes hmMarqueeLeft {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+@keyframes hmMarqueeRight {
+  from { transform: translate3d(-50%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
 }
 .marquee-card {
   flex: 0 0 270px;
