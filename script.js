@@ -1270,6 +1270,57 @@ function getSupabaseClient() {
   return supabaseClient;
 }
 
+
+function createAuthTimeoutError() {
+  const error = new Error('Datenbank nicht erreichbar. Bitte später erneut versuchen.');
+  error.code = 'AUTH_TIMEOUT';
+  return error;
+}
+
+function withTimeout(promise, timeoutMs = 12000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      window.setTimeout(() => reject(createAuthTimeoutError()), timeoutMs);
+    }),
+  ]);
+}
+
+function formatAuthErrorMessage(error, fallbackAction = 'Anmeldung') {
+  const rawMessage = String(error?.message || '').trim();
+  const normalized = rawMessage.toLowerCase();
+
+  if (error?.code === 'AUTH_TIMEOUT' || normalized.includes('network') || normalized.includes('failed to fetch') || normalized.includes('fetch')) {
+    return 'Datenbank nicht erreichbar. Bitte später erneut versuchen.';
+  }
+
+  if (normalized.includes('email not confirmed')) {
+    return 'Bitte zuerst deine E-Mail bestätigen.';
+  }
+
+  if (normalized.includes('invalid login credentials')) {
+    return 'E-Mail oder Passwort ist nicht korrekt.';
+  }
+
+  if (normalized.includes('invalid email')) {
+    return 'Bitte eine gültige E-Mail-Adresse eingeben.';
+  }
+
+  if (normalized.includes('password should be')) {
+    return 'Das Passwort erfüllt die Anforderungen nicht.';
+  }
+
+  if (normalized.includes('user already registered')) {
+    return 'Für diese E-Mail gibt es bereits ein Konto.';
+  }
+
+  if (normalized.includes('signup is disabled')) {
+    return 'Registrierung ist aktuell nicht verfügbar.';
+  }
+
+  return rawMessage || `${fallbackAction} fehlgeschlagen. Bitte erneut versuchen.`;
+}
+
 async function fetchLiveProfile(userId) {
   const client = getSupabaseClient();
   if (!client || !userId) return null;
@@ -1343,7 +1394,7 @@ async function refreshLiveAuthUi() {
 
   if (!client) {
     liveAccountSnapshot = { user: null, profile: null, session: null, connectionReady: false };
-    setAuthMessage(elements.sessionMessage, 'Supabase ist noch nicht vollständig konfiguriert. Trag Project URL und Public Key im Systembereich ein.', 'warn');
+    setAuthMessage(elements.sessionMessage, 'Datenbank ist noch nicht vollständig konfiguriert. Trag Project URL und Public Key im Systembereich ein.', 'warn');
     updateAccountStatusBadges(null, null);
     setAccountShellUi(null, null);
     updateAccountDock(null, null);
@@ -1400,7 +1451,7 @@ async function handleLiveRegister(event) {
   const client = getSupabaseClient();
   const elements = getAuthElements();
   if (!client) {
-    setAuthMessage(elements.registerMessage, 'Supabase ist noch nicht verbunden.', 'warn');
+    setAuthMessage(elements.registerMessage, 'Datenbank ist noch nicht verbunden.', 'warn');
     return;
   }
 
@@ -1421,18 +1472,21 @@ async function handleLiveRegister(event) {
   }
 
   try {
-    const { data, error } = await client.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          username,
-          discord_name: discordName,
-          cfx_identifier: cfxIdentifier,
+    const { data, error } = await withTimeout(
+      client.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username,
+            discord_name: discordName,
+            cfx_identifier: cfxIdentifier,
+          },
+          emailRedirectTo: loadFoundationState().redirectUrl || undefined,
         },
-        emailRedirectTo: loadFoundationState().redirectUrl || undefined,
-      },
-    });
+      }),
+      12000,
+    );
 
     if (error) throw error;
 
@@ -1457,7 +1511,7 @@ async function handleLiveRegister(event) {
     await refreshLiveAuthUi();
     if (data?.session) scheduleAuthModalClose(150);
   } catch (error) {
-    setAuthMessage(elements.registerMessage, `Registrierung fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'warn');
+    setAuthMessage(elements.registerMessage, formatAuthErrorMessage(error, 'Registrierung'), 'warn');
   } finally {
     if (elements.registerSubmitButton) {
       elements.registerSubmitButton.disabled = false;
@@ -1471,7 +1525,7 @@ async function handleLiveLogin(event) {
   const client = getSupabaseClient();
   const elements = getAuthElements();
   if (!client) {
-    setAuthMessage(elements.loginMessage, 'Supabase ist noch nicht verbunden.', 'warn');
+    setAuthMessage(elements.loginMessage, 'Datenbank ist noch nicht verbunden.', 'warn');
     return;
   }
 
@@ -1489,7 +1543,7 @@ async function handleLiveLogin(event) {
   }
 
   try {
-    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    const { data, error } = await withTimeout(client.auth.signInWithPassword({ email, password }), 12000);
     if (error) throw error;
 
     if (data?.user) {
@@ -1502,11 +1556,11 @@ async function handleLiveLogin(event) {
     await refreshLiveAuthUi();
     scheduleAuthModalClose(150);
   } catch (error) {
-    setAuthMessage(elements.loginMessage, `Login fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'warn');
+    setAuthMessage(elements.loginMessage, formatAuthErrorMessage(error, 'Login'), 'warn');
   } finally {
     if (elements.loginSubmitButton) {
       elements.loginSubmitButton.disabled = false;
-      elements.loginSubmitButton.textContent = 'Jetzt einloggen';
+      elements.loginSubmitButton.textContent = 'Einloggen';
     }
   }
 }
@@ -1520,7 +1574,7 @@ async function handleLiveLogout() {
     setAuthMessage(elements.sessionMessage, `Logout fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'warn');
     return;
   }
-  setAuthMessage(elements.sessionMessage, 'Logout erfolgreich. Keine Live-Sitzung mehr aktiv.', 'success');
+  setAuthMessage(elements.sessionMessage, 'Logout erfolgreich.', 'success');
   closeAccountDropdown();
   await refreshLiveAuthUi();
 }
