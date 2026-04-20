@@ -1376,11 +1376,92 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
   <div class="contact-main glass-soft">
     <div class="contact-intro">
       <div class="eyebrow">Hammer Modding · Konto</div>
-      <h2>SUPABASE-AUTH VORBEREITEN<br/><span>&amp; GESCHÜTZTE BEREICHE PLANEN</span></h2>
+      <h2>ECHTE SUPABASE-KONTEN<br/><span>&amp; LIVE-AUTH DIREKT TESTEN</span></h2>
       <p>
-        Phase 6B schiebt das Projekt weg von reiner Browser-Demo und hin zu echter Auth, Rollenlogik und später serverseitig geschützten Bereichen.
-        Der sichtbare Plan dafür steht hier jetzt schon sauber im Hammer-Modding-System.
+        Phase 6C schiebt den Kontobereich jetzt auf echte Supabase-Auth: Registrierung, Login, Sitzung und erste Live-Daten laufen direkt
+        gegen dein Projekt. Rollen, Profile und geschützte Bereiche werden darauf sauber weiter aufgebaut.
       </p>
+    </div>
+    <div class="auth-live-grid">
+      <article class="foundation-form-shell auth-live-shell">
+        <div class="foundation-form-head">
+          <strong>Live Konto anlegen</strong>
+          <small>Supabase Auth</small>
+        </div>
+        <form class="foundation-form-grid" id="authRegisterForm">
+          <label class="foundation-field">
+            <span>Benutzername</span>
+            <input class="hm-input" id="registerUsernameInput" placeholder="z. B. Fabian" type="text" required/>
+          </label>
+          <label class="foundation-field">
+            <span>E-Mail</span>
+            <input class="hm-input" id="registerEmailInput" placeholder="name@beispiel.de" type="email" required/>
+          </label>
+          <label class="foundation-field">
+            <span>Discord</span>
+            <input class="hm-input" id="registerDiscordInput" placeholder="Name oder ID" type="text"/>
+          </label>
+          <label class="foundation-field">
+            <span>CFX Identifier / License</span>
+            <input class="hm-input" id="registerCfxInput" placeholder="license:xxxx oder CFX-Konto" type="text"/>
+          </label>
+          <label class="foundation-field field-span-2">
+            <span>Passwort</span>
+            <input class="hm-input" id="registerPasswordInput" placeholder="Mindestens 6 Zeichen" type="password" minlength="6" required/>
+          </label>
+          <div class="foundation-actions field-span-2">
+            <button class="cta primary" id="registerSubmitButton" type="submit">Konto erstellen</button>
+          </div>
+        </form>
+        <p class="foundation-note auth-message" id="authRegisterMessage">Lege hier direkt ein echtes Website-Konto im Supabase-Projekt an.</p>
+      </article>
+
+      <article class="foundation-form-shell auth-live-shell">
+        <div class="foundation-form-head">
+          <strong>Live anmelden</strong>
+          <small>echte Sitzung</small>
+        </div>
+        <form class="foundation-form-grid" id="authLoginForm">
+          <label class="foundation-field">
+            <span>E-Mail</span>
+            <input class="hm-input" id="loginEmailInput" placeholder="name@beispiel.de" type="email" required/>
+          </label>
+          <label class="foundation-field">
+            <span>Passwort</span>
+            <input class="hm-input" id="loginPasswordInput" placeholder="Dein Passwort" type="password" required/>
+          </label>
+          <div class="foundation-actions field-span-2">
+            <button class="cta primary" id="loginSubmitButton" type="submit">Jetzt einloggen</button>
+          </div>
+        </form>
+        <p class="foundation-note auth-message" id="authLoginMessage">Sobald du dich einloggst, wird die Sitzung direkt gegen Supabase geprüft.</p>
+      </article>
+
+      <article class="foundation-form-shell auth-live-shell auth-session-shell">
+        <div class="foundation-form-head">
+          <strong>Aktive Live-Sitzung</strong>
+          <small>supabase verbunden</small>
+        </div>
+        <div class="auth-session-empty" id="authSessionEmpty">
+          Noch kein Nutzer live eingeloggt. Nach Registrierung oder Login siehst du hier direkt Konto, Rolle und Bindungsdaten.
+        </div>
+        <div class="hidden-section" id="authSessionLive">
+          <div class="status-stack auth-session-stack">
+            <div class="status-line"><span>E-Mail</span><strong id="authUserEmailValue">-</strong></div>
+            <div class="status-line"><span>Benutzername</span><strong id="authUsernameValue">-</strong></div>
+            <div class="status-line"><span>Discord</span><strong id="authDiscordValue">-</strong></div>
+            <div class="status-line"><span>CFX / License</span><strong id="authCfxValue">-</strong></div>
+            <div class="status-line"><span>Rolle</span><strong id="authRoleValue">-</strong></div>
+            <div class="status-line"><span>User-ID</span><strong id="authUserIdValue">-</strong></div>
+            <div class="status-line"><span>E-Mail bestätigt</span><strong id="authEmailConfirmedValue">-</strong></div>
+          </div>
+          <div class="foundation-actions auth-session-actions">
+            <button class="cta secondary" data-auth-refresh="true" type="button">Sitzung neu laden</button>
+            <button class="cta primary" data-auth-logout="true" type="button">Logout</button>
+          </div>
+        </div>
+        <p class="foundation-note auth-message" id="authSessionMessage">Wenn das SQL für Profile später läuft, ergänzt sich hier automatisch auch die Rollen- und Profildatenbank sauber dazu.</p>
+      </article>
     </div>
     <div class="foundation-grid two-up">
       <article class="foundation-card">
@@ -1444,7 +1525,7 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">
         <strong>Status</strong>
-        <small>Phase 6B</small>
+        <small>Phase 6C</small>
       </div>
       <div class="status-stack">
         <div class="status-line"><span>Datenbank</span><strong class="status-badge status-badge-warn" id="accountDbStatusBadge">Offen</strong></div>
@@ -1478,14 +1559,14 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
       <div class="eyebrow">Hammer Modding · System</div>
       <h2>SUPABASE-LIVE-ANBINDUNG<br/><span>&amp; BACKEND-READY VORBEREITEN</span></h2>
       <p>
-        Phase 6B bereitet die echte Supabase-Richtung vor: saubere Konfiguration, SQL-Blueprint, Redirects,
-        Rollenbasis, Storage und ein erster Live-Verbindungstest – ohne schon blind Secrets oder halbe Serverlogik einzubauen.
+        Phase 6C hängt jetzt dein echtes Supabase-Projekt an: Live-Konfiguration, SQL-Blueprint, direkte Verbindung, echte Registrierung
+        und Login-Basis – sauber vorbereitet für Profile, Rollen und spätere geschützte Bereiche.
       </p>
     </div>
     <div class="foundation-form-shell">
       <div class="foundation-form-head">
-        <strong>Phase-6B Konfiguration</strong>
-        <small>supabase-ready</small>
+        <strong>Phase-6C Live-Konfiguration</strong>
+        <small>live verbunden</small>
       </div>
       <div class="foundation-form-grid">
         <label class="foundation-field">
@@ -1731,6 +1812,7 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="script.js"></script>
 </body>
 </html>

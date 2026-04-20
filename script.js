@@ -42,10 +42,24 @@ const storeCatalog = {
 };
 
 const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
-  version: 'phase-6b-supabase-live-prep',
+  version: 'phase-6c-live-supabase-auth',
   catalog: storeCatalog,
   lastPreparedItem: null,
 });
+
+const SUPABASE_PROJECT_REF = 'gvyglxlxvnvpykbwaqnx';
+const SUPABASE_PROJECT_URL = 'https://gvyglxlxvnvpykbwaqnx.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_1QiVV_QTfZL8H3Uh-Bdaqw_FpjCZqzv';
+const detectedSiteUrl = window.location.origin && !window.location.origin.startsWith('file') ? window.location.origin : '';
+const detectedRedirectUrl = detectedSiteUrl ? `${detectedSiteUrl}/account/callback` : '';
+let supabaseClient = null;
+let supabaseClientSignature = '';
+let liveAccountSnapshot = {
+  user: null,
+  profile: null,
+  session: null,
+  connectionReady: false,
+};
 
 function getCatalogItem(entryLike) {
   if (!entryLike) return null;
@@ -297,6 +311,14 @@ function getCartItemTypeLabel(item) {
 function buildCartRequestText(cart) {
   const items = Array.isArray(cart) ? cart : [];
   const totals = getVisibleCartTotals(items);
+  const user = liveAccountSnapshot.user;
+  const profile = liveAccountSnapshot.profile || {};
+  const meta = user?.user_metadata || {};
+  const accountEmail = user?.email || '[bitte ergänzen]';
+  const username = profile.username || meta.username || '[bitte ergänzen]';
+  const discordName = profile.discord_name || meta.discord_name || '[bitte ergänzen]';
+  const cfxIdentifier = profile.cfx_identifier || meta.cfx_identifier || '[bitte ergänzen]';
+  const role = profile.role || 'kunde';
 
   if (!items.length) {
     return 'Wähle zuerst Produkte aus deinem Warenkorb aus.';
@@ -310,14 +332,20 @@ function buildCartRequestText(cart) {
     '',
     `Gesamtsumme: ${totals.totalLabel}`,
     '',
+    'Kontodaten:',
+    `Benutzerkonto: ${username}`,
+    `E-Mail: ${accountEmail}`,
+    `Discord-Name: ${discordName}`,
+    `CFX-Account / Tebex-Konto: ${cfxIdentifier}`,
+    `Rolle: ${role}`,
+    '',
     'Bitte später über Tebex / saubere Freischaltung abwickeln.',
-    'CFX-Account / Tebex-Konto: [bitte ergänzen]',
-    'Discord-Name: [bitte ergänzen]',
     'Zusätzliche Hinweise: [optional]',
   ];
 
   return lines.join('\n');
 }
+
 
 function updateRequestDraftFields(cart) {
   const items = Array.isArray(cart) ? cart : [];
@@ -505,15 +533,15 @@ function clearVisibleCart() {
 
 
 
-const foundationStorageKey = 'hm_phase6b_foundation';
+const foundationStorageKey = 'hm_phase6c_foundation';
 const defaultFoundationState = {
   provider: 'supabase',
   authProvider: 'email-password',
-  projectRef: '',
-  projectUrl: '',
-  anonKey: '',
-  siteUrl: '',
-  redirectUrl: '',
+  projectRef: SUPABASE_PROJECT_REF,
+  projectUrl: SUPABASE_PROJECT_URL,
+  anonKey: SUPABASE_PUBLISHABLE_KEY,
+  siteUrl: detectedSiteUrl,
+  redirectUrl: detectedRedirectUrl,
   publicSchema: 'public',
   storageBucket: 'product-assets',
   productsTable: 'products',
@@ -529,10 +557,16 @@ const defaultFoundationState = {
 
 function loadFoundationState() {
   try {
-    const raw = localStorage.getItem(foundationStorageKey);
+    const raw = localStorage.getItem(foundationStorageKey) || localStorage.getItem('hm_phase6b_foundation');
     if (!raw) return { ...defaultFoundationState };
     const parsed = JSON.parse(raw);
-    return { ...defaultFoundationState, ...(parsed || {}) };
+    const merged = { ...defaultFoundationState, ...(parsed || {}) };
+    if (!merged.projectRef) merged.projectRef = defaultFoundationState.projectRef;
+    if (!merged.projectUrl) merged.projectUrl = defaultFoundationState.projectUrl;
+    if (!merged.anonKey) merged.anonKey = defaultFoundationState.anonKey;
+    if (!merged.siteUrl) merged.siteUrl = defaultFoundationState.siteUrl;
+    if (!merged.redirectUrl) merged.redirectUrl = defaultFoundationState.redirectUrl;
+    return merged;
   } catch (error) {
     return { ...defaultFoundationState };
   }
@@ -668,7 +702,7 @@ function buildFoundationSummary(state) {
   const webhookReady = Boolean(state.webhookUrl);
   const protectedReady = Boolean(state.adminRole && state.managerRole);
   const lines = [
-    'Hammer Modding – Phase 6B Supabase Live-Vorbereitung',
+    'Hammer Modding – Phase 6C Supabase Live-Anbindung',
     '',
     `Provider: ${state.provider === 'custom' ? 'Custom Backend' : 'Supabase'}`,
     `Auth: ${formatAuthProvider(state.authProvider)}`,
@@ -709,7 +743,7 @@ function buildFoundationSqlBlueprint(state) {
   if (state.provider === 'custom') {
     return [
       '-- Custom Backend gewählt.',
-      '-- Dieser SQL-Blueprint ist auf Supabase/Postgres ausgelegt.',
+      '-- Phase 6C: SQL-Basis für echte Konten, Profile und spätere Rollenlogik.',
       '-- Für einen Custom Stack bitte Tabellen, Rollen und Policies auf euren Backend-Standard übertragen.',
     ].join('\n');
   }
@@ -1021,6 +1055,316 @@ function setupFoundationPlanner() {
   });
 }
 
+
+function getAuthElements() {
+  return {
+    registerForm: document.getElementById('authRegisterForm'),
+    loginForm: document.getElementById('authLoginForm'),
+    registerMessage: document.getElementById('authRegisterMessage'),
+    loginMessage: document.getElementById('authLoginMessage'),
+    sessionMessage: document.getElementById('authSessionMessage'),
+    sessionEmpty: document.getElementById('authSessionEmpty'),
+    sessionLive: document.getElementById('authSessionLive'),
+    emailValue: document.getElementById('authUserEmailValue'),
+    usernameValue: document.getElementById('authUsernameValue'),
+    discordValue: document.getElementById('authDiscordValue'),
+    cfxValue: document.getElementById('authCfxValue'),
+    roleValue: document.getElementById('authRoleValue'),
+    userIdValue: document.getElementById('authUserIdValue'),
+    emailConfirmedValue: document.getElementById('authEmailConfirmedValue'),
+    registerSubmitButton: document.getElementById('registerSubmitButton'),
+    loginSubmitButton: document.getElementById('loginSubmitButton'),
+  };
+}
+
+function setAuthMessage(element, text, type = 'neutral') {
+  if (!element) return;
+  element.textContent = text;
+  element.classList.remove('auth-message-success', 'auth-message-warn');
+  if (type === 'success') element.classList.add('auth-message-success');
+  if (type === 'warn') element.classList.add('auth-message-warn');
+}
+
+function getSupabaseClient() {
+  const foundation = loadFoundationState();
+  const signature = `${foundation.projectUrl}|${foundation.anonKey}`;
+  if (supabaseClient && supabaseClientSignature === signature) return supabaseClient;
+  if (!window.supabase || !foundation.projectUrl || !foundation.anonKey) return null;
+
+  supabaseClient = window.supabase.createClient(foundation.projectUrl, foundation.anonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  });
+  supabaseClientSignature = signature;
+  hmStoreBridge.supabaseFoundation = { projectUrl: foundation.projectUrl, keyPresent: Boolean(foundation.anonKey) };
+  return supabaseClient;
+}
+
+async function fetchLiveProfile(userId) {
+  const client = getSupabaseClient();
+  if (!client || !userId) return null;
+  try {
+    const { data, error } = await client
+      .from('profiles')
+      .select('id, username, discord_name, cfx_identifier, role, is_active')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) {
+      const msg = String(error.message || '').toLowerCase();
+      if (msg.includes('relation') || msg.includes('does not exist') || msg.includes('schema cache')) {
+        return null;
+      }
+      return null;
+    }
+
+    return data || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function upsertLiveProfile(user, profileDraft = {}) {
+  const client = getSupabaseClient();
+  if (!client || !user?.id) return null;
+
+  const payload = {
+    id: user.id,
+    username: profileDraft.username || user.user_metadata?.username || user.email?.split('@')[0] || '',
+    discord_name: profileDraft.discord_name || user.user_metadata?.discord_name || '',
+    cfx_identifier: profileDraft.cfx_identifier || user.user_metadata?.cfx_identifier || '',
+  };
+
+  try {
+    const { data, error } = await client
+      .from('profiles')
+      .upsert(payload, { onConflict: 'id' })
+      .select('id, username, discord_name, cfx_identifier, role, is_active')
+      .maybeSingle();
+
+    if (error) {
+      const msg = String(error.message || '').toLowerCase();
+      if (msg.includes('relation') || msg.includes('does not exist') || msg.includes('schema cache')) {
+        return null;
+      }
+      return null;
+    }
+
+    return data || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function updateAccountStatusBadges(user, profile) {
+  const foundation = loadFoundationState();
+  const connectionReady = Boolean(foundation.projectUrl && foundation.anonKey);
+  const roleLabel = profile?.role || (user ? 'kunde' : 'offen');
+
+  setBadgeState('accountDbStatusBadge', connectionReady ? 'Verbunden' : 'Offen', connectionReady ? 'ready' : 'warn');
+  setBadgeState('accountAuthStatusBadge', user ? 'Live' : connectionReady ? 'Bereit' : 'Offen', user ? 'ready' : connectionReady ? 'draft' : 'warn');
+  setBadgeState('accountAccessStatusBadge', user ? roleLabel : 'Offen', user ? 'ready' : 'warn');
+  setBadgeState('accountBridgeStatusBadge', foundation.webhookUrl ? 'Vorbereitet' : 'Wartet', foundation.webhookUrl ? 'ready' : 'warn');
+}
+
+async function refreshLiveAuthUi() {
+  const elements = getAuthElements();
+  const client = getSupabaseClient();
+
+  if (!client) {
+    liveAccountSnapshot = { user: null, profile: null, session: null, connectionReady: false };
+    setAuthMessage(elements.sessionMessage, 'Supabase ist noch nicht vollständig konfiguriert. Trag Project URL und Public Key im Systembereich ein.', 'warn');
+    updateAccountStatusBadges(null, null);
+    updateRequestDraftFields(loadVisibleCart());
+    return;
+  }
+
+  const { data, error } = await client.auth.getSession();
+  if (error) {
+    setAuthMessage(elements.sessionMessage, `Sitzung konnte nicht geladen werden: ${error.message}`, 'warn');
+  }
+
+  const session = data?.session || null;
+  const user = session?.user || null;
+  const profile = user ? await fetchLiveProfile(user.id) : null;
+  liveAccountSnapshot = {
+    user,
+    profile,
+    session,
+    connectionReady: true,
+  };
+
+  const displayUsername = profile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || '-';
+  const displayDiscord = profile?.discord_name || user?.user_metadata?.discord_name || '-';
+  const displayCfx = profile?.cfx_identifier || user?.user_metadata?.cfx_identifier || '-';
+  const displayRole = profile?.role || 'kunde';
+  const isConfirmed = Boolean(user?.email_confirmed_at);
+
+  if (elements.sessionEmpty) elements.sessionEmpty.classList.toggle('hidden-section', Boolean(user));
+  if (elements.sessionLive) elements.sessionLive.classList.toggle('hidden-section', !user);
+  if (elements.emailValue) elements.emailValue.textContent = user?.email || '-';
+  if (elements.usernameValue) elements.usernameValue.textContent = displayUsername;
+  if (elements.discordValue) elements.discordValue.textContent = displayDiscord;
+  if (elements.cfxValue) elements.cfxValue.textContent = displayCfx;
+  if (elements.roleValue) elements.roleValue.textContent = displayRole;
+  if (elements.userIdValue) elements.userIdValue.textContent = user?.id || '-';
+  if (elements.emailConfirmedValue) elements.emailConfirmedValue.textContent = isConfirmed ? 'Ja' : 'Noch offen';
+
+  if (user) {
+    setAuthMessage(elements.sessionMessage, isConfirmed ? 'Sitzung aktiv. Konto ist live verbunden.' : 'Sitzung aktiv. Falls Mail-Bestätigung aktiv ist, bitte Postfach prüfen.', isConfirmed ? 'success' : 'warn');
+  } else {
+    setAuthMessage(elements.sessionMessage, 'Noch kein Live-Login aktiv. Registriere oder logge dich ein, um echte Konten direkt zu testen.', 'neutral');
+  }
+
+  updateAccountStatusBadges(user, profile);
+  updateRequestDraftFields(loadVisibleCart());
+}
+
+async function handleLiveRegister(event) {
+  event.preventDefault();
+  const client = getSupabaseClient();
+  const elements = getAuthElements();
+  if (!client) {
+    setAuthMessage(elements.registerMessage, 'Supabase ist noch nicht verbunden.', 'warn');
+    return;
+  }
+
+  const username = document.getElementById('registerUsernameInput')?.value.trim() || '';
+  const email = document.getElementById('registerEmailInput')?.value.trim() || '';
+  const discordName = document.getElementById('registerDiscordInput')?.value.trim() || '';
+  const cfxIdentifier = document.getElementById('registerCfxInput')?.value.trim() || '';
+  const password = document.getElementById('registerPasswordInput')?.value || '';
+
+  if (!username || !email || !password) {
+    setAuthMessage(elements.registerMessage, 'Bitte Benutzername, E-Mail und Passwort ausfüllen.', 'warn');
+    return;
+  }
+
+  if (elements.registerSubmitButton) {
+    elements.registerSubmitButton.disabled = true;
+    elements.registerSubmitButton.textContent = 'Erstelle Konto ...';
+  }
+
+  try {
+    const { data, error } = await client.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          username,
+          discord_name: discordName,
+          cfx_identifier: cfxIdentifier,
+        },
+        emailRedirectTo: loadFoundationState().redirectUrl || undefined,
+      },
+    });
+
+    if (error) throw error;
+
+    if (data?.session?.user) {
+      await upsertLiveProfile(data.session.user, {
+        username,
+        discord_name: discordName,
+        cfx_identifier: cfxIdentifier,
+      });
+    }
+
+    const registerForm = elements.registerForm;
+    if (registerForm) registerForm.reset();
+    setAuthMessage(
+      elements.registerMessage,
+      data?.session
+        ? 'Konto erstellt und direkt live eingeloggt.'
+        : 'Konto erstellt. Falls Supabase Mail-Bestätigung verlangt, bitte zuerst die E-Mail bestätigen.',
+      'success',
+    );
+    await refreshLiveAuthUi();
+  } catch (error) {
+    setAuthMessage(elements.registerMessage, `Registrierung fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'warn');
+  } finally {
+    if (elements.registerSubmitButton) {
+      elements.registerSubmitButton.disabled = false;
+      elements.registerSubmitButton.textContent = 'Konto erstellen';
+    }
+  }
+}
+
+async function handleLiveLogin(event) {
+  event.preventDefault();
+  const client = getSupabaseClient();
+  const elements = getAuthElements();
+  if (!client) {
+    setAuthMessage(elements.loginMessage, 'Supabase ist noch nicht verbunden.', 'warn');
+    return;
+  }
+
+  const email = document.getElementById('loginEmailInput')?.value.trim() || '';
+  const password = document.getElementById('loginPasswordInput')?.value || '';
+
+  if (!email || !password) {
+    setAuthMessage(elements.loginMessage, 'Bitte E-Mail und Passwort ausfüllen.', 'warn');
+    return;
+  }
+
+  if (elements.loginSubmitButton) {
+    elements.loginSubmitButton.disabled = true;
+    elements.loginSubmitButton.textContent = 'Logge ein ...';
+  }
+
+  try {
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+
+    if (data?.user) {
+      await upsertLiveProfile(data.user);
+    }
+
+    if (elements.loginForm) elements.loginForm.reset();
+    setAuthMessage(elements.loginMessage, 'Login erfolgreich. Die Live-Sitzung ist aktiv.', 'success');
+    await refreshLiveAuthUi();
+  } catch (error) {
+    setAuthMessage(elements.loginMessage, `Login fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'warn');
+  } finally {
+    if (elements.loginSubmitButton) {
+      elements.loginSubmitButton.disabled = false;
+      elements.loginSubmitButton.textContent = 'Jetzt einloggen';
+    }
+  }
+}
+
+async function handleLiveLogout() {
+  const client = getSupabaseClient();
+  const elements = getAuthElements();
+  if (!client) return;
+  const { error } = await client.auth.signOut();
+  if (error) {
+    setAuthMessage(elements.sessionMessage, `Logout fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'warn');
+    return;
+  }
+  setAuthMessage(elements.sessionMessage, 'Logout erfolgreich. Keine Live-Sitzung mehr aktiv.', 'success');
+  await refreshLiveAuthUi();
+}
+
+function setupLiveSupabaseAuth() {
+  const elements = getAuthElements();
+  if (!elements.registerForm || !elements.loginForm) return;
+
+  elements.registerForm.addEventListener('submit', handleLiveRegister);
+  elements.loginForm.addEventListener('submit', handleLiveLogin);
+
+  const client = getSupabaseClient();
+  if (client) {
+    client.auth.onAuthStateChange(async () => {
+      await refreshLiveAuthUi();
+    });
+  }
+
+  refreshLiveAuthUi();
+}
+
 async function copyTextToClipboard(text) {
   if (!text) return false;
   try {
@@ -1179,6 +1523,20 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+  const authRefreshBtn = e.target.closest('[data-auth-refresh="true"]');
+  if (authRefreshBtn) {
+    e.preventDefault();
+    await refreshLiveAuthUi();
+    return;
+  }
+
+  const authLogoutBtn = e.target.closest('[data-auth-logout="true"]');
+  if (authLogoutBtn) {
+    e.preventDefault();
+    await handleLiveLogout();
+    return;
+  }
+
   const openContactBtn = e.target.closest('[data-open-contact-request="true"]');
   if (openContactBtn) {
     e.preventDefault();
@@ -1251,6 +1609,7 @@ if (searchInput) {
 
 setupPreparedCartButtons();
 setupFoundationPlanner();
+setupLiveSupabaseAuth();
 
 showSection('home');
 
