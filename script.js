@@ -183,9 +183,11 @@ function formatLastPurchase(profile, activity) {
 
 function mapRoleLabel(role) {
   const normalized = String(role || '').trim().toLowerCase();
-  if (normalized === 'admin') return 'Admin';
-  if (normalized === 'developer') return 'Technik';
-  if (normalized === 'product_manager') return 'Produktmanager';
+  if (normalized === 'administrator' || normalized === 'admin') return 'Administrator';
+  if (normalized === 'owner' || normalized === 'inhaberin') return 'Inhaberin';
+  if (normalized === 'developer' || normalized === 'entwickler') return 'Entwickler';
+  if (normalized === 'designer') return 'Designer';
+  if (normalized === 'partner') return 'Partner';
   if (normalized === 'customer' || normalized === 'kunde') return 'Kunde';
   if (normalized === 'guest' || normalized === 'gast') return 'Gast';
   return role || 'Gast';
@@ -197,11 +199,12 @@ function formatPresenceTime(value) {
   return formatRelativeDate(value);
 }
 
-function renderActiveUsers(users = []) {
-  const list = document.getElementById('activeUsersList');
+function renderPresenceUsers(targetId, users = [], emptyText = 'Keine Einträge.', options = {}) {
+  const list = document.getElementById(targetId);
   if (!list) return;
+  const { showOnlineDot = false, recent = false } = options;
   if (!Array.isArray(users) || !users.length) {
-    list.innerHTML = '<div class="active-users-empty" id="activeUsersEmpty">Gerade ist niemand online.</div>';
+    list.innerHTML = `<div class="active-users-empty">${emptyText}</div>`;
     return;
   }
 
@@ -212,8 +215,8 @@ function renderActiveUsers(users = []) {
       const initial = getDisplayInitial(name, 'HM');
       const avatar = user.avatar_url ? `<img src="${user.avatar_url}" alt="${name}" loading="lazy" decoding="async">` : `<strong>${initial}</strong>`;
       return `
-        <div class="active-user-row">
-          <div class="active-user-avatar">${avatar}<span class="active-user-dot"></span></div>
+        <div class="active-user-row${recent ? ' is-recent' : ''}">
+          <div class="active-user-avatar">${avatar}${showOnlineDot ? '<span class="active-user-dot"></span>' : ''}</div>
           <div class="active-user-meta">
             <div class="active-user-name">${name}</div>
             <div class="active-user-role">${role}</div>
@@ -226,23 +229,37 @@ function renderActiveUsers(users = []) {
 }
 
 async function refreshActiveUsersUi() {
-  const list = document.getElementById('activeUsersList');
-  if (!list) return;
+  const activeList = document.getElementById('activeUsersList');
+  const recentList = document.getElementById('recentUsersList');
+  if (!activeList && !recentList) return;
   const client = getSupabaseClient();
   if (!client) {
-    renderActiveUsers([]);
+    renderPresenceUsers('activeUsersList', [], 'Gerade ist niemand online.', { showOnlineDot: true });
+    renderPresenceUsers('recentUsersList', [], 'Noch keine Aktivität vorhanden.', { recent: true });
     return;
   }
 
   try {
-    const { data, error } = await client.rpc('get_active_users');
-    if (error) {
-      renderActiveUsers([]);
-      return;
-    }
-    renderActiveUsers(Array.isArray(data) ? data : []);
+    const [{ data: activeData, error: activeError }, { data: recentData, error: recentError }] = await Promise.all([
+      client.rpc('get_active_users'),
+      client.rpc('get_recent_users'),
+    ]);
+
+    renderPresenceUsers(
+      'activeUsersList',
+      !activeError && Array.isArray(activeData) ? activeData : [],
+      'Gerade ist niemand online.',
+      { showOnlineDot: true },
+    );
+    renderPresenceUsers(
+      'recentUsersList',
+      !recentError && Array.isArray(recentData) ? recentData : [],
+      'Noch keine Aktivität vorhanden.',
+      { recent: true },
+    );
   } catch (error) {
-    renderActiveUsers([]);
+    renderPresenceUsers('activeUsersList', [], 'Gerade ist niemand online.', { showOnlineDot: true });
+    renderPresenceUsers('recentUsersList', [], 'Noch keine Aktivität vorhanden.', { recent: true });
   }
 }
 
@@ -614,7 +631,7 @@ function buildCartRequestText(cart) {
   const username = profile.username || meta.username || '[bitte ergänzen]';
   const discordName = profile.discord_name || meta.discord_name || '[bitte ergänzen]';
   const cfxIdentifier = profile.cfx_identifier || meta.cfx_identifier || '[bitte ergänzen]';
-  const role = profile.role || 'kunde';
+  const role = mapRoleLabel(profile?.role || 'customer');
 
   if (!items.length) {
     return 'Wähle zuerst Produkte aus deinem Warenkorb aus.';
@@ -841,8 +858,8 @@ const defaultFoundationState = {
   publicSchema: 'public',
   storageBucket: 'product-assets',
   productsTable: 'products',
-  adminRole: 'admin',
-  managerRole: 'product_manager',
+  adminRole: 'administrator',
+  managerRole: 'owner',
   bindingMode: 'cfx-license',
   backendBaseUrl: '',
   webhookUrl: '',
@@ -1006,8 +1023,8 @@ function buildFoundationSummary(state) {
     `Redirect URL: ${prettifyFoundationValue(state.redirectUrl)}`,
     `Schema: ${prettifyFoundationValue(state.publicSchema, 'public')}`,
     `Storage Bucket: ${prettifyFoundationValue(state.storageBucket, 'product-assets')}`,
-    `Admin Rolle: ${prettifyFoundationValue(state.adminRole, 'admin')}`,
-    `Manager Rolle: ${prettifyFoundationValue(state.managerRole, 'product_manager')}`,
+    `Admin Rolle: ${prettifyFoundationValue(state.adminRole, 'administrator')}`,
+    `Manager Rolle: ${prettifyFoundationValue(state.managerRole, 'owner')}`,
     `Bindungsmodus: ${formatBindingMode(state.bindingMode)}`,
     `Webhook URL: ${prettifyFoundationValue(state.webhookUrl)}`,
     '',
@@ -1056,7 +1073,7 @@ function buildFoundationSqlBlueprint(state) {
     "  discord_name text not null default '',",
     "  cfx_identifier text not null default '',",
     "  avatar_url text not null default '',",
-    `  role text not null default 'customer' check (role in ('customer', '${adminRole}', '${managerRole}')),`,
+    `  role text not null default 'customer' check (role in ('customer', 'partner', 'designer', 'developer', '${managerRole}', '${adminRole}')),`,
     '  is_active boolean not null default true,',
     '  last_login_at timestamptz,',
     '  last_seen_at timestamptz,',
@@ -1495,7 +1512,7 @@ async function patchLiveProfile(userId, patch = {}) {
 function updateAccountStatusBadges(user, profile) {
   const foundation = loadFoundationState();
   const connectionReady = Boolean(foundation.projectUrl && foundation.anonKey);
-  const roleLabel = profile?.role || (user ? 'kunde' : 'offen');
+  const roleLabel = mapRoleLabel(profile?.role || (user ? 'customer' : 'guest'));
 
   setBadgeState('accountDbStatusBadge', connectionReady ? 'Verbunden' : 'Offen', connectionReady ? 'ready' : 'warn');
   setBadgeState('accountAuthStatusBadge', user ? 'Live' : connectionReady ? 'Bereit' : 'Offen', user ? 'ready' : connectionReady ? 'draft' : 'warn');

@@ -3027,11 +3027,28 @@ body.intro-booting .bg-lightning {
   display: grid;
   gap: 10px;
 }
-.active-users-copy {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.55;
-  font-size: 13px;
+.active-users-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.active-users-section-head strong {
+  font-size: 15px;
+  letter-spacing: .02em;
+}
+.active-users-section-head small {
+  font-size: 10px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+.active-users-section-head-secondary {
+  margin-top: 2px;
+}
+.active-users-divider {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03));
 }
 .active-users-list {
   display: grid;
@@ -3165,4 +3182,20 @@ body.intro-booting .bg-lightning {
   .scripts-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+.active-user-row.is-recent .active-user-avatar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.18));
+  pointer-events: none;
+}
+.active-user-row.is-recent .active-user-avatar img,
+.active-user-row.is-recent .active-user-avatar strong {
+  position: relative;
+  z-index: 1;
+}
+.active-user-row.is-recent .active-user-time {
+  color: rgba(255,255,255,0.62);
 }
