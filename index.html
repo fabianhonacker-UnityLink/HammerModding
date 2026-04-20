@@ -40,6 +40,7 @@
 <button class="nav-item" data-section="clothing">Kleidung</button>
 <button class="nav-item" data-section="scripts">Scripte</button>
 <button class="nav-item" data-section="free">Free Scripts</button>
+<button class="nav-item" data-section="account">Konto</button>
 <button class="nav-item" data-section="contact">Kontakt</button>
 </nav>
 <div class="discord-card glass-soft">
@@ -71,6 +72,24 @@
         <span>Gesamt</span>
         <strong id="cartPanelTotal">0,00 €</strong>
       </div>
+    </div>
+  </div>
+  <div class="account-dock-card glass-soft" data-auth-state="guest" id="accountDockCard">
+    <div class="account-dock-head">
+      <div class="account-dock-title">
+        <strong>Konto</strong>
+        <small>Phase 5A Interface</small>
+      </div>
+      <span class="account-badge" id="accountDockBadge">Gast</span>
+    </div>
+    <p class="account-dock-copy" id="accountDockCopy">Anmelden oder registrieren, um Bestellungen, Downloads und Kontodaten später gebündelt an einem Ort zu verwalten.</p>
+    <div class="account-dock-actions" id="accountDockGuestActions">
+      <button class="cta secondary small-cta" data-open-auth="login" type="button">Anmelden</button>
+      <button class="cta secondary small-cta" data-open-auth="register" type="button">Registrieren</button>
+    </div>
+    <div class="account-dock-actions hidden" id="accountDockUserActions">
+      <button class="cta secondary small-cta" data-nav-open="account" type="button">Konto öffnen</button>
+      <button class="cta secondary small-cta" data-auth-logout="true" type="button">Logout</button>
     </div>
   </div>
 </div>
@@ -1369,6 +1388,155 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
 </article>
 </div>
 </section>
+<section class="account-box glass hidden-section" id="accountSection">
+<div class="section-head">
+<span></span>
+<h3>Konto</h3>
+</div>
+<div class="account-layout">
+  <div class="account-main glass-soft">
+    <div class="account-intro">
+      <div class="eyebrow">Hammer Modding · Konto</div>
+      <h2>LOGIN, REGISTRIERUNG<br/><span>&amp; BENUTZERKONTEN</span></h2>
+      <p>
+        Das hier ist bewusst Phase 5A: ein sauberes Frontend-Interface für Login, Registrierung und Benutzerkonten.
+        Bestellungen, Downloads, Tebex und Freischaltungen werden später technisch dahinter angebunden.
+      </p>
+    </div>
+    <div class="auth-switch" id="authSwitch" role="tablist" aria-label="Kontoansicht wählen">
+      <button class="auth-switch-button active" data-auth-view="login" type="button">Anmelden</button>
+      <button class="auth-switch-button" data-auth-view="register" type="button">Registrieren</button>
+    </div>
+    <form class="auth-form" id="loginForm" autocomplete="on">
+      <div class="auth-form-grid single-col">
+        <label class="auth-field">
+          <span>E-Mail</span>
+          <input id="loginEmail" name="email" placeholder="name@beispiel.de" required type="email"/>
+        </label>
+        <label class="auth-field">
+          <span>Passwort</span>
+          <input id="loginPassword" name="password" placeholder="Dein Passwort" required type="password"/>
+        </label>
+      </div>
+      <p class="auth-inline-note">Für Phase 5A wird das Konto lokal im Browser gespeichert, damit Oberfläche und Ablauf sauber getestet werden können.</p>
+      <div class="auth-form-actions">
+        <button class="cta primary" type="submit">Anmelden</button>
+        <button class="cta secondary" data-auth-view="register" type="button">Noch kein Konto?</button>
+      </div>
+    </form>
+    <form class="auth-form hidden" id="registerForm" autocomplete="on">
+      <div class="auth-form-grid">
+        <label class="auth-field">
+          <span>Benutzername</span>
+          <input id="registerUsername" name="username" placeholder="HammerUser" required type="text"/>
+        </label>
+        <label class="auth-field">
+          <span>E-Mail</span>
+          <input id="registerEmail" name="email" placeholder="name@beispiel.de" required type="email"/>
+        </label>
+        <label class="auth-field">
+          <span>Discord</span>
+          <input id="registerDiscord" name="discord" placeholder="Name#0000 oder Benutzername" type="text"/>
+        </label>
+        <label class="auth-field">
+          <span>CFX / Tebex Konto</span>
+          <input id="registerCfx" name="cfx" placeholder="Optional für spätere Verknüpfung" type="text"/>
+        </label>
+        <label class="auth-field">
+          <span>Passwort</span>
+          <input id="registerPassword" name="password" placeholder="Mindestens 6 Zeichen" required type="password"/>
+        </label>
+        <label class="auth-field">
+          <span>Passwort wiederholen</span>
+          <input id="registerPasswordConfirm" name="passwordConfirm" placeholder="Passwort wiederholen" required type="password"/>
+        </label>
+      </div>
+      <p class="auth-inline-note">Später soll dieses Konto mit Bestellungen, Downloads und Freischaltungen an den passenden Account verknüpft werden.</p>
+      <div class="auth-form-actions">
+        <button class="cta primary" type="submit">Konto erstellen</button>
+        <button class="cta secondary" data-auth-view="login" type="button">Ich habe schon ein Konto</button>
+      </div>
+    </form>
+    <div class="auth-feedback hidden" id="authFeedback" aria-live="polite"></div>
+    <div class="auth-session-card glass-soft hidden" id="authSessionCard">
+      <div class="contact-info-head">
+        <strong>Konto aktiv</strong>
+        <small>Phase 5A</small>
+      </div>
+      <p id="authSessionCopy">Du bist aktuell eingeloggt.</p>
+      <div class="account-side-actions">
+        <button class="cta secondary" data-auth-logout="true" type="button">Logout</button>
+        <button class="cta secondary" data-open-contact-request="true" type="button">Zum Kontaktbereich</button>
+      </div>
+    </div>
+  </div>
+  <div class="account-side">
+    <article class="account-overview-card glass-soft" data-auth-state="guest" id="accountOverviewCard">
+      <div class="contact-info-head">
+        <strong>Benutzerkonto</strong>
+        <small>Übersicht</small>
+      </div>
+      <div class="account-guest-panel" id="accountGuestPanel">
+        <p>Noch kein aktives Konto. Du kannst hier direkt eine Oberfläche für Login und Registrierung testen und später den echten Shop-Flow daran anbinden.</p>
+        <ul class="account-placeholder-list">
+          <li>Login-Interface im Hammer-Modding-Look</li>
+          <li>Registrierung mit Discord- und CFX-Feld</li>
+          <li>Grundlage für spätere Bestell- und Downloadkonten</li>
+        </ul>
+      </div>
+      <div class="account-user-panel hidden" id="accountUserPanel">
+        <div class="account-user-top">
+          <strong id="accountDisplayName">-</strong>
+          <span class="account-badge is-online">Aktiv</span>
+        </div>
+        <div class="account-user-grid">
+          <div class="account-user-item">
+            <span>E-Mail</span>
+            <strong id="accountDisplayEmail">-</strong>
+          </div>
+          <div class="account-user-item">
+            <span>Discord</span>
+            <strong id="accountDisplayDiscord">-</strong>
+          </div>
+          <div class="account-user-item">
+            <span>CFX / Tebex</span>
+            <strong id="accountDisplayCfx">-</strong>
+          </div>
+          <div class="account-user-item">
+            <span>Status</span>
+            <strong>Lokal gespeichert · Backend folgt</strong>
+          </div>
+        </div>
+      </div>
+    </article>
+    <article class="account-overview-card glass-soft">
+      <div class="contact-info-head">
+        <strong>Meine Bestellungen</strong>
+        <small>Vorbereitung</small>
+      </div>
+      <p>Hier sollen später alle Käufe pro Benutzerkonto auflaufen. In Phase 5A ist die Struktur dafür bereits vorbereitet.</p>
+      <ul class="account-placeholder-list">
+        <li>Kaufhistorie pro Benutzerkonto</li>
+        <li>Status pro Bestellung</li>
+        <li>Saubere Übergabe an Tebex</li>
+      </ul>
+    </article>
+    <article class="account-overview-card glass-soft">
+      <div class="contact-info-head">
+        <strong>Downloads &amp; Freischaltungen</strong>
+        <small>Nächster Ausbauschritt</small>
+      </div>
+      <p>Später sollen Downloads, Tebex-Bestellungen und accountgebundene Freischaltungen genau hier zusammenlaufen.</p>
+      <ul class="account-placeholder-list">
+        <li>Meine Downloads</li>
+        <li>Freigeschaltete Produkte</li>
+        <li>Bindung an CFX / Konto</li>
+      </ul>
+    </article>
+  </div>
+</div>
+</section>
+
 <section class="contact-box glass hidden-section" id="contactSection">
 <div class="section-head">
 <span></span>

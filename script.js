@@ -4,6 +4,7 @@ const scriptsSection = document.getElementById('scriptsSection');
 const clothingSection = document.getElementById('clothingSection');
 const freeSection = document.getElementById('freeSection');
 const contactSection = document.getElementById('contactSection');
+const accountSection = document.getElementById('accountSection');
 const detailSections = {
   blitzer: document.getElementById('scriptDetailSection'),
   gps: document.getElementById('gpsDetailSection'),
@@ -27,6 +28,8 @@ let introBooting = false;
 
 const cartStorageKey = 'hm_store_cart';
 const cartDraftStorageKey = 'hm_cart_draft';
+const authAccountsStorageKey = 'hm_store_accounts_phase5a';
+const authSessionStorageKey = 'hm_store_account_session_phase5a';
 const storeCatalog = {
   blitzer: { id: 'blitzer-script', slug: 'blitzer', name: 'Blitzer Script', price: '15.00', priceLabel: '15,00 €', type: 'paid-script' },
   gps: { id: 'gps-system', slug: 'gps', name: 'GPS System', price: '10.00', priceLabel: '10,00 €', type: 'paid-script' },
@@ -40,7 +43,7 @@ const storeCatalog = {
 };
 
 const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
-  version: 'phase-4g-polizei-uniform',
+  version: 'phase-5a-auth-interface',
   catalog: storeCatalog,
   lastPreparedItem: null,
 });
@@ -143,6 +146,7 @@ function showSection(section) {
   setVisible(scriptsSection, section === 'scripts');
   setVisible(clothingSection, section === 'clothing');
   setVisible(freeSection, section === 'free');
+  setVisible(accountSection, section === 'account');
   setVisible(contactSection, section === 'contact');
   hideAllDetails();
   syncVideoPlayback();
@@ -154,6 +158,7 @@ function openScriptDetail(scriptName, originSection = 'scripts') {
   setVisible(scriptsSection, false);
   setVisible(clothingSection, false);
   setVisible(freeSection, false);
+  setVisible(accountSection, false);
   setVisible(contactSection, false);
   hideAllDetails();
   setVisible(detailSections[scriptName], true);
@@ -291,6 +296,7 @@ function getCartItemTypeLabel(item) {
 function buildCartRequestText(cart) {
   const items = Array.isArray(cart) ? cart : [];
   const totals = getVisibleCartTotals(items);
+  const account = loadActiveAccount();
 
   if (!items.length) {
     return 'Wähle zuerst Produkte aus deinem Warenkorb aus.';
@@ -304,13 +310,284 @@ function buildCartRequestText(cart) {
     '',
     `Gesamtsumme: ${totals.totalLabel}`,
     '',
+    'Kontodaten:',
+    `Benutzerkonto: ${account?.username || '[bitte ergänzen]'}`,
+    `E-Mail: ${account?.email || '[bitte ergänzen]'}`,
+    `Discord-Name: ${account?.discord || '[bitte ergänzen]'}`,
+    `CFX-Account / Tebex-Konto: ${account?.cfxId || '[bitte ergänzen]'}`,
+    '',
     'Bitte später über Tebex / saubere Freischaltung abwickeln.',
-    'CFX-Account / Tebex-Konto: [bitte ergänzen]',
-    'Discord-Name: [bitte ergänzen]',
     'Zusätzliche Hinweise: [optional]',
   ];
 
+  if (!account) {
+    lines.splice(8, 0, 'Hinweis: Noch kein Konto aktiv. Login / Registrierung kann später für Bestellungen genutzt werden.', '');
+  }
+
   return lines.join('\n');
+}
+
+function normalizeAuthEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function sanitizeAccountProfile(account) {
+  if (!account) return null;
+
+  return {
+    username: account.username || '',
+    email: normalizeAuthEmail(account.email),
+    discord: account.discord || '',
+    cfxId: account.cfxId || '',
+    createdAt: account.createdAt || '',
+  };
+}
+
+function loadStoredAccounts() {
+  try {
+    const raw = localStorage.getItem(authAccountsStorageKey);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function persistStoredAccounts(accounts) {
+  const normalized = Array.isArray(accounts) ? accounts : [];
+
+  try {
+    localStorage.setItem(authAccountsStorageKey, JSON.stringify(normalized));
+  } catch (error) {
+    // ignore auth storage failures
+  }
+
+  hmStoreBridge.accounts = normalized.map((entry) => sanitizeAccountProfile(entry)).filter(Boolean);
+}
+
+function loadActiveAccount() {
+  let sessionEmail = '';
+
+  try {
+    sessionEmail = normalizeAuthEmail(localStorage.getItem(authSessionStorageKey) || '');
+  } catch (error) {
+    sessionEmail = '';
+  }
+
+  if (!sessionEmail) return null;
+
+  const account = loadStoredAccounts().find((entry) => normalizeAuthEmail(entry?.email) === sessionEmail);
+  return sanitizeAccountProfile(account);
+}
+
+function persistActiveAccount(account) {
+  const safe = sanitizeAccountProfile(account);
+  if (!safe?.email) return;
+
+  try {
+    localStorage.setItem(authSessionStorageKey, safe.email);
+  } catch (error) {
+    // ignore auth session failures
+  }
+
+  hmStoreBridge.activeAccount = safe;
+}
+
+function clearActiveAccount() {
+  try {
+    localStorage.removeItem(authSessionStorageKey);
+  } catch (error) {
+    // ignore auth session removal failures
+  }
+
+  hmStoreBridge.activeAccount = null;
+}
+
+function setAuthFeedback(message = '', kind = 'info') {
+  const feedback = document.getElementById('authFeedback');
+  if (!feedback) return;
+
+  feedback.textContent = message;
+  feedback.classList.toggle('hidden', !message);
+  feedback.classList.remove('is-success', 'is-error', 'is-info');
+
+  if (message) {
+    feedback.classList.add(`is-${kind}`);
+  }
+}
+
+function setAuthView(view = 'login') {
+  const switchButtons = document.querySelectorAll('[data-auth-view]');
+  const loginForm = document.getElementById('loginForm');
+  const registerForm = document.getElementById('registerForm');
+  const nextView = view === 'register' ? 'register' : 'login';
+
+  switchButtons.forEach((button) => {
+    button.classList.toggle('active', button.dataset.authView === nextView);
+  });
+
+  if (loginForm) loginForm.classList.toggle('hidden', nextView !== 'login');
+  if (registerForm) registerForm.classList.toggle('hidden', nextView !== 'register');
+}
+
+function openAccountSection(view = 'login') {
+  setAuthView(view);
+  activateNav('account');
+  showSection('account');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateAccountUi() {
+  const account = loadActiveAccount();
+  const dockCard = document.getElementById('accountDockCard');
+  const dockBadge = document.getElementById('accountDockBadge');
+  const dockCopy = document.getElementById('accountDockCopy');
+  const dockGuestActions = document.getElementById('accountDockGuestActions');
+  const dockUserActions = document.getElementById('accountDockUserActions');
+  const overviewCard = document.getElementById('accountOverviewCard');
+  const guestPanel = document.getElementById('accountGuestPanel');
+  const userPanel = document.getElementById('accountUserPanel');
+  const displayName = document.getElementById('accountDisplayName');
+  const displayEmail = document.getElementById('accountDisplayEmail');
+  const displayDiscord = document.getElementById('accountDisplayDiscord');
+  const displayCfx = document.getElementById('accountDisplayCfx');
+  const sessionCard = document.getElementById('authSessionCard');
+  const sessionCopy = document.getElementById('authSessionCopy');
+  const authSwitch = document.getElementById('authSwitch');
+  const loginForm = document.getElementById('loginForm');
+  const registerForm = document.getElementById('registerForm');
+
+  if (dockCard) dockCard.dataset.authState = account ? 'user' : 'guest';
+  if (dockBadge) dockBadge.textContent = account ? 'Live' : 'Gast';
+  if (dockCopy) {
+    dockCopy.textContent = account
+      ? `${account.username || 'Benutzerkonto'} ist aktiv. Bestellungen, Downloads und spätere Freischaltungen können daran anknüpfen.`
+      : 'Anmelden oder registrieren, um Bestellungen, Downloads und Kontodaten später gebündelt an einem Ort zu verwalten.';
+  }
+  if (dockGuestActions) dockGuestActions.classList.toggle('hidden', !!account);
+  if (dockUserActions) dockUserActions.classList.toggle('hidden', !account);
+
+  if (overviewCard) overviewCard.dataset.authState = account ? 'user' : 'guest';
+  if (guestPanel) guestPanel.classList.toggle('hidden', !!account);
+  if (userPanel) userPanel.classList.toggle('hidden', !account);
+  if (displayName) displayName.textContent = account?.username || '-';
+  if (displayEmail) displayEmail.textContent = account?.email || '-';
+  if (displayDiscord) displayDiscord.textContent = account?.discord || 'Noch nicht hinterlegt';
+  if (displayCfx) displayCfx.textContent = account?.cfxId || 'Noch nicht hinterlegt';
+
+  if (sessionCard) sessionCard.classList.toggle('hidden', !account);
+  if (sessionCopy) {
+    sessionCopy.textContent = account
+      ? `${account.username || 'Benutzerkonto'} ist aktuell angemeldet. Die echte Backend- und Shop-Verknüpfung folgt im nächsten Ausbauschritt.`
+      : 'Du bist aktuell nicht eingeloggt.';
+  }
+
+  if (authSwitch) authSwitch.classList.toggle('hidden', !!account);
+  if (loginForm) loginForm.classList.toggle('hidden', !!account || !document.querySelector('[data-auth-view="login"].active'));
+  if (registerForm) registerForm.classList.toggle('hidden', !!account || !document.querySelector('[data-auth-view="register"].active'));
+
+  hmStoreBridge.activeAccount = account;
+  hmStoreBridge.getActiveAccount = () => loadActiveAccount();
+
+  updateRequestDraftFields(loadVisibleCart());
+}
+
+function registerLocalAccount(form) {
+  const username = String(form.querySelector('#registerUsername')?.value || '').trim();
+  const email = normalizeAuthEmail(form.querySelector('#registerEmail')?.value || '');
+  const discord = String(form.querySelector('#registerDiscord')?.value || '').trim();
+  const cfxId = String(form.querySelector('#registerCfx')?.value || '').trim();
+  const password = String(form.querySelector('#registerPassword')?.value || '');
+  const passwordConfirm = String(form.querySelector('#registerPasswordConfirm')?.value || '');
+  const accounts = loadStoredAccounts();
+
+  if (!username || !email || !password || !passwordConfirm) {
+    setAuthFeedback('Bitte fülle alle Pflichtfelder aus.', 'error');
+    return;
+  }
+
+  if (password.length < 6) {
+    setAuthFeedback('Das Passwort sollte mindestens 6 Zeichen haben.', 'error');
+    return;
+  }
+
+  if (password !== passwordConfirm) {
+    setAuthFeedback('Die Passwörter stimmen nicht überein.', 'error');
+    return;
+  }
+
+  if (accounts.some((entry) => normalizeAuthEmail(entry?.email) === email)) {
+    setAuthFeedback('Für diese E-Mail existiert bereits ein Konto.', 'error');
+    return;
+  }
+
+  const newAccount = {
+    username,
+    email,
+    discord,
+    cfxId,
+    password,
+    createdAt: new Date().toISOString(),
+  };
+
+  accounts.push(newAccount);
+  persistStoredAccounts(accounts);
+  persistActiveAccount(newAccount);
+  form.reset();
+  setAuthFeedback('Konto lokal erstellt und direkt angemeldet.', 'success');
+  setAuthView('login');
+  updateAccountUi();
+}
+
+function loginLocalAccount(form) {
+  const email = normalizeAuthEmail(form.querySelector('#loginEmail')?.value || '');
+  const password = String(form.querySelector('#loginPassword')?.value || '');
+  const account = loadStoredAccounts().find((entry) => normalizeAuthEmail(entry?.email) === email);
+
+  if (!email || !password) {
+    setAuthFeedback('Bitte gib E-Mail und Passwort ein.', 'error');
+    return;
+  }
+
+  if (!account || String(account.password || '') !== password) {
+    setAuthFeedback('Anmeldung fehlgeschlagen. Bitte Daten prüfen.', 'error');
+    return;
+  }
+
+  persistActiveAccount(account);
+  form.reset();
+  setAuthFeedback('Erfolgreich angemeldet.', 'success');
+  updateAccountUi();
+}
+
+function logoutLocalAccount() {
+  clearActiveAccount();
+  setAuthFeedback('Du wurdest abgemeldet.', 'info');
+  setAuthView('login');
+  updateAccountUi();
+}
+
+function setupAuthInterface() {
+  const loginForm = document.getElementById('loginForm');
+  const registerForm = document.getElementById('registerForm');
+
+  persistStoredAccounts(loadStoredAccounts());
+  updateAccountUi();
+
+  if (loginForm) {
+    loginForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      loginLocalAccount(loginForm);
+    });
+  }
+
+  if (registerForm) {
+    registerForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      registerLocalAccount(registerForm);
+    });
+  }
 }
 
 function updateRequestDraftFields(cart) {
@@ -557,6 +834,29 @@ navItems.forEach((btn) => {
 });
 
 document.addEventListener('click', async (e) => {
+  const authViewBtn = e.target.closest('[data-auth-view]');
+  if (authViewBtn) {
+    e.preventDefault();
+    setAuthFeedback('');
+    setAuthView(authViewBtn.dataset.authView || 'login');
+    return;
+  }
+
+  const openAuthBtn = e.target.closest('[data-open-auth]');
+  if (openAuthBtn) {
+    e.preventDefault();
+    setAuthFeedback('');
+    openAccountSection(openAuthBtn.dataset.openAuth || 'login');
+    return;
+  }
+
+  const authLogoutBtn = e.target.closest('[data-auth-logout="true"]');
+  if (authLogoutBtn) {
+    e.preventDefault();
+    logoutLocalAccount();
+    return;
+  }
+
   const removeBtn = e.target.closest('[data-cart-remove-id]');
   if (removeBtn) {
     e.preventDefault();
@@ -662,6 +962,7 @@ if (searchInput) {
 }
 
 
+setupAuthInterface();
 setupPreparedCartButtons();
 
 showSection('home');
