@@ -5,6 +5,7 @@ const clothingSection = document.getElementById('clothingSection');
 const freeSection = document.getElementById('freeSection');
 const contactSection = document.getElementById('contactSection');
 const accountSection = document.getElementById('accountSection');
+const systemSection = document.getElementById('systemSection');
 const detailSections = {
   blitzer: document.getElementById('scriptDetailSection'),
   gps: document.getElementById('gpsDetailSection'),
@@ -32,6 +33,7 @@ const authUsersStorageKey = 'hm_store_auth_users';
 const authSessionStorageKey = 'hm_store_auth_session';
 const authRequestHistoryStorageKey = 'hm_store_auth_requests';
 const authBridgeHistoryStorageKey = 'hm_store_auth_bridge';
+const backendConfigStorageKey = 'hm_store_backend_config';
 const storeCatalog = {
   blitzer: { id: 'blitzer-script', slug: 'blitzer', name: 'Blitzer Script', price: '15.00', priceLabel: '15,00 €', type: 'paid-script' },
   gps: { id: 'gps-system', slug: 'gps', name: 'GPS System', price: '10.00', priceLabel: '10,00 €', type: 'paid-script' },
@@ -45,7 +47,7 @@ const storeCatalog = {
 };
 
 const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
-  version: 'phase-5c-tebex-bridge',
+  version: 'phase-5d-backend-readiness',
   catalog: storeCatalog,
   lastPreparedItem: null,
 });
@@ -149,6 +151,7 @@ function showSection(section) {
   setVisible(clothingSection, section === 'clothing');
   setVisible(freeSection, section === 'free');
   setVisible(accountSection, section === 'account');
+  setVisible(systemSection, section === 'system');
   setVisible(contactSection, section === 'contact');
   hideAllDetails();
   syncVideoPlayback();
@@ -161,6 +164,7 @@ function openScriptDetail(scriptName, originSection = 'scripts') {
   setVisible(clothingSection, false);
   setVisible(freeSection, false);
   setVisible(accountSection, false);
+  setVisible(systemSection, false);
   setVisible(contactSection, false);
   hideAllDetails();
   setVisible(detailSections[scriptName], true);
@@ -255,6 +259,392 @@ function persistAuthBridgeHistory(entries) {
   } catch (error) {
     // ignore blocked storage
   }
+}
+
+
+function buildDefaultBackendConfig() {
+  return {
+    environment: 'local',
+    apiBaseUrl: '',
+    webhookUrl: '',
+    webhookKeyName: '',
+    storeLabel: 'Hammer Modding Main Store',
+    orderMode: 'bridge-relay',
+    bindingMode: 'cfx-license',
+    packageMap: Object.values(storeCatalog).reduce((acc, item) => {
+      acc[item.slug] = '';
+      return acc;
+    }, {}),
+  };
+}
+
+function normalizeBackendConfig(configLike) {
+  const fallback = buildDefaultBackendConfig();
+  const config = configLike && typeof configLike === 'object' ? configLike : {};
+  const packageMap = config.packageMap && typeof config.packageMap === 'object' ? config.packageMap : {};
+  return {
+    environment: ['local', 'staging', 'live'].includes(config.environment) ? config.environment : fallback.environment,
+    apiBaseUrl: String(config.apiBaseUrl || fallback.apiBaseUrl),
+    webhookUrl: String(config.webhookUrl || fallback.webhookUrl),
+    webhookKeyName: String(config.webhookKeyName || fallback.webhookKeyName),
+    storeLabel: String(config.storeLabel || fallback.storeLabel),
+    orderMode: ['manual-review', 'bridge-relay', 'full-automation'].includes(config.orderMode) ? config.orderMode : fallback.orderMode,
+    bindingMode: ['license-only', 'cfx-license', 'manual-approval'].includes(config.bindingMode) ? config.bindingMode : fallback.bindingMode,
+    packageMap: Object.values(storeCatalog).reduce((acc, item) => {
+      acc[item.slug] = String(packageMap[item.slug] || '');
+      return acc;
+    }, {}),
+  };
+}
+
+function loadBackendConfig() {
+  const raw = localStorage.getItem(backendConfigStorageKey);
+  const parsed = safeJsonParse(raw, null);
+  return normalizeBackendConfig(parsed);
+}
+
+function persistBackendConfig(configLike) {
+  const normalized = normalizeBackendConfig(configLike);
+  try {
+    localStorage.setItem(backendConfigStorageKey, JSON.stringify(normalized));
+  } catch (error) {
+    // ignore blocked storage
+  }
+  return normalized;
+}
+
+function getEnvironmentLabel(value) {
+  if (value === 'staging') return 'Staging';
+  if (value === 'live') return 'Live';
+  return 'Local';
+}
+
+function getOrderModeLabel(value) {
+  if (value === 'manual-review') return 'Manuelle Prüfung';
+  if (value === 'full-automation') return 'Vollautomatisch';
+  return 'Bridge + Relay';
+}
+
+function getBindingModeLabel(value) {
+  if (value === 'license-only') return 'Nur Lizenz';
+  if (value === 'manual-approval') return 'Manuelle Freigabe';
+  return 'CFX + Lizenz';
+}
+
+function getBackendMappingEntries(config = loadBackendConfig()) {
+  const normalized = normalizeBackendConfig(config);
+  return Object.values(storeCatalog).map((item) => ({
+    ...item,
+    packageId: normalized.packageMap[item.slug] || '',
+  }));
+}
+
+function renderBackendMappings(config = loadBackendConfig()) {
+  const container = document.getElementById('systemProductMappings');
+  if (!container) return;
+  const entries = getBackendMappingEntries(config);
+  container.innerHTML = entries.map((entry) => `
+    <article class="system-mapping-item">
+      <div class="system-mapping-top">
+        <div>
+          <strong>${entry.name}</strong>
+          <div class="system-mapping-meta">
+            <span>${entry.priceLabel}</span>
+            <span><span class="account-history-dot" aria-hidden="true"></span>${getCartItemTypeLabel(entry)}</span>
+          </div>
+        </div>
+        <small>${entry.slug}</small>
+      </div>
+      <input class="system-mapping-input" data-package-slug="${entry.slug}" placeholder="z. B. tebex-package-123 / hm-${entry.slug}" type="text" value="${entry.packageId}"/>
+    </article>
+  `).join('');
+}
+
+function getBackendSystemState(cart = loadVisibleCart(), user = getCurrentAccount(), config = loadBackendConfig()) {
+  const normalized = normalizeBackendConfig(config);
+  const mappingEntries = getBackendMappingEntries(normalized);
+  const missing = [];
+  const missingMappings = mappingEntries.filter((entry) => !entry.packageId.trim());
+  const checkoutState = getCheckoutBridgeState(cart, user);
+
+  if (!normalized.apiBaseUrl.trim()) missing.push('API Base URL');
+  if (!normalized.webhookUrl.trim()) missing.push('Webhook / Relay URL');
+  if (missingMappings.length) missing.push(`${missingMappings.length} Produkt-Mappings`);
+  if (!checkoutState.isReady) missing.push('Konto / Bindung / Warenkorb');
+
+  if (!normalized.apiBaseUrl.trim() && !normalized.webhookUrl.trim() && mappingEntries.every((entry) => !entry.packageId.trim())) {
+    return {
+      isReady: false,
+      statusClass: 'is-locked',
+      badge: 'Nicht vorbereitet',
+      copy: 'Lege zuerst API-/Webhook-Ziele und Produkt-Mappings an. Danach kann die echte Backend-Anbindung sauber geplant werden.',
+      missing,
+      mappingCount: 0,
+      mappingTotal: mappingEntries.length,
+    };
+  }
+
+  if (missing.length) {
+    return {
+      isReady: false,
+      statusClass: 'is-warning',
+      badge: 'Teilweise vorbereitet',
+      copy: `Ein Teil der Struktur steht schon. Es fehlen noch: ${missing.join(', ')}.`,
+      missing,
+      mappingCount: mappingEntries.length - missingMappings.length,
+      mappingTotal: mappingEntries.length,
+    };
+  }
+
+  return {
+    isReady: true,
+    statusClass: 'is-ready',
+    badge: 'Backend-Bridge startklar',
+    copy: 'API, Webhook, Produkt-Mappings sowie Konto- und Bindungsdaten sind vorbereitet. Der nächste Schritt kann als echter Server-/Tebex-Ausbau erfolgen.',
+    missing: [],
+    mappingCount: mappingEntries.length,
+    mappingTotal: mappingEntries.length,
+  };
+}
+
+function renderSystemChecklist(state, config = loadBackendConfig(), cart = loadVisibleCart(), user = getCurrentAccount()) {
+  const checklist = document.getElementById('systemChecklist');
+  if (!checklist) return;
+  const mappingEntries = getBackendMappingEntries(config);
+  const mappingCount = mappingEntries.filter((entry) => entry.packageId.trim()).length;
+  const checkoutState = getCheckoutBridgeState(cart, user);
+
+  const items = [
+    {
+      title: 'API-Basis',
+      ok: !!normalizeBackendConfig(config).apiBaseUrl.trim(),
+      okLabel: 'Gesetzt',
+      failLabel: 'Fehlt',
+      copy: normalizeBackendConfig(config).apiBaseUrl.trim() || 'Noch keine API Base URL gespeichert.',
+    },
+    {
+      title: 'Webhook / Relay',
+      ok: !!normalizeBackendConfig(config).webhookUrl.trim(),
+      okLabel: 'Gesetzt',
+      failLabel: 'Fehlt',
+      copy: normalizeBackendConfig(config).webhookUrl.trim() || 'Noch keine Webhook- oder Relay-URL gespeichert.',
+    },
+    {
+      title: 'Produkt-Mappings',
+      ok: mappingCount === mappingEntries.length && mappingEntries.length > 0,
+      okLabel: 'Komplett',
+      failLabel: `${mappingCount}/${mappingEntries.length}`,
+      copy: `${mappingCount} von ${mappingEntries.length} Produkten sind bereits einer Package-ID zugeordnet.`,
+    },
+    {
+      title: 'Konto / Bindung / Warenkorb',
+      ok: checkoutState.isReady,
+      okLabel: 'Bereit',
+      failLabel: checkoutState.badge,
+      copy: checkoutState.copy,
+    },
+  ];
+
+  checklist.innerHTML = items.map((item) => `
+    <article class="system-check-item">
+      <div class="system-check-item-top">
+        <strong>${item.title}</strong>
+        <span class="system-check-pill ${item.ok ? 'is-ready' : 'is-warning'}">${item.ok ? item.okLabel : item.failLabel}</span>
+      </div>
+      <p class="system-check-copy">${item.copy}</p>
+    </article>
+  `).join('');
+}
+
+function buildBackendSummaryText(config = loadBackendConfig(), cart = loadVisibleCart(), user = getCurrentAccount()) {
+  const normalized = normalizeBackendConfig(config);
+  const state = getBackendSystemState(cart, user, normalized);
+  const mappingLines = getBackendMappingEntries(normalized).map((entry) => `- ${entry.name}: ${entry.packageId || '[noch offen]'}`);
+  const lines = [
+    'Hammer Modding Backend-/Checkout-Zusammenfassung',
+    `Status: ${state.badge}`,
+    '',
+    `Umgebung: ${getEnvironmentLabel(normalized.environment)}`,
+    `Store / Kategorie: ${normalized.storeLabel || '[noch offen]'}`,
+    `API Base URL: ${normalized.apiBaseUrl || '[noch offen]'}`,
+    `Webhook / Relay URL: ${normalized.webhookUrl || '[noch offen]'}`,
+    `Webhook-Key Name: ${normalized.webhookKeyName || '[optional]'}`,
+    `Sync-Modus: ${getOrderModeLabel(normalized.orderMode)}`,
+    `Bindungsmodus: ${getBindingModeLabel(normalized.bindingMode)}`,
+    '',
+    'Produkt-Mappings:',
+    ...mappingLines,
+    '',
+    `Aktiver Kunde: ${user?.displayName || '[nicht eingeloggt]'}`,
+    `Aktiver Warenkorb: ${getVisibleCartTotals(cart).count} Produkte | ${getVisibleCartTotals(cart).totalLabel}`,
+    '',
+    `Fehlende Punkte: ${state.missing.length ? state.missing.join(', ') : 'Keine'}`,
+  ];
+  return lines.join('\n');
+}
+
+function buildBackendPayloadText(config = loadBackendConfig(), cart = loadVisibleCart(), user = getCurrentAccount()) {
+  const normalized = normalizeBackendConfig(config);
+  const state = getBackendSystemState(cart, user, normalized);
+  const items = Array.isArray(cart) ? cart : [];
+  const totals = getVisibleCartTotals(items);
+  const payload = {
+    source: 'hammer-modding-frontend',
+    phase: '5D-backend-readiness',
+    generatedAt: new Date().toISOString(),
+    readiness: {
+      status: state.badge,
+      missing: state.missing,
+    },
+    config: {
+      environment: normalized.environment,
+      environmentLabel: getEnvironmentLabel(normalized.environment),
+      apiBaseUrl: normalized.apiBaseUrl || null,
+      webhookUrl: normalized.webhookUrl || null,
+      webhookKeyName: normalized.webhookKeyName || null,
+      storeLabel: normalized.storeLabel || null,
+      orderMode: normalized.orderMode,
+      bindingMode: normalized.bindingMode,
+    },
+    customer: user
+      ? {
+          id: user.id,
+          displayName: user.displayName,
+          email: user.email,
+          discord: user.discord || null,
+          cfxAccount: user.cfxAccount || null,
+          cfxIdentifier: user.cfxIdentifier || null,
+          bridgeNote: user.bridgeNote || null,
+        }
+      : null,
+    cart: {
+      count: totals.count,
+      totalLabel: totals.totalLabel,
+      totalCents: totals.totalCents,
+      items: items.map((item) => ({
+        id: item.id,
+        slug: item.slug,
+        name: item.name,
+        type: item.type,
+        priceLabel: item.priceLabel,
+        priceCents: item.priceCents,
+        packageId: normalized.packageMap[item.slug] || null,
+      })),
+    },
+  };
+  return JSON.stringify(payload, null, 2);
+}
+
+async function copyPlainText(value) {
+  const normalized = String(value || '');
+  if (!normalized) return false;
+  try {
+    await navigator.clipboard.writeText(normalized);
+    return true;
+  } catch (error) {
+    const helper = document.createElement('textarea');
+    helper.value = normalized;
+    helper.setAttribute('readonly', 'true');
+    helper.style.position = 'fixed';
+    helper.style.opacity = '0';
+    helper.style.pointerEvents = 'none';
+    document.body.appendChild(helper);
+    helper.focus();
+    helper.select();
+    let copied = false;
+    try {
+      copied = document.execCommand('copy');
+    } catch (execError) {
+      copied = false;
+    }
+    document.body.removeChild(helper);
+    return copied;
+  }
+}
+
+function updateBackendSystemUi(user = getCurrentAccount(), cart = loadVisibleCart()) {
+  const config = loadBackendConfig();
+  const state = getBackendSystemState(cart, user, config);
+  const badge = document.getElementById('systemBackendBadge');
+  const copy = document.getElementById('systemBackendCopy');
+  const summary = document.getElementById('systemBackendSummaryText');
+  const payload = document.getElementById('systemBackendPayloadText');
+
+  const fieldMap = {
+    systemEnvironment: config.environment,
+    systemApiBaseUrl: config.apiBaseUrl,
+    systemWebhookUrl: config.webhookUrl,
+    systemWebhookKeyName: config.webhookKeyName,
+    systemStoreLabel: config.storeLabel,
+    systemOrderMode: config.orderMode,
+    systemBindingMode: config.bindingMode,
+  };
+
+  Object.entries(fieldMap).forEach(([id, value]) => {
+    const field = document.getElementById(id);
+    if (field && document.activeElement !== field) field.value = value;
+  });
+
+  setBridgeBadgeState(badge, state);
+  if (copy) copy.textContent = state.copy;
+
+  renderBackendMappings(config);
+  renderSystemChecklist(state, config, cart, user);
+
+  const summaryText = buildBackendSummaryText(config, cart, user);
+  const payloadText = buildBackendPayloadText(config, cart, user);
+  if (summary) summary.value = summaryText;
+  if (payload) payload.value = payloadText;
+
+  hmStoreBridge.backendConfig = normalizeBackendConfig(config);
+  hmStoreBridge.getBackendConfig = () => normalizeBackendConfig(loadBackendConfig());
+  hmStoreBridge.backendPayload = payloadText;
+  hmStoreBridge.getBackendPayload = () => buildBackendPayloadText(loadBackendConfig(), loadVisibleCart(), getCurrentAccount());
+}
+
+function collectBackendConfigFromForm() {
+  const current = loadBackendConfig();
+  const next = {
+    ...current,
+    environment: document.getElementById('systemEnvironment')?.value || current.environment,
+    apiBaseUrl: document.getElementById('systemApiBaseUrl')?.value.trim() || '',
+    webhookUrl: document.getElementById('systemWebhookUrl')?.value.trim() || '',
+    webhookKeyName: document.getElementById('systemWebhookKeyName')?.value.trim() || '',
+    storeLabel: document.getElementById('systemStoreLabel')?.value.trim() || current.storeLabel,
+    orderMode: document.getElementById('systemOrderMode')?.value || current.orderMode,
+    bindingMode: document.getElementById('systemBindingMode')?.value || current.bindingMode,
+    packageMap: { ...current.packageMap },
+  };
+
+  document.querySelectorAll('[data-package-slug]').forEach((input) => {
+    const slug = input.dataset.packageSlug;
+    if (!slug) return;
+    next.packageMap[slug] = input.value.trim();
+  });
+
+  return normalizeBackendConfig(next);
+}
+
+function openSystemSection() {
+  activateNav('system');
+  showSection('system');
+  updateBackendSystemUi(getCurrentAccount(), loadVisibleCart());
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function handleSystemBackendSubmit(event) {
+  event.preventDefault();
+  const config = collectBackendConfigFromForm();
+  persistBackendConfig(config);
+  setAccountFeedback('System-Konfiguration gespeichert. API, Webhook und Produkt-Mappings wurden lokal aktualisiert.', 'success');
+  updateBackendSystemUi(getCurrentAccount(), loadVisibleCart());
+}
+
+function setupBackendSystemInterface() {
+  const form = document.getElementById('systemBackendForm');
+  if (form) form.addEventListener('submit', handleSystemBackendSubmit);
+  renderBackendMappings(loadBackendConfig());
+  updateBackendSystemUi(getCurrentAccount(), loadVisibleCart());
 }
 
 function getCurrentAccount() {
@@ -682,6 +1072,10 @@ function buildTebexBridgeText(cart = loadVisibleCart(), user = getCurrentAccount
   lines.push(`CFX / Tebex Konto: ${user?.cfxAccount || '[bitte ergänzen]'}`);
   lines.push(`CFX Identifier / Lizenz: ${user?.cfxIdentifier || '[bitte ergänzen]'}`);
   lines.push(`Freischaltungs-Hinweis: ${user?.bridgeNote || '[optional]'}`);
+  const backendConfig = loadBackendConfig();
+  lines.push(`Backend-Umgebung: ${getEnvironmentLabel(backendConfig.environment)}`);
+  lines.push(`API Base URL: ${backendConfig.apiBaseUrl || '[noch offen]'}`);
+  lines.push(`Webhook / Relay URL: ${backendConfig.webhookUrl || '[noch offen]'}`);
   lines.push('');
 
   if (checkoutState.missing.length) {
@@ -841,6 +1235,7 @@ function updateAccountUi(options = {}) {
   updateRequestDraftFields(loadVisibleCart());
   updateBridgeUi(currentUser, loadVisibleCart());
   updateBridgeDraftFields(loadVisibleCart());
+  updateBackendSystemUi(currentUser, loadVisibleCart());
 
   hmStoreBridge.account = currentUser
     ? {
@@ -1480,6 +1875,13 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+  const openSystemBtn = e.target.closest('[data-open-system="true"]');
+  if (openSystemBtn) {
+    e.preventDefault();
+    openSystemSection();
+    return;
+  }
+
   const copyRequestBtn = e.target.closest('[data-copy-request="true"]');
   if (copyRequestBtn) {
     e.preventDefault();
@@ -1524,6 +1926,34 @@ document.addEventListener('click', async (e) => {
       copyBridgeBtn.textContent = 'Bridge kopiert';
       window.setTimeout(() => {
         copyBridgeBtn.textContent = originalText;
+      }, 1400);
+    }
+    return;
+  }
+
+  const copySystemSummaryBtn = e.target.closest('[data-copy-system-summary="true"]');
+  if (copySystemSummaryBtn) {
+    e.preventDefault();
+    const copied = await copyPlainText(document.getElementById('systemBackendSummaryText')?.value || '');
+    if (copied) {
+      const originalText = copySystemSummaryBtn.textContent;
+      copySystemSummaryBtn.textContent = 'Zusammenfassung kopiert';
+      window.setTimeout(() => {
+        copySystemSummaryBtn.textContent = originalText;
+      }, 1400);
+    }
+    return;
+  }
+
+  const copySystemPayloadBtn = e.target.closest('[data-copy-system-payload="true"]');
+  if (copySystemPayloadBtn) {
+    e.preventDefault();
+    const copied = await copyPlainText(document.getElementById('systemBackendPayloadText')?.value || '');
+    if (copied) {
+      const originalText = copySystemPayloadBtn.textContent;
+      copySystemPayloadBtn.textContent = 'Payload kopiert';
+      window.setTimeout(() => {
+        copySystemPayloadBtn.textContent = originalText;
       }, 1400);
     }
     return;
@@ -1635,6 +2065,7 @@ if (searchInput) {
 
 setupPreparedCartButtons();
 setupAccountInterface();
+setupBackendSystemInterface();
 initializeAccountState();
 
 showSection('home');

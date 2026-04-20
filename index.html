@@ -41,6 +41,7 @@
 <button class="nav-item" data-section="scripts">Scripte</button>
 <button class="nav-item" data-section="free">Free Scripts</button>
 <button class="nav-item" data-section="account">Konto</button>
+<button class="nav-item" data-section="system">System</button>
 <button class="nav-item" data-section="contact">Kontakt</button>
 </nav>
 <div class="discord-card glass-soft">
@@ -1510,6 +1511,7 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
           <div class="auth-panel-actions">
             <button class="cta secondary" data-open-contact-request="true" type="button">Zum Kontaktbereich</button>
             <button class="cta secondary" data-tebex-open="true" type="button">Tebex-Bridge öffnen</button>
+            <button class="cta secondary" data-open-system="true" type="button">System öffnen</button>
             <button class="cta primary" data-account-logout="true" type="button">Abmelden</button>
           </div>
           <div class="bridge-profile-block glass">
@@ -1595,6 +1597,150 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
 </div>
 </section>
 
+
+<section class="section system-only hidden-section" id="systemSection">
+<div class="section-head">
+<span></span>
+<h3>Backend &amp; Checkout</h3>
+</div>
+<div class="system-layout">
+  <div class="system-main glass-soft">
+    <div class="account-intro">
+      <div class="eyebrow">Hammer Modding · System</div>
+      <h2>BACKEND, CHECKOUT<br/><span>&amp; WEBHOOK-SETUP VORBEREITEN</span></h2>
+      <p>
+        In diesem Schritt bleibt alles weiter frontendbasiert, aber die technische Unterstruktur wird sauber vorbereitet:
+        API-Basis, Webhook-/Relay-Ziel, Produkt-Mappings und ein Payload-Entwurf für spätere echte Checkout- und Freischaltungslogik.
+      </p>
+    </div>
+    <div class="bridge-state-box">
+      <span class="bridge-state-badge" id="systemBackendBadge">Nicht vorbereitet</span>
+      <p class="bridge-state-copy" id="systemBackendCopy">Lege API-/Webhook-Ziele, Paket-Mappings und deine Checkout-Bindung an, damit der spätere echte Backend-Ausbau sauber starten kann.</p>
+    </div>
+
+    <form class="auth-panel glass" id="systemBackendForm">
+      <div class="auth-panel-head">
+        <strong>Checkout-Konfiguration</strong>
+        <small>Phase 5D</small>
+      </div>
+      <div class="auth-form-grid auth-form-grid-two">
+        <label class="auth-field">
+          <span>Umgebung</span>
+          <select id="systemEnvironment">
+            <option value="local">Local</option>
+            <option value="staging">Staging</option>
+            <option value="live">Live</option>
+          </select>
+        </label>
+        <label class="auth-field">
+          <span>Sync-Modus</span>
+          <select id="systemOrderMode">
+            <option value="manual-review">Manuelle Prüfung</option>
+            <option value="bridge-relay">Bridge + Relay</option>
+            <option value="full-automation">Vollautomatisch</option>
+          </select>
+        </label>
+        <label class="auth-field">
+          <span>API Base URL</span>
+          <input autocomplete="off" id="systemApiBaseUrl" placeholder="z. B. https://api.hammermodding.de" type="url"/>
+        </label>
+        <label class="auth-field">
+          <span>Webhook / Relay URL</span>
+          <input autocomplete="off" id="systemWebhookUrl" placeholder="z. B. https://api.hammermodding.de/webhooks/orders" type="url"/>
+        </label>
+        <label class="auth-field">
+          <span>Store / Kategorie</span>
+          <input autocomplete="off" id="systemStoreLabel" maxlength="80" placeholder="z. B. Hammer Modding Main Store" type="text"/>
+        </label>
+        <label class="auth-field">
+          <span>Bindungsmodus</span>
+          <select id="systemBindingMode">
+            <option value="license-only">Nur Lizenz</option>
+            <option value="cfx-license">CFX + Lizenz</option>
+            <option value="manual-approval">Manuelle Freigabe</option>
+          </select>
+        </label>
+        <label class="auth-field auth-field-full">
+          <span>Webhook-Key Name / Notiz</span>
+          <input autocomplete="off" id="systemWebhookKeyName" maxlength="120" placeholder="z. B. tebex-order-secret / relay-orders-v1" type="text"/>
+        </label>
+      </div>
+      <div class="auth-panel-actions">
+        <button class="cta primary auth-submit-button" type="submit">System-Konfiguration speichern</button>
+        <button class="cta secondary" data-open-account-bridge="true" type="button">Zum Konto</button>
+      </div>
+    </form>
+
+    <div class="auth-panel glass">
+      <div class="auth-panel-head">
+        <strong>Produkt-Mappings</strong>
+        <small>Tebex Package IDs</small>
+      </div>
+      <p class="bridge-profile-copy">Hier ordnest du jedem Produkt eine spätere Tebex-Package-ID oder interne Shop-ID zu. So bleibt der Checkout später sauber und nachvollziehbar.</p>
+      <div class="system-mapping-list" id="systemProductMappings"></div>
+    </div>
+
+    <div class="auth-panel glass">
+      <div class="auth-panel-head">
+        <strong>Backend-Zusammenfassung</strong>
+        <small>kopierbereit</small>
+      </div>
+      <textarea class="request-modal-text system-textarea" id="systemBackendSummaryText" readonly>System-Zusammenfassung wird geladen ...</textarea>
+      <div class="request-draft-actions">
+        <button class="cta primary" data-copy-system-summary="true" type="button">Zusammenfassung kopieren</button>
+      </div>
+    </div>
+
+    <div class="auth-panel glass">
+      <div class="auth-panel-head">
+        <strong>Payload-Vorschau</strong>
+        <small>für späteres Backend</small>
+      </div>
+      <textarea class="request-modal-text system-textarea system-json-textarea" id="systemBackendPayloadText" readonly>{}</textarea>
+      <div class="request-draft-actions">
+        <button class="cta primary" data-copy-system-payload="true" type="button">Payload kopieren</button>
+        <button class="cta secondary" data-tebex-open="true" type="button">Tebex-Bridge öffnen</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="system-side">
+    <article class="contact-info-card glass-soft">
+      <div class="contact-info-head">
+        <strong>Readiness</strong>
+        <small>Phase 5D</small>
+      </div>
+      <p>Hier siehst du sofort, ob Frontend, Konto, Bindung, Produkt-Mappings und Checkout-Ziele schon sauber genug für den späteren echten Ausbau vorbereitet sind.</p>
+      <div class="system-checklist" id="systemChecklist"></div>
+    </article>
+    <article class="contact-info-card glass-soft">
+      <div class="contact-info-head">
+        <strong>Geplanter Ablauf</strong>
+        <small>späterer Echtbetrieb</small>
+      </div>
+      <ul class="contact-steps">
+        <li>Kunde meldet sich an und ergänzt CFX-/Bindungsdaten</li>
+        <li>Produkte landen im Warenkorb und werden Package IDs zugeordnet</li>
+        <li>Frontend sendet später Payload an API / Relay</li>
+        <li>Backend validiert Zahlung, Bindung und Produktzuordnung</li>
+        <li>Freischaltung wird nur für genau dieses Konto / diese Bindung erteilt</li>
+      </ul>
+    </article>
+    <article class="contact-info-card glass-soft">
+      <div class="contact-info-head">
+        <strong>Nächster echter Ausbau</strong>
+        <small>außerhalb von HTML/CSS/JS</small>
+      </div>
+      <p>Ein echter Backend-Schritt braucht später Servercode, Datenbank, sichere Secrets, echte Sessions und Webhook-Verarbeitung. Diese Seite bereitet dafür jetzt die Struktur und die Datenform vor.</p>
+      <div class="request-draft-actions">
+        <button class="cta secondary" data-open-contact-request="true" type="button">Zum Kontaktbereich</button>
+        <button class="cta secondary" data-open-account-bridge="true" type="button">Zum Konto</button>
+      </div>
+    </article>
+  </div>
+</div>
+</section>
+
 <section class="contact-box glass hidden-section" id="contactSection">
 <div class="section-head">
 <span></span>
@@ -1640,7 +1786,10 @@ Moderne Tempokontrolle für deinen Server mit Datenbankpersistenz, Job-Checks,
         <span class="bridge-state-badge" id="contactTebexBadge">Nicht bereit</span>
         <p class="bridge-state-copy" id="contactTebexCopy">Lege Produkte in den Warenkorb und ergänze deine Bindungsdaten.</p>
       </div>
-      <button class="cta secondary" data-tebex-open="true" id="contactTebexButton" type="button">Tebex-Bridge öffnen</button>
+      <div class="request-draft-actions">
+        <button class="cta secondary" data-tebex-open="true" id="contactTebexButton" type="button">Tebex-Bridge öffnen</button>
+        <button class="cta secondary" data-open-system="true" type="button">System öffnen</button>
+      </div>
     </article>
     <article class="contact-info-card glass-soft">
       <div class="contact-info-head">

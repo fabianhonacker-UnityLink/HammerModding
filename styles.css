@@ -520,6 +520,22 @@ body.intro-booting .bg-lightning {
 
 .section-home, .section, .contact-box { margin-top: 28px; }
 
+.system-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(320px, .82fr);
+  gap: 18px;
+}
+.system-main {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border-radius: 28px;
+}
+.system-side {
+  display: grid;
+  gap: 18px;
+}
+
 .contact-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(320px, .8fr);
@@ -1129,7 +1145,8 @@ body.intro-booting .bg-lightning {
 }
 @media (max-width: 980px) {
   .account-layout,
-  .contact-layout {
+  .contact-layout,
+  .system-layout {
     grid-template-columns: 1fr;
   }
   .auth-form-grid-two,
