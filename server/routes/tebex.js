@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getUserFromJwt, getOwnProfile } from '../lib/supabase.js';
-import { createBasket, addPackageToBasket, getBasketAuthLinks } from '../lib/tebex.js';
+import { createBasket, addPackageToBasket, getBasketAuthLinks, getBasket } from '../lib/tebex.js';
 
 export const tebexRouter = Router();
 
@@ -114,6 +114,18 @@ function pickPreferredAuthLink(authLinks = []) {
   return authLinks.find((entry) => /fivem/i.test(String(entry?.name || ''))) || authLinks[0] || null;
 }
 
+function getBasketUsernameId(basketData) {
+  return basketData?.username_id || basketData?.data?.username_id || null;
+}
+
+function buildVariableDataForPackage({ basketUsernameId }) {
+  const variableData = {};
+  if (basketUsernameId) {
+    variableData.username_id = String(basketUsernameId);
+  }
+  return variableData;
+}
+
 tebexRouter.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'tebex-route' });
 });
@@ -173,11 +185,23 @@ tebexRouter.post('/checkout/finalize', async (req, res, next) => {
   try {
     const context = await resolveCheckoutContext(req, { requireItems: true, requireBasketIdent: true });
 
+    const basketResponse = await getBasket({ basketIdent: context.basketIdent });
+    const basket = basketResponse?.data || basketResponse;
+    const basketUsernameId = getBasketUsernameId(basket);
+
+    if (!basketUsernameId) {
+      const error = new Error('Tebex-Benutzer ist noch nicht mit dem Basket verknüpft.');
+      error.statusCode = 409;
+      error.publicMessage = 'Tebex-Login noch nicht abgeschlossen. Bitte den Checkout erneut starten.';
+      throw error;
+    }
+
     for (const item of context.items) {
       await addPackageToBasket({
         basketIdent: context.basketIdent,
         packageId: item.packageId,
         quantity: item.quantity,
+        variableData: buildVariableDataForPackage({ basketUsernameId }),
         custom: {
           ...context.custom,
           product_name: item.name,
@@ -191,6 +215,7 @@ tebexRouter.post('/checkout/finalize', async (req, res, next) => {
       basketIdent: context.basketIdent,
       checkoutUrl: String(req.body?.checkoutUrl || '').trim() || null,
       paymentUrl: String(req.body?.paymentUrl || '').trim() || null,
+      usernameId: basketUsernameId,
       message: 'Pakete wurden dem Tebex-Basket hinzugefügt.',
     });
   } catch (error) {
