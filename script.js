@@ -977,7 +977,7 @@ async function finalizePendingTebexCheckout(pending) {
       throw new Error(payload?.error || payload?.message || 'Checkout konnte nicht abgeschlossen werden.');
     }
 
-    const redirectUrl = payload.checkoutUrl || payload.paymentUrl || pending.checkoutUrl || pending.paymentUrl;
+    const redirectUrl = payload.checkoutUrl || payload.paymentUrl || pending.checkoutUrl || pending.paymentUrl || (pending.basketIdent ? `https://pay.tebex.io/${encodeURIComponent(pending.basketIdent)}` : '');
     if (!redirectUrl) {
       throw new Error('Tebex-Checkout-URL fehlt.');
     }
@@ -1091,7 +1091,7 @@ async function beginLiveTebexCheckout() {
     const pending = {
       basketIdent: payload.basketIdent,
       items,
-      checkoutUrl: payload.checkoutUrl || '',
+      checkoutUrl: payload.checkoutUrl || (payload.basketIdent ? `https://pay.tebex.io/${encodeURIComponent(payload.basketIdent)}` : ''),
       paymentUrl: payload.paymentUrl || '',
       completeUrl,
       cancelUrl,
