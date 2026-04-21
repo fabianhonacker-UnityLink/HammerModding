@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getUserFromJwt, getOwnProfile } from '../lib/supabase.js';
-import { createBasket, addPackageToBasket, getBasketAuthLinks, getBasket } from '../lib/tebex.js';
+import { createBasket, addPackageToBasket, getBasketAuthLinks, getBasket, getPackage } from '../lib/tebex.js';
 
 export const tebexRouter = Router();
 
@@ -118,12 +118,165 @@ function getBasketUsernameId(basketData) {
   return basketData?.username_id || basketData?.data?.username_id || null;
 }
 
-function buildVariableDataForPackage({ basketUsernameId }) {
-  const variableData = {};
-  if (basketUsernameId) {
-    variableData.username_id = String(basketUsernameId);
+function normalizeOptionalString(value) {
+  const normalized = String(value || '').trim();
+  return normalized || '';
+}
+
+function tryCollectServerId(value, bucket) {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) return;
+  bucket.add(normalized);
+}
+
+function inferServerIdFromPackage(packageData) {
+  const envServerId = normalizeOptionalString(process.env.TEBEX_DEFAULT_SERVER_ID);
+  if (envServerId) return envServerId;
+  if (!packageData || typeof packageData !== 'object') return '';
+
+  const serverIds = new Set();
+  const seen = new WeakSet();
+
+  function visit(node, parentKey = '') {
+    if (!node || typeof node !== 'object') return;
+    if (seen.has(node)) return;
+    seen.add(node);
+
+    if (Array.isArray(node)) {
+      node.forEach((entry) => visit(entry, parentKey));
+      return;
+    }
+
+    Object.entries(node).forEach(([key, value]) => {
+      const lowerKey = key.toLowerCase();
+      const lowerParent = String(parentKey || '').toLowerCase();
+
+      if (lowerKey === 'server_id' || (lowerKey === 'id' && lowerParent.includes('server'))) {
+        tryCollectServerId(value, serverIds);
+      }
+
+      if (lowerKey.includes('server')) {
+        if (Array.isArray(value)) {
+          value.forEach((entry) => {
+            if (entry && typeof entry === 'object') {
+              tryCollectServerId(entry.server_id, serverIds);
+              tryCollectServerId(entry.id, serverIds);
+            }
+            visit(entry, key);
+          });
+          return;
+        }
+
+        if (value && typeof value === 'object') {
+          tryCollectServerId(value.server_id, serverIds);
+          tryCollectServerId(value.id, serverIds);
+        }
+      }
+
+      visit(value, key);
+    });
   }
-  return variableData;
+
+  visit(packageData);
+
+  if (serverIds.size === 1) {
+    return Array.from(serverIds)[0];
+  }
+
+  return '';
+}
+
+function buildVariableDataCandidates({ basketUsernameId, packageServerId }) {
+  const candidates = [
+    null,
+    basketUsernameId ? { username_id: String(basketUsernameId) } : null,
+    basketUsernameId && packageServerId
+      ? { username_id: String(basketUsernameId), server_id: String(packageServerId) }
+      : null,
+    packageServerId ? { server_id: String(packageServerId) } : null,
+  ];
+
+  const seen = new Set();
+  return candidates.filter((candidate) => {
+    const signature = candidate ? JSON.stringify(candidate) : 'null';
+    if (seen.has(signature)) return false;
+    seen.add(signature);
+    return true;
+  });
+}
+
+function isRecoverablePackageOptionsError(error) {
+  const detail = `${error?.message || ''} ${error?.publicMessage || ''}`.toLowerCase();
+  return (
+    detail.includes('invalid options')
+    || detail.includes('invalid option')
+    || detail.includes('username_id')
+    || detail.includes('server_id')
+    || detail.includes('option')
+  );
+}
+
+function createPackageFinalizeError(error, { item, packageServerId, triedCandidates }) {
+  const detail = String(error?.message || error?.publicMessage || 'Tebex-Paket konnte nicht hinzugefügt werden.').trim();
+  const hint = packageServerId
+    ? ` Es wurde automatisch zusätzlich Server-ID ${packageServerId} getestet.`
+    : ' Falls das Tebex-Paket eine Server-Auswahl verlangt, muss in Tebex oder per Default-Server-ID nachgebessert werden.';
+
+  const wrapped = new Error(detail);
+  wrapped.statusCode = error?.statusCode || 502;
+  wrapped.publicMessage = `Checkout für "${item?.name || 'Paket'}" (#${item?.packageId || '-'}) fehlgeschlagen: ${detail}.${hint} Versucht: ${triedCandidates}.`;
+  return wrapped;
+}
+
+async function getPackageForCheckout(packageId) {
+  try {
+    const response = await getPackage({ packageId });
+    return response?.data || response || null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function addPackageToBasketWithSmartRetry({ basketIdent, item, context, basketUsernameId }) {
+  const packageData = await getPackageForCheckout(item.packageId);
+  const packageServerId = inferServerIdFromPackage(packageData);
+  const variableCandidates = buildVariableDataCandidates({
+    basketUsernameId,
+    packageServerId,
+  });
+
+  let lastError = null;
+
+  for (const variableData of variableCandidates) {
+    try {
+      return await addPackageToBasket({
+        basketIdent,
+        packageId: item.packageId,
+        quantity: item.quantity,
+        variableData,
+        custom: {
+          ...context.custom,
+          product_name: item.name,
+          package_id: item.packageId,
+        },
+      });
+    } catch (error) {
+      lastError = error;
+      if (!isRecoverablePackageOptionsError(error)) {
+        throw createPackageFinalizeError(error, {
+          item,
+          packageServerId,
+          triedCandidates: variableCandidates.length,
+        });
+      }
+    }
+  }
+
+  throw createPackageFinalizeError(lastError, {
+    item,
+    packageServerId,
+    triedCandidates: variableCandidates.length,
+  });
 }
 
 tebexRouter.get('/health', (_req, res) => {
@@ -197,16 +350,11 @@ tebexRouter.post('/checkout/finalize', async (req, res, next) => {
     }
 
     for (const item of context.items) {
-      await addPackageToBasket({
+      await addPackageToBasketWithSmartRetry({
         basketIdent: context.basketIdent,
-        packageId: item.packageId,
-        quantity: item.quantity,
-        variableData: buildVariableDataForPackage({ basketUsernameId }),
-        custom: {
-          ...context.custom,
-          product_name: item.name,
-          package_id: item.packageId,
-        },
+        item,
+        context,
+        basketUsernameId,
       });
     }
 
