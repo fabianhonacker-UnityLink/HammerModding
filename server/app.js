@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { tebexRouter } from './routes/tebex.js';
+import { discordRouter } from './routes/discord.js';
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.use('/api/tebex', tebexRouter);
+app.use('/api/discord', discordRouter);
 
 app.use((err, _req, res, _next) => {
   console.error('[backend-error]', err);
