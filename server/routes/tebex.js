@@ -48,48 +48,85 @@ function normalizeItems(items) {
   });
 }
 
+async function resolveCheckoutContext(req, { requireItems = true, requireBasketIdent = false } = {}) {
+  const jwt = getBearerToken(req);
+  if (!jwt) {
+    const error = new Error('Fehlender Login-Token.');
+    error.statusCode = 401;
+    error.publicMessage = 'Bitte zuerst einloggen.';
+    throw error;
+  }
+
+  const authUser = await getUserFromJwt(jwt);
+  const profile = await getOwnProfile(jwt, authUser.id);
+  const completeUrl = String(req.body?.completeUrl || process.env.APP_COMPLETE_URL || '').trim();
+  const cancelUrl = String(req.body?.cancelUrl || process.env.APP_CANCEL_URL || '').trim();
+
+  if (!completeUrl || !cancelUrl) {
+    const error = new Error('Fehlende Redirect-URLs.');
+    error.statusCode = 500;
+    error.publicMessage = 'Checkout-URLs sind nicht gesetzt.';
+    throw error;
+  }
+
+  const basketIdent = String(req.body?.basketIdent || '').trim();
+  if (requireBasketIdent && !basketIdent) {
+    const error = new Error('Basket-ID fehlt.');
+    error.statusCode = 400;
+    error.publicMessage = 'Basket-ID fehlt.';
+    throw error;
+  }
+
+  const items = requireItems ? normalizeItems(req.body?.items) : [];
+  const role = String(profile?.role || 'customer').trim().toLowerCase();
+  const custom = {
+    supabase_user_id: authUser.id,
+    email: profile?.email || authUser?.email || '',
+    username: profile?.username || authUser?.email?.split('@')[0] || 'User',
+    discord_name: profile?.discord_name || '',
+    cfx_identifier: profile?.cfx_identifier || '',
+    app_role: role,
+    source: 'hammer-modding-website',
+  };
+
+  return {
+    authUser,
+    profile,
+    items,
+    basketIdent,
+    completeUrl,
+    cancelUrl,
+    custom,
+    ipAddress: getClientIPv4(req),
+  };
+}
+
+function buildAuthReturnUrl(baseUrl, basketIdent) {
+  const url = new URL(baseUrl);
+  url.hash = '';
+  url.searchParams.set('hm_tebex_auth', '1');
+  url.searchParams.set('basket', basketIdent);
+  return url.toString();
+}
+
+function pickPreferredAuthLink(authLinks = []) {
+  if (!Array.isArray(authLinks) || !authLinks.length) return null;
+  return authLinks.find((entry) => /fivem/i.test(String(entry?.name || ''))) || authLinks[0] || null;
+}
+
 tebexRouter.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'tebex-route' });
 });
 
-tebexRouter.post('/checkout', async (req, res, next) => {
+tebexRouter.post('/checkout/start', async (req, res, next) => {
   try {
-    const jwt = getBearerToken(req);
-    if (!jwt) {
-      const error = new Error('Fehlender Login-Token.');
-      error.statusCode = 401;
-      error.publicMessage = 'Bitte zuerst einloggen.';
-      throw error;
-    }
-
-    const authUser = await getUserFromJwt(jwt);
-    const profile = await getOwnProfile(jwt, authUser.id);
-    const items = normalizeItems(req.body?.items);
-    const completeUrl = String(req.body?.completeUrl || process.env.APP_COMPLETE_URL || '').trim();
-    const cancelUrl = String(req.body?.cancelUrl || process.env.APP_CANCEL_URL || '').trim();
-
-    if (!completeUrl || !cancelUrl) {
-      const error = new Error('Fehlende Redirect-URLs.');
-      error.statusCode = 500;
-      error.publicMessage = 'Checkout-URLs sind nicht gesetzt.';
-      throw error;
-    }
-
-    const custom = {
-      supabase_user_id: authUser.id,
-      email: profile.email || authUser.email || '',
-      username: profile.username || authUser.email?.split('@')[0] || 'User',
-      discord_name: profile.discord_name || '',
-      cfx_identifier: profile.cfx_identifier || '',
-      app_role: profile.role || 'customer',
-      source: 'hammer-modding-website',
-    };
+    const context = await resolveCheckoutContext(req, { requireItems: true, requireBasketIdent: false });
 
     const basketResponse = await createBasket({
-      completeUrl,
-      cancelUrl,
-      custom,
-      ipAddress: getClientIPv4(req),
+      completeUrl: context.completeUrl,
+      cancelUrl: context.cancelUrl,
+      custom: context.custom,
+      ipAddress: context.ipAddress,
     });
 
     const basket = basketResponse?.data;
@@ -100,34 +137,19 @@ tebexRouter.post('/checkout', async (req, res, next) => {
       throw error;
     }
 
-    for (const item of items) {
-      await addPackageToBasket({
-        basketIdent: basket.ident,
-        packageId: item.packageId,
-        quantity: item.quantity,
-        usernameId: basket.username_id,
-        custom: {
-          ...custom,
-          product_name: item.name,
-          package_id: item.packageId,
-        },
-      });
-    }
-
+    const authReturnUrl = buildAuthReturnUrl(context.completeUrl, basket.ident);
     let authLinks = [];
     try {
       const authResponse = await getBasketAuthLinks({
         basketIdent: basket.ident,
-        returnUrl: completeUrl,
+        returnUrl: authReturnUrl,
       });
       authLinks = Array.isArray(authResponse) ? authResponse : authResponse?.data || [];
     } catch (_error) {
       authLinks = [];
     }
 
-    const preferredAuthLink = Array.isArray(authLinks)
-      ? authLinks.find((entry) => /fivem/i.test(String(entry?.name || ''))) || authLinks[0] || null
-      : null;
+    const preferredAuthLink = pickPreferredAuthLink(authLinks);
 
     res.json({
       ok: true,
@@ -136,7 +158,40 @@ tebexRouter.post('/checkout', async (req, res, next) => {
       paymentUrl: basket.links?.payment || null,
       authUrl: preferredAuthLink?.url || null,
       authName: preferredAuthLink?.name || null,
-      message: 'Tebex-Basket wurde erfolgreich erstellt.',
+      authReturnUrl,
+      requiresAuth: Boolean(preferredAuthLink?.url),
+      message: preferredAuthLink?.url
+        ? 'Tebex-Authentifizierung erforderlich.'
+        : 'Tebex-Basket wurde erfolgreich erstellt.',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+tebexRouter.post('/checkout/finalize', async (req, res, next) => {
+  try {
+    const context = await resolveCheckoutContext(req, { requireItems: true, requireBasketIdent: true });
+
+    for (const item of context.items) {
+      await addPackageToBasket({
+        basketIdent: context.basketIdent,
+        packageId: item.packageId,
+        quantity: item.quantity,
+        custom: {
+          ...context.custom,
+          product_name: item.name,
+          package_id: item.packageId,
+        },
+      });
+    }
+
+    res.json({
+      ok: true,
+      basketIdent: context.basketIdent,
+      checkoutUrl: String(req.body?.checkoutUrl || '').trim() || null,
+      paymentUrl: String(req.body?.paymentUrl || '').trim() || null,
+      message: 'Pakete wurden dem Tebex-Basket hinzugefügt.',
     });
   } catch (error) {
     next(error);
