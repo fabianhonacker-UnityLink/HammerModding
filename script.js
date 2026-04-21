@@ -92,9 +92,12 @@ let liveAccountSnapshot = {
 const accountActivityStorageKey = 'hm_account_activity';
 let currentAuthModalMode = 'login';
 let isAccountDropdownOpen = false;
-let tebexResumeAttemptCount = 0;
-let tebexResumeAttemptTimer = null;
+let activeUsersRefreshTimer = null;
+let accountPresenceTimer = null;
+const accountPresenceHeartbeatMs = 60000;
 let tebexResumeInFlight = false;
+let tebexResumeAttempts = 0;
+let tebexResumeRetryTimer = null;
 
 
 function formatRelativeDate(value) {
@@ -913,18 +916,6 @@ function cleanupTebexAuthUrl() {
   }
 }
 
-function hasPendingTebexReturn() {
-  const url = new URL(window.location.href);
-  return url.searchParams.get('hm_tebex_auth') === '1';
-}
-
-function schedulePendingTebexResume(delay = 450) {
-  window.clearTimeout(tebexResumeAttemptTimer);
-  tebexResumeAttemptTimer = window.setTimeout(() => {
-    maybeResumePendingTebexCheckout(true);
-  }, delay);
-}
-
 async function finalizePendingTebexCheckout(pending) {
   if (!pending?.basketIdent || !Array.isArray(pending?.items) || !pending.items.length) {
     throw new Error('Tebex-Basket ist unvollständig.');
@@ -965,15 +956,16 @@ async function finalizePendingTebexCheckout(pending) {
   window.location.href = redirectUrl;
 }
 
-async function maybeResumePendingTebexCheckout(force = false) {
+async function maybeResumePendingTebexCheckout() {
   const url = new URL(window.location.href);
   if (url.searchParams.get('hm_tebex_auth') !== '1') return;
+  if (tebexResumeInFlight) return;
 
   const pending = loadPendingTebexCheckout();
   if (!pending) {
     console.warn('Tebex-Rückkehr erkannt, aber kein gespeicherter Checkout gefunden.');
     cleanupTebexAuthUrl();
-    setCheckoutButtonsLoadingState(false);
+    window.alert('Tebex-Rückkehr erkannt, aber kein offener Checkout wurde gefunden. Bitte den Checkout erneut starten.');
     return;
   }
 
@@ -984,34 +976,32 @@ async function maybeResumePendingTebexCheckout(force = false) {
       pendingBasket: pending.basketIdent,
     });
     cleanupTebexAuthUrl();
-    setCheckoutButtonsLoadingState(false);
+    window.alert('Der zurückgegebene Tebex-Basket passt nicht zum gespeicherten Checkout. Bitte erneut starten.');
     return;
   }
-
-  if (tebexResumeInFlight && !force) return;
 
   if (!liveAccountSnapshot.user || !liveAccountSnapshot.session?.access_token) {
-    tebexResumeAttemptCount += 1;
-    if (tebexResumeAttemptCount <= 20) {
-      setCheckoutButtonsLoadingState(true);
-      schedulePendingTebexResume(500);
+    if (tebexResumeAttempts < 8) {
+      tebexResumeAttempts += 1;
+      window.clearTimeout(tebexResumeRetryTimer);
+      tebexResumeRetryTimer = window.setTimeout(() => {
+        maybeResumePendingTebexCheckout();
+      }, 700);
       return;
     }
-
-    console.warn('Tebex-Rückkehr erkannt, aber die Live-Session ist noch nicht bereit.');
-    setCheckoutButtonsLoadingState(false);
+    tebexResumeAttempts = 0;
+    cleanupTebexAuthUrl();
+    window.alert('Tebex-Rückkehr erkannt, aber dein Login ist noch nicht bereit. Bitte kurz neu einloggen und den Checkout erneut starten.');
     return;
   }
 
-  tebexResumeAttemptCount = 0;
+  tebexResumeAttempts = 0;
   tebexResumeInFlight = true;
   setCheckoutButtonsLoadingState(true);
-
   try {
     await finalizePendingTebexCheckout(pending);
   } catch (error) {
     const message = String(error?.message || 'Checkout konnte nicht abgeschlossen werden.');
-    console.error('Tebex-Resume fehlgeschlagen:', message, error);
     window.alert(message.includes('Failed to fetch') ? 'Backend nicht erreichbar. Bitte später erneut versuchen.' : message);
     setCheckoutButtonsLoadingState(false);
   } finally {
@@ -2487,23 +2477,15 @@ setupFoundationPlanner();
 setupLiveSupabaseAuth();
 
 window.addEventListener('pageshow', () => {
-  if (hasPendingTebexReturn()) {
-    setCheckoutButtonsLoadingState(true);
-    schedulePendingTebexResume(150);
-  }
+  maybeResumePendingTebexCheckout();
 });
 
 window.addEventListener('load', () => {
-  if (hasPendingTebexReturn()) {
-    setCheckoutButtonsLoadingState(true);
-    schedulePendingTebexResume(250);
-  }
+  maybeResumePendingTebexCheckout();
 });
 
 window.addEventListener('focus', () => {
-  if (hasPendingTebexReturn()) {
-    schedulePendingTebexResume(150);
-  }
+  maybeResumePendingTebexCheckout();
 });
 
 showSection('home');
