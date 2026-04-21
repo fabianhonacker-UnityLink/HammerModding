@@ -27,7 +27,7 @@ async function parseJsonResponse(response) {
   }
 
   if (!response.ok) {
-    const detail = json?.error_message || json?.message || text || 'Tebex-Anfrage fehlgeschlagen.';
+    const detail = json?.detail || json?.error_message || json?.message || text || 'Tebex-Anfrage fehlgeschlagen.';
     const error = new Error(detail);
     error.statusCode = response.status;
     error.publicMessage = `Tebex-Fehler: ${detail}`;
@@ -72,6 +72,11 @@ export async function createBasket({ completeUrl, cancelUrl, custom, ipAddress }
     custom,
     ip_address: ipAddress,
   });
+}
+
+export async function getBasket({ basketIdent }) {
+  const token = requireEnv('TEBEX_PUBLIC_TOKEN');
+  return tebexGet(`/accounts/${token}/baskets/${basketIdent}`);
 }
 
 export async function addPackageToBasket({ basketIdent, packageId, quantity = 1, variableData, custom }) {
