@@ -104,6 +104,7 @@ let liveAccountSnapshot = {
   user: null,
   profile: null,
   session: null,
+  discordStatus: null,
   connectionReady: false,
 };
 const accountActivityStorageKey = 'hm_account_activity';
@@ -115,6 +116,9 @@ const accountPresenceHeartbeatMs = 60000;
 let tebexResumeInFlight = false;
 let tebexResumeAttempts = 0;
 let tebexResumeRetryTimer = null;
+let discordStatusInFlight = null;
+let discordStatusCheckedAtMs = 0;
+const discordStatusCacheMs = 30000;
 
 
 function formatRelativeDate(value) {
@@ -338,6 +342,7 @@ function setupPresenceHeartbeat() {
 }
 
 function setAccountShellUi(user, profile) {
+  const discordStatus = liveAccountSnapshot.discordStatus || null;
   const displayName = profile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'Nicht eingeloggt';
   const displayRole = mapRoleLabel(profile?.role || (user ? 'customer' : 'guest'));
   const displayMail = user?.email || 'Keine aktive Sitzung';
@@ -346,11 +351,18 @@ function setAccountShellUi(user, profile) {
   const onlineNow = Boolean(user);
   const lastSeen = profile?.last_seen_at || activity?.lastSeenAt || '';
   const lastLogin = profile?.last_login_at || activity?.lastLoginAt || '';
+  const profileSubline = !user
+    ? 'Website-Konto'
+    : discordStatus?.inGuild
+      ? 'Konto aktiv · Discord verifiziert'
+      : discordStatus?.connected
+        ? 'Konto aktiv · Discord verbunden'
+        : 'Konto aktiv';
 
   const mapText = [
     ['accountProfileAvatarInitial', initial],
     ['accountProfileName', displayName],
-    ['accountProfileSubline', user ? 'Konto aktiv' : 'Website-Konto'],
+    ['accountProfileSubline', profileSubline],
     ['accountProfileRolePill', displayRole],
     ['accountProfileMailPill', displayMail],
     ['accountOnlineNowValue', '●'],
@@ -387,9 +399,12 @@ function setAccountShellUi(user, profile) {
 }
 
 function updateAccountDock(user, profile) {
+  const discordStatus = liveAccountSnapshot.discordStatus || null;
   const displayName = profile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'Login / Registrieren';
   const initial = getDisplayInitial(displayName);
-  const meta = user ? `${mapRoleLabel(profile?.role || 'customer')} · online` : 'Website-Konto';
+  const meta = user
+    ? `${mapRoleLabel(profile?.role || 'customer')} · ${discordStatus?.inGuild ? 'discord ok' : discordStatus?.connected ? 'discord verbunden' : 'online'}`
+    : 'Website-Konto';
   const map = [
     ['accountDockAvatarInitial', initial],
     ['accountDockEyebrow', user ? meta : 'Website-Konto'],
@@ -413,11 +428,140 @@ function getProfileEditorElements() {
   };
 }
 
+function getDiscordElements() {
+  return {
+    linkValue: document.getElementById('authDiscordLinkValue'),
+    guildValue: document.getElementById('authDiscordGuildValue'),
+    idValue: document.getElementById('authDiscordIdValue'),
+    message: document.getElementById('discordRequirementMessage'),
+    joinButton: document.getElementById('discordJoinServerButton'),
+    linkButton: document.getElementById('discordLinkButton'),
+    refreshButton: document.getElementById('discordRefreshButton'),
+  };
+}
+
+function getCurrentDiscordAuthRedirectUrl() {
+  const base = `${window.location.origin || ''}${window.location.pathname || ''}`.trim();
+  return base || window.location.href.split('?')[0].split('#')[0];
+}
+
+function getDiscordIdentityFromUser(user) {
+  if (!user || typeof user !== 'object') return null;
+  const identities = Array.isArray(user.identities) ? user.identities : [];
+  const identity = identities.find((entry) => String(entry?.provider || '').toLowerCase() === 'discord') || null;
+  const data = identity?.identity_data && typeof identity.identity_data === 'object' ? identity.identity_data : {};
+  const discordUserId = String(
+    identity?.provider_id
+      || data?.provider_id
+      || data?.user_id
+      || data?.sub
+      || data?.id
+      || user?.user_metadata?.provider_id
+      || ''
+  ).trim();
+
+  if (!discordUserId) return null;
+
+  return {
+    discordUserId,
+    displayName: String(data?.global_name || user?.user_metadata?.full_name || user?.user_metadata?.name || '').trim(),
+    username: String(data?.username || user?.user_metadata?.preferred_username || user?.user_metadata?.user_name || '').trim(),
+  };
+}
+
+function normalizeDiscordStatusPayload(payload, user = liveAccountSnapshot.user, profile = liveAccountSnapshot.profile) {
+  const identity = getDiscordIdentityFromUser(user);
+  const displayName = String(
+    payload?.discordDisplayName
+      || identity?.displayName
+      || identity?.username
+      || profile?.discord_name
+      || user?.user_metadata?.discord_name
+      || ''
+  ).trim();
+
+  return {
+    configured: Boolean(payload?.configured),
+    requiredForCheckout: Boolean(payload?.requiredForCheckout),
+    manualLinkingEnabled: Boolean(payload?.manualLinkingEnabled),
+    connected: Boolean(payload?.connected || identity?.discordUserId),
+    discordUserId: String(payload?.discordUserId || identity?.discordUserId || '').trim(),
+    displayName,
+    guildName: String(payload?.guildName || 'Hammer Modding').trim() || 'Hammer Modding',
+    guildId: String(payload?.guildId || '').trim(),
+    inviteUrl: String(payload?.inviteUrl || '').trim(),
+    inGuild: Boolean(payload?.inGuild),
+    checked: Boolean(payload?.checked),
+    checkedAt: String(payload?.checkedAt || '').trim(),
+  };
+}
+
+function buildDiscordRequirementMessage(status) {
+  if (!liveAccountSnapshot.user) {
+    return 'Melde dich an und verbinde danach dein Discord-Konto für Checkout und spätere Freischaltungen.';
+  }
+
+  if (!status?.configured) {
+    return 'Discord-Prüfung ist eingebaut, aber im Backend noch nicht vollständig konfiguriert.';
+  }
+
+  if (!status.connected) {
+    return 'Für Checkout und Community-Zugang bitte zuerst dein Discord-Konto verbinden.';
+  }
+
+  if (!status.inGuild) {
+    return `Discord ist verbunden. Bitte tritt jetzt dem ${status.guildName || 'Hammer Modding'} Discord bei und prüfe danach erneut.`;
+  }
+
+  return `${status.guildName || 'Hammer Modding'} wurde bestätigt. Discord-Freischaltungen können jetzt sauber andocken.`;
+}
+
+function updateDiscordStatusUi(status = null) {
+  const elements = getDiscordElements();
+  const current = status || liveAccountSnapshot.discordStatus || null;
+  const isLoggedIn = Boolean(liveAccountSnapshot.user);
+  const linkText = !isLoggedIn
+    ? 'Bitte zuerst anmelden'
+    : current?.connected
+      ? 'Verbunden'
+      : 'Noch nicht verbunden';
+  const guildText = !current?.configured
+    ? 'Konfiguration noch offen'
+    : !current?.connected
+      ? 'Discord zuerst verbinden'
+      : current?.inGuild
+        ? 'Bestätigt'
+        : 'Noch nicht im Server';
+  const discordIdText = current?.discordUserId || '-';
+
+  if (elements.linkValue) elements.linkValue.textContent = linkText;
+  if (elements.guildValue) elements.guildValue.textContent = guildText;
+  if (elements.idValue) elements.idValue.textContent = discordIdText;
+  if (elements.linkButton) elements.linkButton.classList.toggle('hidden-section', !isLoggedIn || Boolean(current?.connected));
+  if (elements.joinButton) {
+    const joinUrl = current?.inviteUrl || '';
+    elements.joinButton.classList.toggle('hidden-section', !(joinUrl && current?.configured && current?.connected && !current?.inGuild));
+    if (joinUrl) elements.joinButton.href = joinUrl;
+  }
+  if (elements.message) {
+    setAuthMessage(
+      elements.message,
+      buildDiscordRequirementMessage(current),
+      current?.configured && current?.connected && current?.inGuild ? 'success' : current?.configured ? 'warn' : 'neutral',
+    );
+  }
+}
+
 function hydrateProfileEditor(user, profile) {
   const elements = getProfileEditorElements();
+  const discordStatus = liveAccountSnapshot.discordStatus || null;
   const isActive = Boolean(user);
   if (elements.usernameInput) elements.usernameInput.value = profile?.username || user?.user_metadata?.username || '';
-  if (elements.discordInput) elements.discordInput.value = profile?.discord_name || user?.user_metadata?.discord_name || '';
+  if (elements.discordInput) {
+    elements.discordInput.value = discordStatus?.displayName || profile?.discord_name || user?.user_metadata?.discord_name || '';
+    elements.discordInput.readOnly = Boolean(discordStatus?.connected);
+    elements.discordInput.title = discordStatus?.connected ? 'Wird über Discord-Login gepflegt.' : '';
+  }
   if (elements.cfxInput) elements.cfxInput.value = profile?.cfx_identifier || user?.user_metadata?.cfx_identifier || '';
   if (elements.avatarInput) elements.avatarInput.value = profile?.avatar_url || '';
   if (elements.saveButton) elements.saveButton.disabled = !isActive;
@@ -936,6 +1080,12 @@ function cleanupTebexAuthUrl() {
   }
 }
 
+function shouldUsePendingCheckoutFallback({ responseStatus = 0, message = '' } = {}) {
+  const detail = String(message || '').toLowerCase();
+  if (responseStatus >= 500) return true;
+  return detail.includes('checkout-url fehlt') || detail.includes('backend nicht erreichbar') || detail.includes('failed to fetch');
+}
+
 async function finalizePendingTebexCheckout(pending) {
   if (!pending?.basketIdent || !Array.isArray(pending?.items) || !pending.items.length) {
     throw new Error('Tebex-Basket ist unvollständig.');
@@ -967,14 +1117,15 @@ async function finalizePendingTebexCheckout(pending) {
 
     const payload = await response.json().catch(() => null);
     if (!response.ok || !payload?.ok) {
+      const message = payload?.error || payload?.message || 'Checkout konnte nicht abgeschlossen werden.';
       const fallbackUrl = pending.checkoutUrl || pending.paymentUrl || '';
-      if (authSuccess && fallbackUrl) {
+      if (authSuccess && fallbackUrl && shouldUsePendingCheckoutFallback({ responseStatus: response.status, message })) {
         clearPendingTebexCheckout();
         cleanupTebexAuthUrl();
         window.location.href = fallbackUrl;
         return;
       }
-      throw new Error(payload?.error || payload?.message || 'Checkout konnte nicht abgeschlossen werden.');
+      throw new Error(message);
     }
 
     const redirectUrl = payload.checkoutUrl || payload.paymentUrl || pending.checkoutUrl || pending.paymentUrl || (pending.basketIdent ? `https://pay.tebex.io/${encodeURIComponent(pending.basketIdent)}` : '');
@@ -987,7 +1138,7 @@ async function finalizePendingTebexCheckout(pending) {
     window.location.href = redirectUrl;
   } catch (error) {
     const fallbackUrl = authSuccess ? pending.checkoutUrl || pending.paymentUrl || '' : '';
-    if (fallbackUrl) {
+    if (fallbackUrl && shouldUsePendingCheckoutFallback({ message: error?.message || '' })) {
       clearPendingTebexCheckout();
       cleanupTebexAuthUrl();
       window.location.href = fallbackUrl;
@@ -1056,6 +1207,11 @@ async function beginLiveTebexCheckout() {
 
   if (!liveAccountSnapshot.user || !liveAccountSnapshot.session?.access_token) {
     openAuthModal('login');
+    return;
+  }
+
+  const discordReady = await ensureDiscordReadyForCheckout();
+  if (!discordReady) {
     return;
   }
 
@@ -1902,11 +2058,173 @@ function updateAccountStatusBadges(user, profile) {
   const foundation = loadFoundationState();
   const connectionReady = Boolean(foundation.projectUrl && foundation.anonKey);
   const roleLabel = mapRoleLabel(profile?.role || (user ? 'customer' : 'guest'));
+  const discordStatus = liveAccountSnapshot.discordStatus || null;
+  const accessLabel = !user
+    ? 'Offen'
+    : discordStatus?.configured
+      ? discordStatus?.inGuild
+        ? `${roleLabel} · Discord ok`
+        : discordStatus?.connected
+          ? `${roleLabel} · Server offen`
+          : `${roleLabel} · Discord offen`
+      : roleLabel;
 
   setBadgeState('accountDbStatusBadge', connectionReady ? 'Verbunden' : 'Offen', connectionReady ? 'ready' : 'warn');
   setBadgeState('accountAuthStatusBadge', user ? 'Live' : connectionReady ? 'Bereit' : 'Offen', user ? 'ready' : connectionReady ? 'draft' : 'warn');
-  setBadgeState('accountAccessStatusBadge', user ? roleLabel : 'Offen', user ? 'ready' : 'warn');
+  setBadgeState('accountAccessStatusBadge', accessLabel, user ? (discordStatus?.configured && !discordStatus?.inGuild ? 'draft' : 'ready') : 'warn');
   setBadgeState('accountBridgeStatusBadge', foundation.webhookUrl ? 'Vorbereitet' : 'Wartet', foundation.webhookUrl ? 'ready' : 'warn');
+}
+
+async function fetchLiveDiscordStatus({ force = false } = {}) {
+  if (!liveAccountSnapshot.user || !liveAccountSnapshot.session?.access_token) {
+    liveAccountSnapshot.discordStatus = null;
+    discordStatusCheckedAtMs = 0;
+    return null;
+  }
+
+  if (!force && liveAccountSnapshot.discordStatus && (Date.now() - discordStatusCheckedAtMs) < discordStatusCacheMs) {
+    return liveAccountSnapshot.discordStatus;
+  }
+
+  if (discordStatusInFlight) return discordStatusInFlight;
+
+  discordStatusInFlight = (async () => {
+    const response = await fetch(`${TEBEX_BACKEND_BASE_URL}/api/discord/status`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${liveAccountSnapshot.session.access_token}`,
+      },
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.ok) {
+      throw new Error(payload?.error || payload?.message || 'Discord-Status konnte nicht geladen werden.');
+    }
+
+    const normalized = normalizeDiscordStatusPayload(payload, liveAccountSnapshot.user, liveAccountSnapshot.profile);
+    liveAccountSnapshot.discordStatus = normalized;
+    discordStatusCheckedAtMs = Date.now();
+    return normalized;
+  })();
+
+  try {
+    return await discordStatusInFlight;
+  } finally {
+    discordStatusInFlight = null;
+  }
+}
+
+function setDiscordButtonsBusy(isBusy, label = '') {
+  ['signin', 'link'].forEach((mode) => {
+    document.querySelectorAll(`[data-auth-discord="${mode}"]`).forEach((button) => {
+      if (!(button instanceof HTMLButtonElement)) return;
+      if (!button.dataset.originalText) {
+        button.dataset.originalText = button.textContent || '';
+      }
+      button.disabled = isBusy;
+      if (label) {
+        button.textContent = label;
+      } else if (!isBusy && button.dataset.originalText) {
+        button.textContent = button.dataset.originalText;
+      }
+    });
+  });
+
+  const elements = getDiscordElements();
+  if (elements.refreshButton) {
+    elements.refreshButton.disabled = isBusy;
+  }
+}
+
+async function handleDiscordAuthAction(mode = 'signin') {
+  const client = getSupabaseClient();
+  const authElements = getAuthElements();
+  const discordElements = getDiscordElements();
+
+  if (!client) {
+    const target = authElements.loginMessage || authElements.registerMessage || discordElements.message;
+    setAuthMessage(target, 'Supabase ist noch nicht verbunden.', 'warn');
+    return;
+  }
+
+  if (mode === 'link' && !liveAccountSnapshot.user) {
+    openAuthModal('login');
+    return;
+  }
+
+  setDiscordButtonsBusy(true, mode === 'link' ? 'Verbinde Discord ...' : 'Discord startet ...');
+
+  try {
+    const options = {
+      redirectTo: getCurrentDiscordAuthRedirectUrl(),
+      scopes: 'identify email',
+    };
+
+    const result = mode === 'link' && liveAccountSnapshot.user
+      ? await client.auth.linkIdentity({ provider: 'discord', options })
+      : await client.auth.signInWithOAuth({ provider: 'discord', options });
+
+    if (result?.error) throw result.error;
+  } catch (error) {
+    const message = String(error?.message || 'Discord-Verbindung konnte nicht gestartet werden.');
+    const target = discordElements.message || authElements.loginMessage || authElements.registerMessage;
+    setAuthMessage(target, message.includes('manual linking') ? 'Bitte manuelles Identity Linking in Supabase aktivieren.' : message, 'warn');
+    setDiscordButtonsBusy(false);
+  }
+}
+
+async function handleDiscordStatusRefresh({ force = true } = {}) {
+  const discordElements = getDiscordElements();
+
+  if (!liveAccountSnapshot.user || !liveAccountSnapshot.session?.access_token) {
+    updateDiscordStatusUi(null);
+    return null;
+  }
+
+  if (discordElements.refreshButton) {
+    discordElements.refreshButton.disabled = true;
+    discordElements.refreshButton.textContent = 'Prüfe ...';
+  }
+
+  try {
+    const status = await fetchLiveDiscordStatus({ force });
+    updateDiscordStatusUi(status);
+    updateAccountStatusBadges(liveAccountSnapshot.user, liveAccountSnapshot.profile);
+    setAccountShellUi(liveAccountSnapshot.user, liveAccountSnapshot.profile);
+    updateAccountDock(liveAccountSnapshot.user, liveAccountSnapshot.profile);
+    hydrateProfileEditor(liveAccountSnapshot.user, liveAccountSnapshot.profile);
+    return status;
+  } catch (error) {
+    setAuthMessage(discordElements.message, String(error?.message || 'Discord-Status konnte nicht geprüft werden.'), 'warn');
+    return null;
+  } finally {
+    if (discordElements.refreshButton) {
+      discordElements.refreshButton.disabled = false;
+      discordElements.refreshButton.textContent = 'Discord prüfen';
+    }
+  }
+}
+
+async function ensureDiscordReadyForCheckout() {
+  const status = await handleDiscordStatusRefresh({ force: false });
+
+  if (!status?.configured || !status.requiredForCheckout) {
+    return true;
+  }
+
+  if (!status.connected) {
+    openAuthModal('login');
+    setAuthMessage(getDiscordElements().message, 'Bitte verbinde zuerst dein Discord-Konto, bevor du einkaufst.', 'warn');
+    return false;
+  }
+
+  if (!status.inGuild) {
+    setAuthMessage(getDiscordElements().message, `Bitte tritt zuerst dem ${status.guildName || 'Hammer Modding'} Discord bei und prüfe danach erneut.`, 'warn');
+    return false;
+  }
+
+  return true;
 }
 
 async function refreshLiveAuthUi() {
@@ -1914,13 +2232,14 @@ async function refreshLiveAuthUi() {
   const client = getSupabaseClient();
 
   if (!client) {
-    liveAccountSnapshot = { user: null, profile: null, session: null, connectionReady: false };
+    liveAccountSnapshot = { user: null, profile: null, session: null, discordStatus: null, connectionReady: false };
     updateAccountStatusBadges(null, null);
     setAccountShellUi(null, null);
     updateAccountDock(null, null);
     hydrateProfileEditor(null, null);
+    updateDiscordStatusUi(null);
     updateRequestDraftFields(loadVisibleCart());
-  setCheckoutButtonsLoadingState(false);
+    setCheckoutButtonsLoadingState(false);
     return;
   }
 
@@ -1941,11 +2260,23 @@ async function refreshLiveAuthUi() {
     user,
     profile,
     session,
+    discordStatus: null,
     connectionReady: true,
   };
 
+  let discordStatus = null;
+  if (user && session?.access_token) {
+    try {
+      discordStatus = await fetchLiveDiscordStatus({ force: true });
+    } catch (error) {
+      discordStatus = normalizeDiscordStatusPayload(null, user, profile);
+    }
+  }
+
+  liveAccountSnapshot.discordStatus = discordStatus;
+
   const displayUsername = profile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || '-';
-  const displayDiscord = profile?.discord_name || user?.user_metadata?.discord_name || '-';
+  const displayDiscord = discordStatus?.displayName || profile?.discord_name || user?.user_metadata?.discord_name || '-';
   const displayCfx = profile?.cfx_identifier || user?.user_metadata?.cfx_identifier || '-';
   const displayRole = mapRoleLabel(profile?.role || 'customer');
   const isConfirmed = Boolean(user?.email_confirmed_at);
@@ -1964,6 +2295,7 @@ async function refreshLiveAuthUi() {
   setAccountShellUi(user, profile);
   updateAccountDock(user, profile);
   hydrateProfileEditor(user, profile);
+  updateDiscordStatusUi(discordStatus);
   updateRequestDraftFields(loadVisibleCart());
   setupPresenceHeartbeat();
   refreshActiveUsersUi();
@@ -2096,6 +2428,8 @@ async function handleLiveLogin(event) {
 async function handleLiveLogout() {
   const client = getSupabaseClient();
   if (!client) return;
+  discordStatusCheckedAtMs = 0;
+  liveAccountSnapshot.discordStatus = null;
   const { error } = await client.auth.signOut();
   if (error) {
     const editor = getProfileEditorElements();
@@ -2457,6 +2791,20 @@ document.addEventListener('click', async (e) => {
   if (authRefreshBtn) {
     e.preventDefault();
     await refreshLiveAuthUi();
+    return;
+  }
+
+  const discordAuthBtn = eventTarget.closest('[data-auth-discord]');
+  if (discordAuthBtn) {
+    e.preventDefault();
+    await handleDiscordAuthAction(discordAuthBtn.dataset.authDiscord || 'signin');
+    return;
+  }
+
+  const discordRefreshBtn = eventTarget.closest('[data-discord-refresh="true"]');
+  if (discordRefreshBtn) {
+    e.preventDefault();
+    await handleDiscordStatusRefresh({ force: true });
     return;
   }
 

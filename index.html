@@ -1531,6 +1531,24 @@ type="button"
 
     <article class="foundation-form-shell compact-session-shell">
       <div class="foundation-form-head">
+        <strong>Discord-Verbindung</strong>
+      </div>
+      <div class="status-stack auth-session-stack">
+        <div class="status-line"><span>Discord-Login</span><strong id="authDiscordLinkValue">Noch nicht verbunden</strong></div>
+        <div class="status-line"><span>Server-Mitglied</span><strong id="authDiscordGuildValue">Noch nicht geprüft</strong></div>
+        <div class="status-line"><span>Discord-ID</span><strong id="authDiscordIdValue">-</strong></div>
+      </div>
+      <p class="foundation-note auth-message" id="discordRequirementMessage">Für Checkout und Freischaltungen kannst du dein Konto mit Discord verbinden und den Serverzugang prüfen.</p>
+      <div class="foundation-actions auth-session-actions">
+        <button class="cta secondary compact-cta" data-auth-discord="signin" type="button">Mit Discord anmelden</button>
+        <button class="cta secondary compact-cta hidden-section" data-auth-discord="link" id="discordLinkButton" type="button">Discord verbinden</button>
+        <a class="cta secondary compact-cta hidden-section" href="#" id="discordJoinServerButton" rel="noopener noreferrer" target="_blank">Server beitreten</a>
+        <button class="cta primary compact-cta" data-discord-refresh="true" id="discordRefreshButton" type="button">Discord prüfen</button>
+      </div>
+    </article>
+
+    <article class="foundation-form-shell compact-session-shell">
+      <div class="foundation-form-head">
         <strong>Profil bearbeiten</strong>
       </div>
       <form class="foundation-form-grid compact-form-grid" id="profileEditorForm">
@@ -1689,6 +1707,7 @@ type="button"
         </label>
         <div class="foundation-actions field-span-2">
           <button class="cta primary compact-cta" id="loginSubmitButton" type="submit">Jetzt einloggen</button>
+          <button class="cta secondary compact-cta" data-auth-discord="signin" type="button">Mit Discord anmelden</button>
         </div>
       </form>
       <p class="foundation-note auth-message" id="authLoginMessage"></p>
@@ -1718,6 +1737,7 @@ type="button"
         </label>
         <div class="foundation-actions field-span-2">
           <button class="cta primary compact-cta" id="registerSubmitButton" type="submit">Konto erstellen</button>
+          <button class="cta secondary compact-cta" data-auth-discord="signin" type="button">Mit Discord anmelden</button>
         </div>
       </form>
       <p class="foundation-note auth-message" id="authRegisterMessage"></p>
