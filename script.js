@@ -1,34 +1,48 @@
-const navItems = document.querySelectorAll('.nav-item');
-const homeSections = document.querySelectorAll('.section-home');
-const scriptsSection = document.getElementById('scriptsSection');
-const clothingSection = document.getElementById('clothingSection');
-const freeSection = document.getElementById('freeSection');
-const contactSection = document.getElementById('contactSection');
-const accountSection = document.getElementById('accountSection');
-const systemSection = document.getElementById('systemSection');
-const detailSections = {
-  blitzer: document.getElementById('scriptDetailSection'),
-  gps: document.getElementById('gpsDetailSection'),
-  carplay: document.getElementById('carplayDetailSection'),
-  'mechaniker-ki': document.getElementById('mechanikerKiDetailSection'),
-  afk: document.getElementById('afkDetailSection'),
-  outfit: document.getElementById('outfitDetailSection'),
-  taxi: document.getElementById('taxiDetailSection'),
-  'zoll-uniform': document.getElementById('zollUniformDetailSection'),
-  'serverteam-uniform': document.getElementById('serverteamUniformDetailSection'),
-  'rettungsdienst-uniform': document.getElementById('rettungsdienstUniformDetailSection'),
-  'polizei-uniform': document.getElementById('polizeiUniformDetailSection'),
-};
-const searchInput = document.getElementById('searchInput');
-const searchables = document.querySelectorAll('.searchable');
+let navItems = [];
+let homeSections = [];
+let scriptsSection = null;
+let clothingSection = null;
+let freeSection = null;
+let contactSection = null;
+let accountSection = null;
+let systemSection = null;
+let detailSections = {};
+let searchInput = null;
+let searchables = [];
 let lastSectionBeforeDetail = 'scripts';
+let appInitialized = false;
+let navigationHandlersBound = false;
+let searchHandlerBound = false;
 
 const viewportVisibility = new WeakMap();
 let viewportObserver = null;
 let introBooting = false;
-let activeUsersRefreshTimer = null;
-let accountPresenceTimer = null;
-const accountPresenceHeartbeatMs = 60000;
+
+function cacheDomReferences() {
+  navItems = Array.from(document.querySelectorAll('.nav-item'));
+  homeSections = Array.from(document.querySelectorAll('.section-home'));
+  scriptsSection = document.getElementById('scriptsSection');
+  clothingSection = document.getElementById('clothingSection');
+  freeSection = document.getElementById('freeSection');
+  contactSection = document.getElementById('contactSection');
+  accountSection = document.getElementById('accountSection');
+  systemSection = document.getElementById('systemSection');
+  detailSections = {
+    blitzer: document.getElementById('scriptDetailSection'),
+    gps: document.getElementById('gpsDetailSection'),
+    carplay: document.getElementById('carplayDetailSection'),
+    'mechaniker-ki': document.getElementById('mechanikerKiDetailSection'),
+    afk: document.getElementById('afkDetailSection'),
+    outfit: document.getElementById('outfitDetailSection'),
+    taxi: document.getElementById('taxiDetailSection'),
+    'zoll-uniform': document.getElementById('zollUniformDetailSection'),
+    'serverteam-uniform': document.getElementById('serverteamUniformDetailSection'),
+    'rettungsdienst-uniform': document.getElementById('rettungsdienstUniformDetailSection'),
+    'polizei-uniform': document.getElementById('polizeiUniformDetailSection'),
+  };
+  searchInput = document.getElementById('searchInput');
+  searchables = Array.from(document.querySelectorAll('.searchable'));
+}
 
 const cartStorageKey = 'hm_store_cart';
 const cartDraftStorageKey = 'hm_cart_draft';
@@ -500,10 +514,12 @@ function hideAllDetails() {
 }
 
 function activateNav(section) {
+  if (!navItems.length) cacheDomReferences();
   navItems.forEach((item) => item.classList.toggle('active', item.dataset.section === section));
 }
 
 function showSection(section) {
+  if (!homeSections.length && !scriptsSection) cacheDomReferences();
   homeSections.forEach((el) => {
     el.style.display = section === 'home' ? '' : 'none';
   });
@@ -518,6 +534,7 @@ function showSection(section) {
 }
 
 function openScriptDetail(scriptName, originSection = 'scripts') {
+  if (!Object.keys(detailSections).length) cacheDomReferences();
   lastSectionBeforeDetail = originSection;
   homeSections.forEach((el) => (el.style.display = 'none'));
   setVisible(scriptsSection, false);
@@ -907,7 +924,7 @@ function clearPendingTebexCheckout() {
 function cleanupTebexAuthUrl() {
   const url = new URL(window.location.href);
   let changed = false;
-  ['hm_tebex_auth', 'basket'].forEach((key) => {
+  ['hm_tebex_auth', 'basket', 'success'].forEach((key) => {
     if (url.searchParams.has(key)) {
       url.searchParams.delete(key);
       changed = true;
@@ -928,35 +945,56 @@ async function finalizePendingTebexCheckout(pending) {
     throw new Error('Bitte zuerst einloggen.');
   }
 
-  const response = await fetch(`${TEBEX_BACKEND_BASE_URL}/api/tebex/checkout/finalize`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${liveAccountSnapshot.session.access_token}`,
-    },
-    body: JSON.stringify({
-      basketIdent: pending.basketIdent,
-      items: pending.items,
-      completeUrl: pending.completeUrl,
-      cancelUrl: pending.cancelUrl,
-      checkoutUrl: pending.checkoutUrl,
-      paymentUrl: pending.paymentUrl,
-    }),
-  });
+  const authUrl = new URL(window.location.href);
+  const authSuccess = authUrl.searchParams.get('success') === 'true';
 
-  const payload = await response.json().catch(() => null);
-  if (!response.ok || !payload?.ok) {
-    throw new Error(payload?.error || payload?.message || 'Checkout konnte nicht abgeschlossen werden.');
+  try {
+    const response = await fetch(`${TEBEX_BACKEND_BASE_URL}/api/tebex/checkout/finalize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${liveAccountSnapshot.session.access_token}`,
+      },
+      body: JSON.stringify({
+        basketIdent: pending.basketIdent,
+        items: pending.items,
+        completeUrl: pending.completeUrl,
+        cancelUrl: pending.cancelUrl,
+        checkoutUrl: pending.checkoutUrl,
+        paymentUrl: pending.paymentUrl,
+      }),
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.ok) {
+      const fallbackUrl = pending.checkoutUrl || pending.paymentUrl || '';
+      if (authSuccess && fallbackUrl) {
+        clearPendingTebexCheckout();
+        cleanupTebexAuthUrl();
+        window.location.href = fallbackUrl;
+        return;
+      }
+      throw new Error(payload?.error || payload?.message || 'Checkout konnte nicht abgeschlossen werden.');
+    }
+
+    const redirectUrl = payload.checkoutUrl || payload.paymentUrl || pending.checkoutUrl || pending.paymentUrl;
+    if (!redirectUrl) {
+      throw new Error('Tebex-Checkout-URL fehlt.');
+    }
+
+    clearPendingTebexCheckout();
+    cleanupTebexAuthUrl();
+    window.location.href = redirectUrl;
+  } catch (error) {
+    const fallbackUrl = authSuccess ? pending.checkoutUrl || pending.paymentUrl || '' : '';
+    if (fallbackUrl) {
+      clearPendingTebexCheckout();
+      cleanupTebexAuthUrl();
+      window.location.href = fallbackUrl;
+      return;
+    }
+    throw error;
   }
-
-  const redirectUrl = payload.checkoutUrl || payload.paymentUrl || pending.checkoutUrl || pending.paymentUrl;
-  if (!redirectUrl) {
-    throw new Error('Tebex-Checkout-URL fehlt.');
-  }
-
-  clearPendingTebexCheckout();
-  cleanupTebexAuthUrl();
-  window.location.href = redirectUrl;
 }
 
 async function maybeResumePendingTebexCheckout() {
@@ -2195,15 +2233,49 @@ function setupPreparedCartButtons() {
 }
 
 
-navItems.forEach((btn) => {
-  btn.addEventListener('click', () => {
-    activateNav(btn.dataset.section);
-    showSection(btn.dataset.section);
+function bindNavigationHandlers() {
+  if (navigationHandlersBound) return;
+  navItems.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activateNav(btn.dataset.section);
+      showSection(btn.dataset.section);
+    });
   });
-});
+  navigationHandlersBound = true;
+}
+
+function bindSearchHandler() {
+  if (searchHandlerBound || !searchInput) return;
+  searchInput.addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    searchables.forEach((card) => {
+      const haystack = (card.innerText + ' ' + (card.dataset.type || '')).toLowerCase();
+      card.style.display = haystack.includes(q) ? '' : 'none';
+    });
+  });
+  searchHandlerBound = true;
+}
+
+function initHammerModdingApp() {
+  if (appInitialized) return;
+  cacheDomReferences();
+  bindNavigationHandlers();
+  bindSearchHandler();
+  setupPreparedCartButtons();
+  setupFoundationPlanner();
+  setupLiveSupabaseAuth();
+  setupSmoothHomeIntro();
+  setupMarquees();
+  setupCinematicBackground();
+  syncVideoPlayback();
+  appInitialized = true;
+}
 
 document.addEventListener('click', async (e) => {
-  const accountDockButton = e.target.closest('#accountDockButton');
+  const eventTarget = e.target instanceof Element ? e.target : e.target?.parentElement;
+  if (!eventTarget) return;
+
+  const accountDockButton = eventTarget.closest('#accountDockButton');
   if (accountDockButton) {
     e.preventDefault();
     if (liveAccountSnapshot.user) {
@@ -2216,7 +2288,7 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  const authOpen = e.target.closest('[data-auth-open]');
+  const authOpen = eventTarget.closest('[data-auth-open]');
   if (authOpen) {
     e.preventDefault();
     openAuthModal(authOpen.dataset.authOpen || 'login');
@@ -2224,21 +2296,21 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  const authClose = e.target.closest('[data-auth-close="true"]');
+  const authClose = eventTarget.closest('[data-auth-close="true"]');
   if (authClose) {
     e.preventDefault();
     closeAuthModal();
     return;
   }
 
-  const authTab = e.target.closest('[data-auth-tab]');
+  const authTab = eventTarget.closest('[data-auth-tab]');
   if (authTab) {
     e.preventDefault();
     setAuthModalTab(authTab.dataset.authTab || 'login');
     return;
   }
 
-  const accountDirect = e.target.closest('[data-account-direct]');
+  const accountDirect = eventTarget.closest('[data-account-direct]');
   if (accountDirect) {
     e.preventDefault();
     const section = accountDirect.dataset.accountDirect || 'system';
@@ -2249,7 +2321,7 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  const accountNav = e.target.closest('[data-account-nav]');
+  const accountNav = eventTarget.closest('[data-account-nav]');
   if (accountNav) {
     e.preventDefault();
     const section = accountNav.dataset.accountNav || 'account';
@@ -2260,35 +2332,35 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  const authOverlay = e.target.closest('#authModalOverlay');
-  if (authOverlay && e.target === authOverlay) {
+  const authOverlay = eventTarget.closest('#authModalOverlay');
+  if (authOverlay && eventTarget === authOverlay) {
     closeAuthModal();
     return;
   }
 
 
-  const removeBtn = e.target.closest('[data-cart-remove-id]');
+  const removeBtn = eventTarget.closest('[data-cart-remove-id]');
   if (removeBtn) {
     e.preventDefault();
     removeVisibleCartItem(removeBtn.dataset.cartRemoveId || '');
     return;
   }
 
-  const clearBtn = e.target.closest('[data-cart-clear="true"]');
+  const clearBtn = eventTarget.closest('[data-cart-clear="true"]');
   if (clearBtn) {
     e.preventDefault();
     clearVisibleCart();
     return;
   }
 
-  const requestBtn = e.target.closest('[data-cart-request="true"]');
+  const requestBtn = eventTarget.closest('[data-cart-request="true"]');
   if (requestBtn) {
     e.preventDefault();
     openRequestModal();
     return;
   }
 
-  const copyRequestBtn = e.target.closest('[data-copy-request="true"]');
+  const copyRequestBtn = eventTarget.closest('[data-copy-request="true"]');
   if (copyRequestBtn) {
     e.preventDefault();
     const copied = await copyPreparedRequestText();
@@ -2302,14 +2374,14 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  const tebexCheckoutBtn = e.target.closest('[data-open-tebex-checkout="true"]');
+  const tebexCheckoutBtn = eventTarget.closest('[data-open-tebex-checkout="true"]');
   if (tebexCheckoutBtn) {
     e.preventDefault();
     await beginLiveTebexCheckout();
     return;
   }
 
-  const copyTebexBtn = e.target.closest('[data-copy-tebex-draft="true"]');
+  const copyTebexBtn = eventTarget.closest('[data-copy-tebex-draft="true"]');
   if (copyTebexBtn) {
     e.preventDefault();
     const copied = await copyPreparedTebexDraft();
@@ -2323,7 +2395,7 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  const foundationSaveBtn = e.target.closest('[data-foundation-save="true"]');
+  const foundationSaveBtn = eventTarget.closest('[data-foundation-save="true"]');
   if (foundationSaveBtn) {
     e.preventDefault();
     const state = persistFoundationState(collectFoundationStateFromUi());
@@ -2336,7 +2408,7 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  const foundationCopyBtn = e.target.closest('[data-foundation-copy="true"]');
+  const foundationCopyBtn = eventTarget.closest('[data-foundation-copy="true"]');
   if (foundationCopyBtn) {
     e.preventDefault();
     const summaryText = document.getElementById('foundationSummaryText')?.value || '';
@@ -2351,7 +2423,7 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  const foundationCopySqlBtn = e.target.closest('[data-foundation-copy-sql="true"]');
+  const foundationCopySqlBtn = eventTarget.closest('[data-foundation-copy-sql="true"]');
   if (foundationCopySqlBtn) {
     e.preventDefault();
     const sqlText = document.getElementById('foundationSqlText')?.value || '';
@@ -2366,7 +2438,7 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  const foundationTestBtn = e.target.closest('[data-foundation-test="true"]');
+  const foundationTestBtn = eventTarget.closest('[data-foundation-test="true"]');
   if (foundationTestBtn) {
     e.preventDefault();
     const originalText = foundationTestBtn.textContent;
@@ -2381,41 +2453,41 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  const authRefreshBtn = e.target.closest('[data-auth-refresh="true"]');
+  const authRefreshBtn = eventTarget.closest('[data-auth-refresh="true"]');
   if (authRefreshBtn) {
     e.preventDefault();
     await refreshLiveAuthUi();
     return;
   }
 
-  const authLogoutBtn = e.target.closest('[data-auth-logout="true"]');
+  const authLogoutBtn = eventTarget.closest('[data-auth-logout="true"]');
   if (authLogoutBtn) {
     e.preventDefault();
     await handleLiveLogout();
     return;
   }
 
-  const openContactBtn = e.target.closest('[data-open-contact-request="true"]');
+  const openContactBtn = eventTarget.closest('[data-open-contact-request="true"]');
   if (openContactBtn) {
     e.preventDefault();
     openContactRequestFlow();
     return;
   }
 
-  const closeRequestBtn = e.target.closest('[data-request-close="true"]');
+  const closeRequestBtn = eventTarget.closest('[data-request-close="true"]');
   if (closeRequestBtn) {
     e.preventDefault();
     closeRequestModal();
     return;
   }
 
-  const overlay = e.target.closest('#requestModalOverlay');
-  if (overlay && e.target === overlay) {
+  const overlay = eventTarget.closest('#requestModalOverlay');
+  if (overlay && eventTarget === overlay) {
     closeRequestModal();
     return;
   }
 
-  const openBtn = e.target.closest('[data-open-script]');
+  const openBtn = eventTarget.closest('[data-open-script]');
   if (openBtn) {
     e.preventDefault();
     const originSection = openBtn.closest('#freeSection')
@@ -2431,7 +2503,7 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  const navOpen = e.target.closest('[data-nav-open]');
+  const navOpen = eventTarget.closest('[data-nav-open]');
   if (navOpen) {
     e.preventDefault();
     const section = navOpen.dataset.navOpen;
@@ -2441,7 +2513,7 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  const backBtn = e.target.closest('[data-back]');
+  const backBtn = eventTarget.closest('[data-back]');
   if (backBtn) {
     e.preventDefault();
     goBackFromDetail();
@@ -2464,21 +2536,6 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-if (searchInput) {
-  searchInput.addEventListener('input', (e) => {
-    const q = e.target.value.trim().toLowerCase();
-    searchables.forEach((card) => {
-      const haystack = (card.innerText + ' ' + (card.dataset.type || '')).toLowerCase();
-      card.style.display = haystack.includes(q) ? '' : 'none';
-    });
-  });
-}
-
-
-setupPreparedCartButtons();
-setupFoundationPlanner();
-setupLiveSupabaseAuth();
-
 window.addEventListener('pageshow', () => {
   maybeResumePendingTebexCheckout();
 });
@@ -2491,7 +2548,15 @@ window.addEventListener('focus', () => {
   maybeResumePendingTebexCheckout();
 });
 
-showSection('home');
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    initHammerModdingApp();
+    showSection('home');
+  }, { once: true });
+} else {
+  initHammerModdingApp();
+  showSection('home');
+}
 
 function setupSmoothHomeIntro() {
   const introVideo = document.querySelector('.home-hero-video[data-smooth-intro="true"]');
@@ -2545,7 +2610,6 @@ function setupSmoothHomeIntro() {
   });
 }
 
-setupSmoothHomeIntro();
 
 function setupMarquees() {
   const tracks = document.querySelectorAll('.slider-track');
@@ -2554,7 +2618,6 @@ function setupMarquees() {
   });
 }
 
-setupMarquees();
 
 function setupCinematicBackground() {
   const bg = document.querySelector('.bg-cinematic');
@@ -2860,5 +2923,3 @@ function setupCinematicBackground() {
   });
 }
 
-setupCinematicBackground();
-syncVideoPlayback();
