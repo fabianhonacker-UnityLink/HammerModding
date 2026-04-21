@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getUserFromJwt, getOwnProfile } from '../lib/supabase.js';
 import { createBasket, addPackageToBasket, getBasketAuthLinks, getBasket, getPackage } from '../lib/tebex.js';
+import { extractDiscordIdentityFromUser, getDiscordFeatureConfig, getGuildMembershipStatus } from '../lib/discord.js';
 
 export const tebexRouter = Router();
 
@@ -48,6 +49,26 @@ function normalizeItems(items) {
   });
 }
 
+function normalizeOptionalString(value) {
+  const normalized = String(value || '').trim();
+  return normalized || '';
+}
+
+function buildDiscordRequirementError(message) {
+  const error = new Error(message);
+  error.statusCode = 403;
+  error.publicMessage = message;
+  return error;
+}
+
+function buildDiscordDisplayName({ profile, identity }) {
+  return normalizeOptionalString(
+    profile?.discord_name
+      || identity?.globalName
+      || identity?.username,
+  );
+}
+
 async function resolveCheckoutContext(req, { requireItems = true, requireBasketIdent = false } = {}) {
   const jwt = getBearerToken(req);
   if (!jwt) {
@@ -79,11 +100,40 @@ async function resolveCheckoutContext(req, { requireItems = true, requireBasketI
 
   const items = requireItems ? normalizeItems(req.body?.items) : [];
   const role = String(profile?.role || 'customer').trim().toLowerCase();
+  const discordConfig = getDiscordFeatureConfig();
+  const discordIdentity = extractDiscordIdentityFromUser(authUser);
+  const discordDisplayName = buildDiscordDisplayName({ profile, identity: discordIdentity });
+  const discordUserId = normalizeOptionalString(discordIdentity?.discordUserId);
+
+  let discordMembership = {
+    configured: discordConfig.configured,
+    checked: false,
+    inGuild: false,
+    guildId: discordConfig.guildId,
+    guildName: discordConfig.guildName,
+    inviteUrl: discordConfig.inviteUrl,
+  };
+
+  if (discordConfig.configured && discordUserId) {
+    discordMembership = await getGuildMembershipStatus({ discordUserId });
+  }
+
+  if (discordConfig.requiredForCheckout) {
+    if (!discordUserId) {
+      throw buildDiscordRequirementError('Bitte verbinde zuerst dein Discord-Konto, bevor du den Checkout startest.');
+    }
+
+    if (!discordMembership?.inGuild) {
+      throw buildDiscordRequirementError(`Bitte tritt zuerst dem ${discordConfig.guildName} Discord bei, bevor du einkaufst.`);
+    }
+  }
+
   const custom = {
     supabase_user_id: authUser.id,
     email: profile?.email || authUser?.email || '',
     username: profile?.username || authUser?.email?.split('@')[0] || 'User',
-    discord_name: profile?.discord_name || '',
+    discord_name: discordDisplayName,
+    discord_id: discordUserId,
     cfx_identifier: profile?.cfx_identifier || '',
     app_role: role,
     source: 'hammer-modding-website',
@@ -97,6 +147,9 @@ async function resolveCheckoutContext(req, { requireItems = true, requireBasketI
     completeUrl,
     cancelUrl,
     custom,
+    discordConfig,
+    discordMembership,
+    discordUserId,
     ipAddress: getClientIPv4(req),
   };
 }
@@ -116,11 +169,6 @@ function pickPreferredAuthLink(authLinks = []) {
 
 function getBasketUsernameId(basketData) {
   return basketData?.username_id || basketData?.data?.username_id || null;
-}
-
-function normalizeOptionalString(value) {
-  const normalized = String(value || '').trim();
-  return normalized || '';
 }
 
 function tryCollectServerId(value, bucket) {
@@ -212,14 +260,22 @@ function inferServerIdFromPackage(packageData) {
   return '';
 }
 
-function buildVariableDataCandidates({ basketUsernameId, packageServerId }) {
+function buildVariableDataCandidates({ basketUsernameId, packageServerId, discordUserId }) {
+  const username = normalizeOptionalString(basketUsernameId);
+  const serverId = normalizeOptionalString(packageServerId);
+  const discordId = normalizeOptionalString(discordUserId);
+
   const candidates = [
     null,
-    basketUsernameId ? { username_id: String(basketUsernameId) } : null,
-    basketUsernameId && packageServerId
-      ? { username_id: String(basketUsernameId), server_id: String(packageServerId) }
+    discordId ? { discord_id: discordId } : null,
+    username ? { username_id: username } : null,
+    username && serverId ? { username_id: username, server_id: serverId } : null,
+    serverId ? { server_id: serverId } : null,
+    discordId && username ? { discord_id: discordId, username_id: username } : null,
+    discordId && serverId ? { discord_id: discordId, server_id: serverId } : null,
+    discordId && username && serverId
+      ? { discord_id: discordId, username_id: username, server_id: serverId }
       : null,
-    packageServerId ? { server_id: String(packageServerId) } : null,
   ];
 
   const seen = new Set();
@@ -238,19 +294,30 @@ function isRecoverablePackageOptionsError(error) {
     || detail.includes('invalid option')
     || detail.includes('username_id')
     || detail.includes('server_id')
+    || detail.includes('discord_id')
     || detail.includes('option')
   );
 }
 
-function createPackageFinalizeError(error, { item, packageServerId, triedCandidates }) {
+function createPackageFinalizeError(error, { item, packageServerId, discordUserId, triedCandidates }) {
   const detail = String(error?.message || error?.publicMessage || 'Tebex-Paket konnte nicht hinzugefügt werden.').trim();
-  const hint = packageServerId
-    ? ` Es wurde automatisch zusätzlich Server-ID ${packageServerId} getestet.`
-    : ' Falls das Tebex-Paket eine Server-Auswahl verlangt, muss in Tebex oder per Default-Server-ID nachgebessert werden.';
+  const hintParts = [];
+
+  if (packageServerId) {
+    hintParts.push(`Server-ID ${packageServerId} wurde getestet`);
+  }
+
+  if (discordUserId) {
+    hintParts.push(`Discord-ID ${discordUserId} wurde getestet`);
+  }
+
+  if (!hintParts.length) {
+    hintParts.push('Bitte die Deliverables und Variablen des Tebex-Pakets prüfen');
+  }
 
   const wrapped = new Error(detail);
   wrapped.statusCode = error?.statusCode || 502;
-  wrapped.publicMessage = `Checkout für "${item?.name || 'Paket'}" (#${item?.packageId || '-'}) fehlgeschlagen: ${detail}.${hint} Versucht: ${triedCandidates}.`;
+  wrapped.publicMessage = `Checkout für "${item?.name || 'Paket'}" (#${item?.packageId || '-'}) fehlgeschlagen: ${detail}. ${hintParts.join(' · ')}. Versucht: ${triedCandidates}.`;
   return wrapped;
 }
 
@@ -269,6 +336,7 @@ async function addPackageToBasketWithSmartRetry({ basketIdent, item, context, ba
   const variableCandidates = buildVariableDataCandidates({
     basketUsernameId,
     packageServerId,
+    discordUserId: context.discordUserId,
   });
 
   let lastError = null;
@@ -292,6 +360,7 @@ async function addPackageToBasketWithSmartRetry({ basketIdent, item, context, ba
         throw createPackageFinalizeError(error, {
           item,
           packageServerId,
+          discordUserId: context.discordUserId,
           triedCandidates: variableCandidates.length,
         });
       }
@@ -301,6 +370,7 @@ async function addPackageToBasketWithSmartRetry({ basketIdent, item, context, ba
   throw createPackageFinalizeError(lastError, {
     item,
     packageServerId,
+    discordUserId: context.discordUserId,
     triedCandidates: variableCandidates.length,
   });
 }
@@ -352,6 +422,9 @@ tebexRouter.post('/checkout/start', async (req, res, next) => {
       authName: preferredAuthLink?.name || null,
       authReturnUrl,
       requiresAuth: Boolean(preferredAuthLink?.url),
+      discordRequired: Boolean(context.discordConfig.requiredForCheckout),
+      discordConnected: Boolean(context.discordUserId),
+      discordInGuild: Boolean(context.discordMembership?.inGuild),
       message: preferredAuthLink?.url
         ? 'Tebex-Authentifizierung erforderlich.'
         : 'Tebex-Basket wurde erfolgreich erstellt.',
@@ -406,6 +479,7 @@ tebexRouter.post('/checkout/finalize', async (req, res, next) => {
       checkoutUrl: refreshedLinks.checkoutUrl || lastPackageLinks.checkoutUrl || requestCheckoutUrl || buildPayCheckoutUrl(context.basketIdent) || null,
       paymentUrl: refreshedLinks.paymentUrl || lastPackageLinks.paymentUrl || requestPaymentUrl || null,
       usernameId: basketUsernameId,
+      discordUserId: context.discordUserId || null,
       message: 'Pakete wurden dem Tebex-Basket hinzugefügt.',
     });
   } catch (error) {
