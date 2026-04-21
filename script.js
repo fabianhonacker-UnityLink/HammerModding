@@ -92,6 +92,9 @@ let liveAccountSnapshot = {
 const accountActivityStorageKey = 'hm_account_activity';
 let currentAuthModalMode = 'login';
 let isAccountDropdownOpen = false;
+let tebexResumeAttemptCount = 0;
+let tebexResumeAttemptTimer = null;
+let tebexResumeInFlight = false;
 
 
 function formatRelativeDate(value) {
@@ -910,6 +913,18 @@ function cleanupTebexAuthUrl() {
   }
 }
 
+function hasPendingTebexReturn() {
+  const url = new URL(window.location.href);
+  return url.searchParams.get('hm_tebex_auth') === '1';
+}
+
+function schedulePendingTebexResume(delay = 450) {
+  window.clearTimeout(tebexResumeAttemptTimer);
+  tebexResumeAttemptTimer = window.setTimeout(() => {
+    maybeResumePendingTebexCheckout(true);
+  }, delay);
+}
+
 async function finalizePendingTebexCheckout(pending) {
   if (!pending?.basketIdent || !Array.isArray(pending?.items) || !pending.items.length) {
     throw new Error('Tebex-Basket ist unvollständig.');
@@ -950,7 +965,7 @@ async function finalizePendingTebexCheckout(pending) {
   window.location.href = redirectUrl;
 }
 
-async function maybeResumePendingTebexCheckout() {
+async function maybeResumePendingTebexCheckout(force = false) {
   const url = new URL(window.location.href);
   if (url.searchParams.get('hm_tebex_auth') !== '1') return;
 
@@ -958,7 +973,7 @@ async function maybeResumePendingTebexCheckout() {
   if (!pending) {
     console.warn('Tebex-Rückkehr erkannt, aber kein gespeicherter Checkout gefunden.');
     cleanupTebexAuthUrl();
-    window.alert('Tebex-Rückkehr erkannt, aber kein offener Checkout wurde gefunden. Bitte den Checkout erneut starten.');
+    setCheckoutButtonsLoadingState(false);
     return;
   }
 
@@ -969,17 +984,38 @@ async function maybeResumePendingTebexCheckout() {
       pendingBasket: pending.basketIdent,
     });
     cleanupTebexAuthUrl();
-    window.alert('Der zurückgegebene Tebex-Basket passt nicht zum gespeicherten Checkout. Bitte erneut starten.');
+    setCheckoutButtonsLoadingState(false);
     return;
   }
 
+  if (tebexResumeInFlight && !force) return;
+
+  if (!liveAccountSnapshot.user || !liveAccountSnapshot.session?.access_token) {
+    tebexResumeAttemptCount += 1;
+    if (tebexResumeAttemptCount <= 20) {
+      setCheckoutButtonsLoadingState(true);
+      schedulePendingTebexResume(500);
+      return;
+    }
+
+    console.warn('Tebex-Rückkehr erkannt, aber die Live-Session ist noch nicht bereit.');
+    setCheckoutButtonsLoadingState(false);
+    return;
+  }
+
+  tebexResumeAttemptCount = 0;
+  tebexResumeInFlight = true;
   setCheckoutButtonsLoadingState(true);
+
   try {
     await finalizePendingTebexCheckout(pending);
   } catch (error) {
     const message = String(error?.message || 'Checkout konnte nicht abgeschlossen werden.');
+    console.error('Tebex-Resume fehlgeschlagen:', message, error);
     window.alert(message.includes('Failed to fetch') ? 'Backend nicht erreichbar. Bitte später erneut versuchen.' : message);
     setCheckoutButtonsLoadingState(false);
+  } finally {
+    tebexResumeInFlight = false;
   }
 }
 
@@ -2451,7 +2487,23 @@ setupFoundationPlanner();
 setupLiveSupabaseAuth();
 
 window.addEventListener('pageshow', () => {
-  maybeResumePendingTebexCheckout();
+  if (hasPendingTebexReturn()) {
+    setCheckoutButtonsLoadingState(true);
+    schedulePendingTebexResume(150);
+  }
+});
+
+window.addEventListener('load', () => {
+  if (hasPendingTebexReturn()) {
+    setCheckoutButtonsLoadingState(true);
+    schedulePendingTebexResume(250);
+  }
+});
+
+window.addEventListener('focus', () => {
+  if (hasPendingTebexReturn()) {
+    schedulePendingTebexResume(150);
+  }
 });
 
 showSection('home');
