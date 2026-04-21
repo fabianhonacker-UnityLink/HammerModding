@@ -29,12 +29,15 @@ let introBooting = false;
 
 const cartStorageKey = 'hm_store_cart';
 const cartDraftStorageKey = 'hm_cart_draft';
+const tebexPendingCheckoutStorageKey = 'hm_tebex_pending_checkout';
 const storeCatalog = {
   blitzer: { id: 'blitzer-script', slug: 'blitzer', name: 'Blitzer Script', price: '15.00', priceLabel: '15,00 €', type: 'paid-script' },
   gps: { id: 'gps-system', slug: 'gps', name: 'GPS System', price: '10.00', priceLabel: '10,00 €', type: 'paid-script' },
   carplay: { id: 'carplay-system', slug: 'carplay', name: 'CarPlay System', price: '10.00', priceLabel: '10,00 €', type: 'paid-script' },
   'mechaniker-ki': { id: 'ki-mechaniker', slug: 'mechaniker-ki', name: 'KI Mechaniker', price: '10.00', priceLabel: '10,00 €', type: 'paid-script' },
   outfit: { id: 'outfit-auswahl', slug: 'outfit', name: 'Outfit-Auswahl', price: '5.00', priceLabel: '5,00 €', type: 'paid-script' },
+  afk: { id: 'afk-system', slug: 'afk', name: 'AFK System', price: '0.00', priceLabel: 'Kostenlos', type: 'free-script' },
+  taxi: { id: 'taxi-app-lb-phone', slug: 'taxi', name: 'Taxi App LB-Phone', price: '0.00', priceLabel: 'Kostenlos', type: 'free-script' },
   'zoll-uniform': { id: 'zoll-uniform', slug: 'zoll-uniform', name: 'Zoll-Uniform', price: '20.00', priceLabel: '20,00 €', type: 'clothing' },
   'serverteam-uniform': { id: 'serverteam-uniform', slug: 'serverteam-uniform', name: 'Serverteam-Uniform', price: '12.00', priceLabel: '12,00 €', type: 'clothing' },
   'rettungsdienst-uniform': { id: 'rettungsdienst-uniform', slug: 'rettungsdienst-uniform', name: 'Rettungsdienst-Uniform-Set', price: '20.00', priceLabel: '20,00 €', type: 'clothing' },
@@ -846,6 +849,112 @@ function setCheckoutButtonsLoadingState(isLoading) {
   });
 }
 
+function savePendingTebexCheckout(payload) {
+  try {
+    sessionStorage.setItem(tebexPendingCheckoutStorageKey, JSON.stringify(payload || {}));
+  } catch (error) {
+    // ignore storage failures
+  }
+}
+
+function loadPendingTebexCheckout() {
+  try {
+    const raw = sessionStorage.getItem(tebexPendingCheckoutStorageKey);
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function clearPendingTebexCheckout() {
+  try {
+    sessionStorage.removeItem(tebexPendingCheckoutStorageKey);
+  } catch (error) {
+    // ignore storage failures
+  }
+}
+
+function cleanupTebexAuthUrl() {
+  const url = new URL(window.location.href);
+  let changed = false;
+  ['hm_tebex_auth', 'basket'].forEach((key) => {
+    if (url.searchParams.has(key)) {
+      url.searchParams.delete(key);
+      changed = true;
+    }
+  });
+  if (changed) {
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState({}, document.title, nextUrl || '/');
+  }
+}
+
+async function finalizePendingTebexCheckout(pending) {
+  if (!pending?.basketIdent || !Array.isArray(pending?.items) || !pending.items.length) {
+    throw new Error('Tebex-Basket ist unvollständig.');
+  }
+
+  if (!liveAccountSnapshot.user || !liveAccountSnapshot.session?.access_token) {
+    throw new Error('Bitte zuerst einloggen.');
+  }
+
+  const response = await fetch(`${TEBEX_BACKEND_BASE_URL}/api/tebex/checkout/finalize`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${liveAccountSnapshot.session.access_token}`,
+    },
+    body: JSON.stringify({
+      basketIdent: pending.basketIdent,
+      items: pending.items,
+      completeUrl: pending.completeUrl,
+      cancelUrl: pending.cancelUrl,
+      checkoutUrl: pending.checkoutUrl,
+      paymentUrl: pending.paymentUrl,
+    }),
+  });
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.error || payload?.message || 'Checkout konnte nicht abgeschlossen werden.');
+  }
+
+  const redirectUrl = payload.checkoutUrl || payload.paymentUrl || pending.checkoutUrl || pending.paymentUrl;
+  if (!redirectUrl) {
+    throw new Error('Tebex-Checkout-URL fehlt.');
+  }
+
+  clearPendingTebexCheckout();
+  cleanupTebexAuthUrl();
+  window.location.href = redirectUrl;
+}
+
+async function maybeResumePendingTebexCheckout() {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get('hm_tebex_auth') !== '1') return;
+
+  const pending = loadPendingTebexCheckout();
+  if (!pending) {
+    cleanupTebexAuthUrl();
+    return;
+  }
+
+  const basketFromUrl = url.searchParams.get('basket') || '';
+  if (basketFromUrl && pending.basketIdent && basketFromUrl !== pending.basketIdent) {
+    cleanupTebexAuthUrl();
+    return;
+  }
+
+  setCheckoutButtonsLoadingState(true);
+  try {
+    await finalizePendingTebexCheckout(pending);
+  } catch (error) {
+    const message = String(error?.message || 'Checkout konnte nicht abgeschlossen werden.');
+    window.alert(message.includes('Failed to fetch') ? 'Backend nicht erreichbar. Bitte später erneut versuchen.' : message);
+    setCheckoutButtonsLoadingState(false);
+  }
+}
+
 async function beginLiveTebexCheckout() {
   const cart = loadVisibleCart();
   if (!cart.length) return;
@@ -866,7 +975,7 @@ async function beginLiveTebexCheckout() {
   setCheckoutButtonsLoadingState(true);
 
   try {
-    const response = await fetch(`${TEBEX_BACKEND_BASE_URL}/api/tebex/checkout`, {
+    const response = await fetch(`${TEBEX_BACKEND_BASE_URL}/api/tebex/checkout/start`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -884,16 +993,27 @@ async function beginLiveTebexCheckout() {
       throw new Error(payload?.error || payload?.message || 'Checkout konnte nicht gestartet werden.');
     }
 
-    const checkoutUrl = payload.authUrl || payload.checkoutUrl || payload.paymentUrl;
-    if (!checkoutUrl) {
-      throw new Error('Tebex-Checkout-URL fehlt.');
+    const pending = {
+      basketIdent: payload.basketIdent,
+      items,
+      checkoutUrl: payload.checkoutUrl || '',
+      paymentUrl: payload.paymentUrl || '',
+      completeUrl,
+      cancelUrl,
+      createdAt: new Date().toISOString(),
+    };
+
+    savePendingTebexCheckout(pending);
+
+    if (payload.authUrl) {
+      window.location.href = payload.authUrl;
+      return;
     }
 
-    window.location.href = checkoutUrl;
+    await finalizePendingTebexCheckout(pending);
   } catch (error) {
     const message = String(error?.message || 'Checkout konnte nicht gestartet werden.');
     window.alert(message.includes('Failed to fetch') ? 'Backend nicht erreichbar. Bitte später erneut versuchen.' : message);
-  } finally {
     setCheckoutButtonsLoadingState(false);
   }
 }
@@ -1956,7 +2076,9 @@ function setupLiveSupabaseAuth() {
 
   setAuthModalTab('login');
   setupActiveUsersRefresh();
-  refreshLiveAuthUi();
+  refreshLiveAuthUi().finally(() => {
+    maybeResumePendingTebexCheckout();
+  });
 }
 
 async function copyTextToClipboard(text) {
