@@ -26,6 +26,9 @@ let lastSectionBeforeDetail = 'scripts';
 const viewportVisibility = new WeakMap();
 let viewportObserver = null;
 let introBooting = false;
+let activeUsersRefreshTimer = null;
+let accountPresenceTimer = null;
+const accountPresenceHeartbeatMs = 60000;
 
 const cartStorageKey = 'hm_store_cart';
 const cartDraftStorageKey = 'hm_cart_draft';
