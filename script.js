@@ -850,27 +850,48 @@ function setCheckoutButtonsLoadingState(isLoading) {
 }
 
 function savePendingTebexCheckout(payload) {
+  const raw = JSON.stringify(payload || {});
   try {
-    sessionStorage.setItem(tebexPendingCheckoutStorageKey, JSON.stringify(payload || {}));
+    localStorage.setItem(tebexPendingCheckoutStorageKey, raw);
   } catch (error) {
-    // ignore storage failures
+    // ignore
+  }
+  try {
+    sessionStorage.setItem(tebexPendingCheckoutStorageKey, raw);
+  } catch (error) {
+    // ignore
   }
 }
 
 function loadPendingTebexCheckout() {
   try {
-    const raw = sessionStorage.getItem(tebexPendingCheckoutStorageKey);
-    return raw ? JSON.parse(raw) : null;
+    const localRaw = localStorage.getItem(tebexPendingCheckoutStorageKey);
+    if (localRaw) return JSON.parse(localRaw);
   } catch (error) {
-    return null;
+    // ignore
   }
+
+  try {
+    const sessionRaw = sessionStorage.getItem(tebexPendingCheckoutStorageKey);
+    if (sessionRaw) return JSON.parse(sessionRaw);
+  } catch (error) {
+    // ignore
+  }
+
+  return null;
 }
 
 function clearPendingTebexCheckout() {
   try {
+    localStorage.removeItem(tebexPendingCheckoutStorageKey);
+  } catch (error) {
+    // ignore
+  }
+
+  try {
     sessionStorage.removeItem(tebexPendingCheckoutStorageKey);
   } catch (error) {
-    // ignore storage failures
+    // ignore
   }
 }
 
@@ -935,13 +956,20 @@ async function maybeResumePendingTebexCheckout() {
 
   const pending = loadPendingTebexCheckout();
   if (!pending) {
+    console.warn('Tebex-Rückkehr erkannt, aber kein gespeicherter Checkout gefunden.');
     cleanupTebexAuthUrl();
+    window.alert('Tebex-Rückkehr erkannt, aber kein offener Checkout wurde gefunden. Bitte den Checkout erneut starten.');
     return;
   }
 
   const basketFromUrl = url.searchParams.get('basket') || '';
   if (basketFromUrl && pending.basketIdent && basketFromUrl !== pending.basketIdent) {
+    console.warn('Tebex-Basket stimmt nicht mit gespeichertem Checkout überein.', {
+      basketFromUrl,
+      pendingBasket: pending.basketIdent,
+    });
     cleanupTebexAuthUrl();
+    window.alert('Der zurückgegebene Tebex-Basket passt nicht zum gespeicherten Checkout. Bitte erneut starten.');
     return;
   }
 
@@ -2421,6 +2449,10 @@ if (searchInput) {
 setupPreparedCartButtons();
 setupFoundationPlanner();
 setupLiveSupabaseAuth();
+
+window.addEventListener('pageshow', () => {
+  maybeResumePendingTebexCheckout();
+});
 
 showSection('home');
 
