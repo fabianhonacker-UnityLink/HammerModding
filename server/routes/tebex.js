@@ -129,6 +129,32 @@ function tryCollectServerId(value, bucket) {
   bucket.add(normalized);
 }
 
+function buildPayCheckoutUrl(basketIdent) {
+  const ident = normalizeOptionalString(basketIdent);
+  return ident ? `https://pay.tebex.io/${encodeURIComponent(ident)}` : '';
+}
+
+function extractCheckoutLinks(source, basketIdent = '') {
+  const root = source?.data || source || {};
+  const links = root?.links || source?.links || {};
+  const checkoutUrl = (
+    normalizeOptionalString(links?.checkout)
+    || normalizeOptionalString(root?.checkout_url)
+    || normalizeOptionalString(root?.checkoutUrl)
+    || buildPayCheckoutUrl(root?.ident || basketIdent)
+  );
+  const paymentUrl = (
+    normalizeOptionalString(links?.payment)
+    || normalizeOptionalString(root?.payment_url)
+    || normalizeOptionalString(root?.paymentUrl)
+  );
+
+  return {
+    checkoutUrl,
+    paymentUrl,
+  };
+}
+
 function inferServerIdFromPackage(packageData) {
   const envServerId = normalizeOptionalString(process.env.TEBEX_DEFAULT_SERVER_ID);
   if (envServerId) return envServerId;
@@ -315,12 +341,13 @@ tebexRouter.post('/checkout/start', async (req, res, next) => {
     }
 
     const preferredAuthLink = pickPreferredAuthLink(authLinks);
+    const basketLinks = extractCheckoutLinks(basket, basket.ident);
 
     res.json({
       ok: true,
       basketIdent: basket.ident,
-      checkoutUrl: basket.links?.checkout || null,
-      paymentUrl: basket.links?.payment || null,
+      checkoutUrl: basketLinks.checkoutUrl || null,
+      paymentUrl: basketLinks.paymentUrl || null,
       authUrl: preferredAuthLink?.url || null,
       authName: preferredAuthLink?.name || null,
       authReturnUrl,
@@ -349,8 +376,10 @@ tebexRouter.post('/checkout/finalize', async (req, res, next) => {
       throw error;
     }
 
+    let lastPackageResponse = null;
+
     for (const item of context.items) {
-      await addPackageToBasketWithSmartRetry({
+      lastPackageResponse = await addPackageToBasketWithSmartRetry({
         basketIdent: context.basketIdent,
         item,
         context,
@@ -358,11 +387,24 @@ tebexRouter.post('/checkout/finalize', async (req, res, next) => {
       });
     }
 
+    let refreshedBasket = null;
+    try {
+      const refreshedBasketResponse = await getBasket({ basketIdent: context.basketIdent });
+      refreshedBasket = refreshedBasketResponse?.data || refreshedBasketResponse || null;
+    } catch (_error) {
+      refreshedBasket = null;
+    }
+
+    const refreshedLinks = extractCheckoutLinks(refreshedBasket, context.basketIdent);
+    const lastPackageLinks = extractCheckoutLinks(lastPackageResponse, context.basketIdent);
+    const requestCheckoutUrl = normalizeOptionalString(req.body?.checkoutUrl);
+    const requestPaymentUrl = normalizeOptionalString(req.body?.paymentUrl);
+
     res.json({
       ok: true,
       basketIdent: context.basketIdent,
-      checkoutUrl: String(req.body?.checkoutUrl || '').trim() || null,
-      paymentUrl: String(req.body?.paymentUrl || '').trim() || null,
+      checkoutUrl: refreshedLinks.checkoutUrl || lastPackageLinks.checkoutUrl || requestCheckoutUrl || buildPayCheckoutUrl(context.basketIdent) || null,
+      paymentUrl: refreshedLinks.paymentUrl || lastPackageLinks.paymentUrl || requestPaymentUrl || null,
       usernameId: basketUsernameId,
       message: 'Pakete wurden dem Tebex-Basket hinzugefügt.',
     });
