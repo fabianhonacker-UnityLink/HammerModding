@@ -17,17 +17,7 @@ function buildBasicAuthHeader() {
   return `Basic ${Buffer.from(`${publicToken}:${privateKey}`).toString('base64')}`;
 }
 
-async function tebexFetch(path, body) {
-  const response = await fetch(`${TEBEX_BASE_URL}${path}`, {
-    method: 'POST',
-    headers: {
-      Authorization: buildBasicAuthHeader(),
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-
+async function parseJsonResponse(response) {
   const text = await response.text();
   let json = null;
   try {
@@ -45,6 +35,20 @@ async function tebexFetch(path, body) {
   }
 
   return json;
+}
+
+async function tebexPost(path, body) {
+  const response = await fetch(`${TEBEX_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: {
+      Authorization: buildBasicAuthHeader(),
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  return parseJsonResponse(response);
 }
 
 async function tebexGet(path) {
@@ -56,28 +60,12 @@ async function tebexGet(path) {
     },
   });
 
-  const text = await response.text();
-  let json = null;
-  try {
-    json = text ? JSON.parse(text) : null;
-  } catch {
-    json = null;
-  }
-
-  if (!response.ok) {
-    const detail = json?.error_message || json?.message || text || 'Tebex-Anfrage fehlgeschlagen.';
-    const error = new Error(detail);
-    error.statusCode = response.status;
-    error.publicMessage = `Tebex-Fehler: ${detail}`;
-    throw error;
-  }
-
-  return json;
+  return parseJsonResponse(response);
 }
 
 export async function createBasket({ completeUrl, cancelUrl, custom, ipAddress }) {
   const token = requireEnv('TEBEX_PUBLIC_TOKEN');
-  return tebexFetch(`/accounts/${token}/baskets`, {
+  return tebexPost(`/accounts/${token}/baskets`, {
     complete_url: completeUrl,
     cancel_url: cancelUrl,
     complete_auto_redirect: false,
@@ -86,20 +74,18 @@ export async function createBasket({ completeUrl, cancelUrl, custom, ipAddress }
   });
 }
 
-export async function addPackageToBasket({ basketIdent, packageId, quantity = 1, usernameId, custom }) {
+export async function addPackageToBasket({ basketIdent, packageId, quantity = 1, variableData, custom }) {
   const body = {
     package_id: String(packageId),
     quantity,
     custom,
   };
 
-  if (usernameId) {
-    body.variable_data = {
-      username_id: String(usernameId),
-    };
+  if (variableData && typeof variableData === 'object' && Object.keys(variableData).length) {
+    body.variable_data = variableData;
   }
 
-  return tebexFetch(`/baskets/${basketIdent}/packages`, body);
+  return tebexPost(`/baskets/${basketIdent}/packages`, body);
 }
 
 export async function getBasketAuthLinks({ basketIdent, returnUrl }) {
