@@ -47,13 +47,40 @@ async function tebexFetch(path, body) {
   return json;
 }
 
-export async function createBasket({ username, completeUrl, cancelUrl, custom, ipAddress }) {
+async function tebexGet(path) {
+  const response = await fetch(`${TEBEX_BASE_URL}${path}`, {
+    method: 'GET',
+    headers: {
+      Authorization: buildBasicAuthHeader(),
+      Accept: 'application/json',
+    },
+  });
+
+  const text = await response.text();
+  let json = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!response.ok) {
+    const detail = json?.error_message || json?.message || text || 'Tebex-Anfrage fehlgeschlagen.';
+    const error = new Error(detail);
+    error.statusCode = response.status;
+    error.publicMessage = `Tebex-Fehler: ${detail}`;
+    throw error;
+  }
+
+  return json;
+}
+
+export async function createBasket({ completeUrl, cancelUrl, custom, ipAddress }) {
   const token = requireEnv('TEBEX_PUBLIC_TOKEN');
   return tebexFetch(`/accounts/${token}/baskets`, {
     complete_url: completeUrl,
     cancel_url: cancelUrl,
     complete_auto_redirect: false,
-    username,
     custom,
     ip_address: ipAddress,
   });
@@ -73,4 +100,9 @@ export async function addPackageToBasket({ basketIdent, packageId, quantity = 1,
   }
 
   return tebexFetch(`/baskets/${basketIdent}/packages`, body);
+}
+
+export async function getBasketAuthLinks({ basketIdent, returnUrl }) {
+  const token = requireEnv('TEBEX_PUBLIC_TOKEN');
+  return tebexGet(`/accounts/${token}/baskets/${basketIdent}/auth?returnUrl=${encodeURIComponent(returnUrl)}`);
 }

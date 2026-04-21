@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getUserFromJwt, getOwnProfile } from '../lib/supabase.js';
-import { createBasket, addPackageToBasket } from '../lib/tebex.js';
+import { createBasket, addPackageToBasket, getBasketAuthLinks } from '../lib/tebex.js';
 
 export const tebexRouter = Router();
 
@@ -86,7 +86,6 @@ tebexRouter.post('/checkout', async (req, res, next) => {
     };
 
     const basketResponse = await createBasket({
-      username: custom.username,
       completeUrl,
       cancelUrl,
       custom,
@@ -115,11 +114,28 @@ tebexRouter.post('/checkout', async (req, res, next) => {
       });
     }
 
+    let authLinks = [];
+    try {
+      const authResponse = await getBasketAuthLinks({
+        basketIdent: basket.ident,
+        returnUrl: completeUrl,
+      });
+      authLinks = Array.isArray(authResponse) ? authResponse : authResponse?.data || [];
+    } catch (_error) {
+      authLinks = [];
+    }
+
+    const preferredAuthLink = Array.isArray(authLinks)
+      ? authLinks.find((entry) => /fivem/i.test(String(entry?.name || ''))) || authLinks[0] || null
+      : null;
+
     res.json({
       ok: true,
       basketIdent: basket.ident,
       checkoutUrl: basket.links?.checkout || null,
       paymentUrl: basket.links?.payment || null,
+      authUrl: preferredAuthLink?.url || null,
+      authName: preferredAuthLink?.name || null,
       message: 'Tebex-Basket wurde erfolgreich erstellt.',
     });
   } catch (error) {
