@@ -42,6 +42,7 @@ const storeCatalog = {
 };
 
 const TEBEX_PUBLIC_TOKEN = 'xttm-f719ed0c6b0a19fbf46ef11d7ebc29d6ec480014';
+const TEBEX_BACKEND_BASE_URL = 'https://hammermoddingbackend.onrender.com';
 const tebexPackageMap = {
   blitzer: '7388239',
   gps: '7390338',
@@ -67,6 +68,7 @@ const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
   version: 'phase-6h-tebex-mapping-prep',
   catalog: storeCatalog,
   tebexPublicToken: TEBEX_PUBLIC_TOKEN,
+  tebexBackendBaseUrl: TEBEX_BACKEND_BASE_URL,
   tebexPackageMap,
   lastPreparedItem: null,
 });
@@ -735,6 +737,7 @@ function updateRequestDraftFields(cart) {
   const requestText = buildCartRequestText(items);
   const requestButton = document.getElementById('cartRequestButton');
   const tebexButtons = document.querySelectorAll('[data-copy-tebex-draft="true"]');
+  const checkoutButtons = document.querySelectorAll('[data-open-tebex-checkout="true"]');
   const contactText = document.getElementById('contactRequestText');
   const modalText = document.getElementById('requestModalText');
   const copyButtons = document.querySelectorAll('[data-copy-request="true"]');
@@ -756,6 +759,10 @@ function updateRequestDraftFields(cart) {
   });
 
   tebexButtons.forEach((button) => {
+    button.disabled = !items.length;
+  });
+
+  checkoutButtons.forEach((button) => {
     button.disabled = !items.length;
   });
 
@@ -806,6 +813,89 @@ function openContactRequestFlow() {
   const primaryCta = document.querySelector('#contactSection .contact-cta-row .cta');
   if (primaryCta) primaryCta.focus();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function getLiveCheckoutUrls() {
+  const origin = window.location.origin && !window.location.origin.startsWith('file')
+    ? window.location.origin
+    : 'http://127.0.0.1:5500';
+
+  return {
+    completeUrl: `${origin}/#checkout-complete`,
+    cancelUrl: `${origin}/#checkout-cancel`,
+  };
+}
+
+function buildCheckoutItems(cart) {
+  const items = Array.isArray(cart) ? cart : [];
+  return items.map((item) => ({
+    packageId: getTebexPackageId(item),
+    quantity: Number.isFinite(Number(item?.quantity)) && Number(item.quantity) > 0 ? Number(item.quantity) : 1,
+    name: item.name,
+  }));
+}
+
+function setCheckoutButtonsLoadingState(isLoading) {
+  document.querySelectorAll('[data-open-tebex-checkout="true"]').forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) return;
+    if (!button.dataset.defaultLabel) {
+      button.dataset.defaultLabel = button.textContent || 'Direkt zu Tebex';
+    }
+    button.disabled = isLoading || !loadVisibleCart().length;
+    button.textContent = isLoading ? 'Leite weiter ...' : button.dataset.defaultLabel;
+  });
+}
+
+async function beginLiveTebexCheckout() {
+  const cart = loadVisibleCart();
+  if (!cart.length) return;
+
+  if (!liveAccountSnapshot.user || !liveAccountSnapshot.session?.access_token) {
+    openAuthModal('login');
+    return;
+  }
+
+  const items = buildCheckoutItems(cart);
+  const missingMappings = items.filter((item) => !item.packageId);
+  if (missingMappings.length) {
+    window.alert('Mindestens ein Produkt ist noch nicht mit einem Tebex-Paket verknüpft.');
+    return;
+  }
+
+  const { completeUrl, cancelUrl } = getLiveCheckoutUrls();
+  setCheckoutButtonsLoadingState(true);
+
+  try {
+    const response = await fetch(`${TEBEX_BACKEND_BASE_URL}/api/tebex/checkout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${liveAccountSnapshot.session.access_token}`,
+      },
+      body: JSON.stringify({
+        items,
+        completeUrl,
+        cancelUrl,
+      }),
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.ok) {
+      throw new Error(payload?.error || payload?.message || 'Checkout konnte nicht gestartet werden.');
+    }
+
+    const checkoutUrl = payload.checkoutUrl || payload.paymentUrl;
+    if (!checkoutUrl) {
+      throw new Error('Tebex-Checkout-URL fehlt.');
+    }
+
+    window.location.href = checkoutUrl;
+  } catch (error) {
+    const message = String(error?.message || 'Checkout konnte nicht gestartet werden.');
+    window.alert(message.includes('Failed to fetch') ? 'Backend nicht erreichbar. Bitte später erneut versuchen.' : message);
+  } finally {
+    setCheckoutButtonsLoadingState(false);
+  }
 }
 
 function updateCartButtonsState(cart) {
@@ -1615,6 +1705,7 @@ async function refreshLiveAuthUi() {
     updateAccountDock(null, null);
     hydrateProfileEditor(null, null);
     updateRequestDraftFields(loadVisibleCart());
+  setCheckoutButtonsLoadingState(false);
     return;
   }
 
@@ -2029,6 +2120,13 @@ document.addEventListener('click', async (e) => {
         copyRequestBtn.textContent = originalText;
       }, 1400);
     }
+    return;
+  }
+
+  const tebexCheckoutBtn = e.target.closest('[data-open-tebex-checkout="true"]');
+  if (tebexCheckoutBtn) {
+    e.preventDefault();
+    await beginLiveTebexCheckout();
     return;
   }
 
