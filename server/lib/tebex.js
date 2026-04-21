@@ -97,3 +97,9 @@ export async function getBasketAuthLinks({ basketIdent, returnUrl }) {
   const token = requireEnv('TEBEX_PUBLIC_TOKEN');
   return tebexGet(`/accounts/${token}/baskets/${basketIdent}/auth?returnUrl=${encodeURIComponent(returnUrl)}`);
 }
+
+
+export async function getPackage({ packageId }) {
+  const token = requireEnv('TEBEX_PUBLIC_TOKEN');
+  return tebexGet(`/accounts/${token}/packages/${encodeURIComponent(String(packageId))}`);
+}
