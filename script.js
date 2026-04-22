@@ -40,6 +40,9 @@ function cacheDomReferences() {
     'rettungsdienst-uniform': document.getElementById('rettungsdienstUniformDetailSection'),
     'polizei-uniform': document.getElementById('polizeiUniformDetailSection'),
     'kartell-set': document.getElementById('kartellSetDetailSection'),
+    'berlin-strassen-crew': document.getElementById('berlinStrassenCrewDetailSection'),
+    'tuner-v2': document.getElementById('tunerV2DetailSection'),
+    'weed-outfit': document.getElementById('weedOutfitDetailSection'),
   };
   searchInput = document.getElementById('searchInput');
   searchables = Array.from(document.querySelectorAll('.searchable'));
@@ -61,6 +64,9 @@ const storeCatalog = {
   'rettungsdienst-uniform': { id: 'rettungsdienst-uniform', slug: 'rettungsdienst-uniform', name: 'Rettungsdienst-Uniform-Set', price: '20.00', priceLabel: '20,00 €', type: 'clothing' },
   'polizei-uniform': { id: 'polizei-uniform', slug: 'polizei-uniform', name: 'Polizei-Uniform', price: '25.00', priceLabel: '25,00 €', type: 'clothing' },
   'kartell-set': { id: 'kartell-set', slug: 'kartell-set', name: 'Kartell-Set', price: '25.00', priceLabel: '25,00 €', type: 'clothing' },
+  'berlin-strassen-crew': { id: 'berlin-strassen-crew', slug: 'berlin-strassen-crew', name: 'Berlin Straßen-Crew', price: '19.99', priceLabel: '19,99 €', type: 'clothing' },
+  'tuner-v2': { id: 'tuner-v2', slug: 'tuner-v2', name: 'TunerV2', price: '14.99', priceLabel: '14,99 €', type: 'clothing' },
+  'weed-outfit': { id: 'weed-outfit', slug: 'weed-outfit', name: 'Weed-Outfit', price: '9.99', priceLabel: '9,99 €', type: 'clothing' },
 };
 
 const TEBEX_PUBLIC_TOKEN = 'xttm-f719ed0c6b0a19fbf46ef11d7ebc29d6ec480014';
@@ -79,6 +85,9 @@ const tebexPackageMap = {
   klingel: '7403415',
   afk: '7388518',
   'kartell-set': '7403741',
+  'berlin-strassen-crew': '7405118',
+  'tuner-v2': '7405362',
+  'weed-outfit': '7403575',
 };
 
 Object.entries(tebexPackageMap).forEach(([slug, packageId]) => {
