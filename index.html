@@ -78,6 +78,7 @@
     <button class="account-dock-button glass-soft" id="accountDockButton" type="button">
       <span class="account-dock-avatar" id="accountDockAvatar">
         <span class="account-dock-status-dot" id="accountDockStatusDot"></span>
+        <img alt="Profilbild" class="account-avatar-image" decoding="async" hidden="" id="accountDockAvatarImage" loading="lazy"/>
         <strong id="accountDockAvatarInitial">HM</strong>
       </span>
       <span class="account-dock-copy">
@@ -1465,6 +1466,7 @@ type="button"
       <div class="account-summary-main">
         <div class="account-profile-avatar" id="accountProfileAvatar">
           <span class="profile-status-dot" id="accountProfileStatusDot"></span>
+          <img alt="Profilbild" class="account-avatar-image" decoding="async" hidden="" id="accountProfileAvatarImage" loading="lazy"/>
           <strong id="accountProfileAvatarInitial">HM</strong>
         </div>
         <div class="account-summary-copy">
@@ -1564,10 +1566,26 @@ type="button"
           <span>CFX / License</span>
           <input class="hm-input" id="profileCfxInput" placeholder="license:xxxx oder CFX-Konto" type="text"/>
         </label>
-        <label class="foundation-field field-span-2">
-          <span>Avatar URL</span>
-          <input class="hm-input" id="profileAvatarInput" placeholder="https://..." type="url"/>
-        </label>
+        <div class="foundation-field field-span-2 profile-avatar-upload-field">
+          <span>Avatar</span>
+          <input id="profileAvatarInput" type="hidden"/>
+          <input accept="image/*" hidden="" id="profileAvatarFileInput" type="file"/>
+          <div class="profile-avatar-upload-shell">
+            <div class="profile-avatar-upload-preview" id="profileAvatarPreview">
+              <img alt="Avatar Vorschau" class="profile-avatar-upload-image" decoding="async" hidden="" id="profileAvatarPreviewImage" loading="lazy"/>
+              <strong id="profileAvatarPreviewInitial">HM</strong>
+            </div>
+            <div class="profile-avatar-upload-copy">
+              <strong>Eigenes Profilbild hochladen</strong>
+              <p>Wähle ein Bild direkt vom Gerät. Es wird für dein Profil verkleinert und gespeichert.</p>
+              <div class="profile-avatar-upload-actions">
+                <label class="cta secondary compact-cta profile-avatar-upload-button" for="profileAvatarFileInput">Bild auswählen</label>
+                <button class="cta secondary compact-cta" id="profileAvatarClearButton" type="button">Avatar entfernen</button>
+              </div>
+              <small class="profile-avatar-upload-note" id="profileAvatarUploadName">Noch kein Bild ausgewählt.</small>
+            </div>
+          </div>
+        </div>
         <div class="foundation-actions field-span-2">
           <button class="cta primary compact-cta" id="profileSaveButton" type="submit">Profil speichern</button>
         </div>

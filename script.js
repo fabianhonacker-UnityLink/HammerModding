@@ -274,10 +274,12 @@ function renderPresenceUsers(targetId, users = [], emptyText = 'Keine Einträge.
         <div class="active-user-row${recent ? ' is-recent' : ''}">
           <div class="active-user-avatar">${avatar}${showOnlineDot ? '<span class="active-user-dot"></span>' : ''}</div>
           <div class="active-user-meta">
-            <div class="active-user-name">${name}</div>
+            <div class="active-user-topline">
+              <div class="active-user-name">${name}</div>
+              <div class="active-user-time">${formatPresenceTime(user.last_seen_at)}</div>
+            </div>
             <div class="active-user-role">${role}</div>
           </div>
-          <div class="active-user-time">${formatPresenceTime(user.last_seen_at)}</div>
         </div>
       `;
     })
@@ -376,6 +378,8 @@ function setAccountShellUi(user, profile) {
     if (el) el.textContent = value;
   });
 
+  syncAccountAvatarViews(user, profile);
+
   const statusDotIds = ['accountProfileStatusDot', 'accountDockStatusDot'];
   statusDotIds.forEach((id) => {
     const el = document.getElementById(id);
@@ -423,9 +427,153 @@ function getProfileEditorElements() {
     discordInput: document.getElementById('profileDiscordInput'),
     cfxInput: document.getElementById('profileCfxInput'),
     avatarInput: document.getElementById('profileAvatarInput'),
+    avatarFileInput: document.getElementById('profileAvatarFileInput'),
+    avatarPreview: document.getElementById('profileAvatarPreview'),
+    avatarPreviewImage: document.getElementById('profileAvatarPreviewImage'),
+    avatarPreviewInitial: document.getElementById('profileAvatarPreviewInitial'),
+    avatarUploadName: document.getElementById('profileAvatarUploadName'),
+    avatarClearButton: document.getElementById('profileAvatarClearButton'),
     message: document.getElementById('profileEditorMessage'),
     saveButton: document.getElementById('profileSaveButton'),
   };
+}
+
+const avatarUploadMaxFileSize = 6 * 1024 * 1024;
+const avatarUploadOutputSize = 320;
+
+function setCircleAvatarState(container, image, initialElement, avatarUrl = '', initial = 'HM', altText = 'Profilbild') {
+  if (initialElement) initialElement.textContent = initial || 'HM';
+  if (!container || !image) return;
+
+  const normalizedUrl = String(avatarUrl || '').trim();
+  const hasImage = Boolean(normalizedUrl);
+  container.classList.toggle('has-image', hasImage);
+
+  if (hasImage) {
+    image.src = normalizedUrl;
+    image.alt = altText;
+    image.hidden = false;
+  } else {
+    image.removeAttribute('src');
+    image.hidden = true;
+  }
+}
+
+function syncAccountAvatarViews(user, profile) {
+  const displayName = profile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'Hammer Modding';
+  const initial = getDisplayInitial(displayName, 'HM');
+  const avatarUrl = profile?.avatar_url || '';
+
+  setCircleAvatarState(
+    document.getElementById('accountProfileAvatar'),
+    document.getElementById('accountProfileAvatarImage'),
+    document.getElementById('accountProfileAvatarInitial'),
+    avatarUrl,
+    initial,
+    `${displayName} Profilbild`,
+  );
+
+  setCircleAvatarState(
+    document.getElementById('accountDockAvatar'),
+    document.getElementById('accountDockAvatarImage'),
+    document.getElementById('accountDockAvatarInitial'),
+    avatarUrl,
+    initial,
+    `${displayName} Profilbild`,
+  );
+}
+
+function updateProfileAvatarPreview(avatarUrl = '', displayName = '') {
+  const elements = getProfileEditorElements();
+  const name = String(displayName || elements.usernameInput?.value || liveAccountSnapshot.profile?.username || liveAccountSnapshot.user?.user_metadata?.username || liveAccountSnapshot.user?.email?.split('@')[0] || 'HM').trim();
+  const initial = getDisplayInitial(name, 'HM');
+  const normalizedUrl = String(avatarUrl || '').trim();
+
+  if (elements.avatarPreviewInitial) {
+    elements.avatarPreviewInitial.textContent = initial;
+  }
+  if (elements.avatarPreview) {
+    elements.avatarPreview.classList.toggle('has-image', Boolean(normalizedUrl));
+  }
+  if (elements.avatarPreviewImage) {
+    if (normalizedUrl) {
+      elements.avatarPreviewImage.src = normalizedUrl;
+      elements.avatarPreviewImage.hidden = false;
+    } else {
+      elements.avatarPreviewImage.removeAttribute('src');
+      elements.avatarPreviewImage.hidden = true;
+    }
+  }
+
+  if (elements.avatarUploadName) {
+    if (normalizedUrl.startsWith('data:image/')) {
+      elements.avatarUploadName.textContent = 'Eigenes Bild bereit zum Speichern.';
+    } else if (normalizedUrl) {
+      elements.avatarUploadName.textContent = 'Avatar im Profil vorhanden.';
+    } else {
+      elements.avatarUploadName.textContent = 'Noch kein Bild ausgewählt.';
+    }
+  }
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('Bild konnte nicht geladen werden.'));
+      image.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function convertAvatarFileToDataUrl(file) {
+  if (!file) throw new Error('Keine Datei ausgewählt.');
+  if (!String(file.type || '').startsWith('image/')) throw new Error('Bitte nur Bilddateien hochladen.');
+  if (file.size > avatarUploadMaxFileSize) throw new Error('Das Bild ist zu groß. Bitte maximal 6 MB verwenden.');
+
+  const image = await loadImageFromFile(file);
+  const canvas = document.createElement('canvas');
+  canvas.width = avatarUploadOutputSize;
+  canvas.height = avatarUploadOutputSize;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Bild konnte nicht verarbeitet werden.');
+
+  const sourceSize = Math.min(image.width, image.height);
+  const sourceX = Math.max(0, (image.width - sourceSize) / 2);
+  const sourceY = Math.max(0, (image.height - sourceSize) / 2);
+  context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/webp', 0.88);
+}
+
+async function handleProfileAvatarFileChange(event) {
+  const elements = getProfileEditorElements();
+  const file = event?.target?.files?.[0];
+  if (!file) return;
+
+  try {
+    const dataUrl = await convertAvatarFileToDataUrl(file);
+    if (elements.avatarInput) elements.avatarInput.value = dataUrl;
+    if (elements.avatarUploadName) {
+      elements.avatarUploadName.textContent = `${file.name} · bereit zum Speichern`;
+    }
+    updateProfileAvatarPreview(dataUrl, elements.usernameInput?.value || 'HM');
+    setAuthMessage(elements.message, 'Avatar geladen. Jetzt noch auf „Profil speichern“ klicken.', 'success');
+  } catch (error) {
+    if (elements.avatarFileInput) elements.avatarFileInput.value = '';
+    setAuthMessage(elements.message, error.message || 'Avatar konnte nicht geladen werden.', 'warn');
+  }
+}
+
+function handleProfileAvatarClear() {
+  const elements = getProfileEditorElements();
+  if (elements.avatarInput) elements.avatarInput.value = '';
+  if (elements.avatarFileInput) elements.avatarFileInput.value = '';
+  updateProfileAvatarPreview('', elements.usernameInput?.value || 'HM');
+  setAuthMessage(elements.message, 'Avatar entfernt. Zum Übernehmen bitte Profil speichern.', 'warn');
 }
 
 function getDiscordElements() {
@@ -601,7 +749,8 @@ function hydrateProfileEditor(user, profile) {
   const elements = getProfileEditorElements();
   const discordStatus = liveAccountSnapshot.discordStatus || null;
   const isActive = Boolean(user);
-  if (elements.usernameInput) elements.usernameInput.value = profile?.username || user?.user_metadata?.username || '';
+  const usernameValue = profile?.username || user?.user_metadata?.username || '';
+  if (elements.usernameInput) elements.usernameInput.value = usernameValue;
   if (elements.discordInput) {
     elements.discordInput.value = discordStatus?.displayName || profile?.discord_name || user?.user_metadata?.discord_name || '';
     elements.discordInput.readOnly = Boolean(discordStatus?.connected);
@@ -609,6 +758,8 @@ function hydrateProfileEditor(user, profile) {
   }
   if (elements.cfxInput) elements.cfxInput.value = profile?.cfx_identifier || user?.user_metadata?.cfx_identifier || '';
   if (elements.avatarInput) elements.avatarInput.value = profile?.avatar_url || '';
+  if (elements.avatarFileInput) elements.avatarFileInput.value = '';
+  updateProfileAvatarPreview(profile?.avatar_url || '', usernameValue || user?.email?.split('@')[0] || 'HM');
   if (elements.saveButton) elements.saveButton.disabled = !isActive;
   if (elements.message) {
     setAuthMessage(elements.message, isActive ? '' : 'Melde dich zuerst an, um dein Profil zu bearbeiten.', isActive ? 'neutral' : 'warn');
@@ -2540,6 +2691,17 @@ function setupLiveSupabaseAuth() {
   const profileEditor = getProfileEditorElements();
   if (profileEditor.form) {
     profileEditor.form.addEventListener('submit', handleProfileEditorSave);
+  }
+  if (profileEditor.avatarFileInput) {
+    profileEditor.avatarFileInput.addEventListener('change', handleProfileAvatarFileChange);
+  }
+  if (profileEditor.avatarClearButton) {
+    profileEditor.avatarClearButton.addEventListener('click', handleProfileAvatarClear);
+  }
+  if (profileEditor.usernameInput) {
+    profileEditor.usernameInput.addEventListener('input', () => {
+      updateProfileAvatarPreview(profileEditor.avatarInput?.value || '', profileEditor.usernameInput?.value || 'HM');
+    });
   }
 
   const client = getSupabaseClient();
