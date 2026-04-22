@@ -3489,3 +3489,56 @@ body.intro-booting .bg-lightning {
 .contact-cta-row .cta[disabled] {
   opacity: .45;
 }
+
+
+.impressum-card {
+  margin-top: 16px;
+  border-radius: 22px;
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+}
+.impressum-head {
+  align-items: flex-start;
+}
+.impressum-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.impressum-block {
+  padding: 14px 15px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.impressum-label {
+  display: inline-flex;
+  margin-bottom: 10px;
+  font-size: 10px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+.impressum-block p,
+.impressum-note {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.72;
+  font-size: 14px;
+}
+.impressum-block a {
+  color: #fff;
+  text-decoration: underline;
+  text-decoration-color: rgba(255,255,255,0.32);
+  text-underline-offset: 3px;
+}
+.impressum-note {
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+@media (max-width: 980px) {
+  .impressum-grid {
+    grid-template-columns: 1fr;
+  }
+}
