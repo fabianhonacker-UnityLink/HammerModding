@@ -255,30 +255,82 @@ function formatPresenceTime(value) {
   return formatRelativeDate(value);
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getPresenceRoleToneClass(role) {
+  const normalized = String(role || '').trim().toLowerCase();
+  if (normalized === 'administrator' || normalized === 'admin') return 'is-admin';
+  if (normalized === 'owner' || normalized === 'inhaberin') return 'is-owner';
+  if (normalized === 'developer' || normalized === 'entwickler') return 'is-developer';
+  if (normalized === 'designer') return 'is-designer';
+  if (normalized === 'partner') return 'is-partner';
+  if (normalized === 'customer' || normalized === 'kunde') return 'is-customer';
+  return 'is-guest';
+}
+
+function setPresenceCounter(targetId, count) {
+  const counterId = targetId === 'activeUsersList' ? 'activeUsersCountBadge' : 'recentUsersCountBadge';
+  const counter = document.getElementById(counterId);
+  if (!counter) return;
+  if (targetId === 'activeUsersList') {
+    counter.textContent = `${count} ${count === 1 ? 'online' : 'online'}`;
+  } else {
+    counter.textContent = `${count} ${count === 1 ? 'Eintrag' : 'Einträge'}`;
+  }
+}
+
 function renderPresenceUsers(targetId, users = [], emptyText = 'Keine Einträge.', options = {}) {
   const list = document.getElementById(targetId);
   if (!list) return;
   const { showOnlineDot = false, recent = false } = options;
-  if (!Array.isArray(users) || !users.length) {
-    list.innerHTML = `<div class="active-users-empty">${emptyText}</div>`;
+  const safeUsers = Array.isArray(users) ? users : [];
+  setPresenceCounter(targetId, safeUsers.length);
+  if (!safeUsers.length) {
+    list.innerHTML = `<div class="active-users-empty">${escapeHtml(emptyText)}</div>`;
     return;
   }
 
-  list.innerHTML = users
+  list.innerHTML = safeUsers
     .map((user) => {
       const name = user.username || 'User';
+      const safeName = escapeHtml(name);
       const role = mapRoleLabel(user.role || 'customer');
-      const initial = getDisplayInitial(name, 'HM');
-      const avatar = user.avatar_url ? `<img src="${user.avatar_url}" alt="${name}" loading="lazy" decoding="async">` : `<strong>${initial}</strong>`;
+      const safeRole = escapeHtml(role);
+      const roleToneClass = getPresenceRoleToneClass(user.role || 'customer');
+      const initial = escapeHtml(getDisplayInitial(name, 'HM'));
+      const lastSeen = escapeHtml(formatPresenceTime(user.last_seen_at));
+      const presencePill = showOnlineDot
+        ? '<span class="active-user-presence-pill is-live"><span class="active-user-presence-pulse"></span>Live</span>'
+        : '<span class="active-user-presence-pill is-recent">Zuletzt online</span>';
+      const timeLabel = recent ? 'Zuletzt' : 'Aktivität';
+      const safeAvatarUrl = String(user.avatar_url || '').trim();
+      const avatar = safeAvatarUrl
+        ? `<img src="${escapeHtml(safeAvatarUrl)}" alt="${safeName}" loading="lazy" decoding="async">`
+        : `<strong>${initial}</strong>`;
       return `
-        <div class="active-user-row${recent ? ' is-recent' : ''}">
+        <div class="active-user-row${recent ? ' is-recent' : ' is-live'}">
           <div class="active-user-avatar">${avatar}${showOnlineDot ? '<span class="active-user-dot"></span>' : ''}</div>
           <div class="active-user-meta">
             <div class="active-user-topline">
-              <div class="active-user-name">${name}</div>
-              <div class="active-user-time">${formatPresenceTime(user.last_seen_at)}</div>
+              <div class="active-user-name-wrap">
+                <div class="active-user-name">${safeName}</div>
+                ${presencePill}
+              </div>
             </div>
-            <div class="active-user-role">${role}</div>
+            <div class="active-user-bottomline">
+              <div class="active-user-role ${roleToneClass}">${safeRole}</div>
+              <div class="active-user-time-block">
+                <span>${timeLabel}</span>
+                <strong>${lastSeen}</strong>
+              </div>
+            </div>
           </div>
         </div>
       `;
