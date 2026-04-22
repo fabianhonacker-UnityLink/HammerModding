@@ -437,12 +437,42 @@ function getDiscordElements() {
     joinButton: document.getElementById('discordJoinServerButton'),
     linkButton: document.getElementById('discordLinkButton'),
     refreshButton: document.getElementById('discordRefreshButton'),
+    signinButtons: Array.from(document.querySelectorAll('[data-auth-discord="signin"]')),
   };
 }
 
 function getCurrentDiscordAuthRedirectUrl() {
   const base = `${window.location.origin || ''}${window.location.pathname || ''}`.trim();
   return base || window.location.href.split('?')[0].split('#')[0];
+}
+
+function isUserAlreadyLoggedInForDiscordLink() {
+  return Boolean(liveAccountSnapshot.user && liveAccountSnapshot.session?.access_token);
+}
+
+function resolveDiscordAuthMode(requestedMode = 'signin') {
+  if (requestedMode === 'link') return 'link';
+  return isUserAlreadyLoggedInForDiscordLink() ? 'link' : 'signin';
+}
+
+function buildDiscordAuthStartMessage(mode = 'signin') {
+  return mode === 'link'
+    ? 'Discord-Verknüpfung startet …'
+    : 'Discord-Anmeldung startet …';
+}
+
+function getDiscordLinkConflictMessage(error) {
+  const raw = String(error?.message || '').trim();
+  const normalized = raw.toLowerCase();
+
+  if (!raw) return '';
+  if (normalized.includes('identity is already linked') || normalized.includes('already linked') || normalized.includes('already been registered')) {
+    return 'Dieses Discord-Konto ist bereits mit einem anderen Website-Konto verknüpft. Lösche erst den versehentlich erstellten Discord-Account in Supabase und versuche es danach erneut.';
+  }
+  if (normalized.includes('manual linking')) {
+    return 'Bitte manuelles Identity Linking in Supabase aktivieren.';
+  }
+  return raw;
 }
 
 function getDiscordIdentityFromUser(user) {
@@ -506,7 +536,9 @@ function buildDiscordRequirementMessage(status) {
   }
 
   if (!status.connected) {
-    return 'Für Checkout und Community-Zugang bitte zuerst dein Discord-Konto verbinden.';
+    return status?.manualLinkingEnabled
+      ? 'Nutze jetzt "Discord verknüpfen", damit dein bestehendes Website-Konto mit Discord verbunden wird.'
+      : 'Für Checkout und Community-Zugang bitte zuerst dein Discord-Konto verbinden.';
   }
 
   if (!status.inGuild) {
@@ -533,15 +565,28 @@ function updateDiscordStatusUi(status = null) {
         ? 'Bestätigt'
         : 'Noch nicht im Server';
   const discordIdText = current?.discordUserId || '-';
+  const showSignin = !isLoggedIn;
+  const showLink = isLoggedIn && !Boolean(current?.connected);
 
   if (elements.linkValue) elements.linkValue.textContent = linkText;
   if (elements.guildValue) elements.guildValue.textContent = guildText;
   if (elements.idValue) elements.idValue.textContent = discordIdText;
-  if (elements.linkButton) elements.linkButton.classList.toggle('hidden-section', !isLoggedIn || Boolean(current?.connected));
+  if (elements.signinButtons?.length) {
+    elements.signinButtons.forEach((button) => {
+      button.classList.toggle('hidden-section', !showSignin);
+    });
+  }
+  if (elements.linkButton) {
+    elements.linkButton.classList.toggle('hidden-section', !showLink);
+    elements.linkButton.textContent = current?.manualLinkingEnabled ? 'Discord verknüpfen' : 'Discord verbinden';
+  }
   if (elements.joinButton) {
     const joinUrl = current?.inviteUrl || '';
     elements.joinButton.classList.toggle('hidden-section', !(joinUrl && current?.configured && current?.connected && !current?.inGuild));
     if (joinUrl) elements.joinButton.href = joinUrl;
+  }
+  if (elements.refreshButton) {
+    elements.refreshButton.classList.toggle('hidden-section', !isLoggedIn);
   }
   if (elements.message) {
     setAuthMessage(
@@ -2115,7 +2160,7 @@ async function fetchLiveDiscordStatus({ force = false } = {}) {
   }
 }
 
-function setDiscordButtonsBusy(isBusy, label = '') {
+function setDiscordButtonsBusy(isBusy, label = '', activeMode = '') {
   ['signin', 'link'].forEach((mode) => {
     document.querySelectorAll(`[data-auth-discord="${mode}"]`).forEach((button) => {
       if (!(button instanceof HTMLButtonElement)) return;
@@ -2123,7 +2168,7 @@ function setDiscordButtonsBusy(isBusy, label = '') {
         button.dataset.originalText = button.textContent || '';
       }
       button.disabled = isBusy;
-      if (label) {
+      if (isBusy && activeMode && mode === activeMode && label) {
         button.textContent = label;
       } else if (!isBusy && button.dataset.originalText) {
         button.textContent = button.dataset.originalText;
@@ -2153,23 +2198,26 @@ async function handleDiscordAuthAction(mode = 'signin') {
     return;
   }
 
-  setDiscordButtonsBusy(true, mode === 'link' ? 'Verbinde Discord ...' : 'Discord startet ...');
+  const resolvedMode = resolveDiscordAuthMode(mode);
+  setDiscordButtonsBusy(true, buildDiscordAuthStartMessage(resolvedMode), resolvedMode);
 
   try {
     const options = {
       redirectTo: getCurrentDiscordAuthRedirectUrl(),
       scopes: 'identify email',
+      queryParams: resolvedMode === 'link'
+        ? { hm_discord_link: '1' }
+        : { hm_discord_signin: '1' },
     };
 
-    const result = mode === 'link' && liveAccountSnapshot.user
+    const result = resolvedMode === 'link' && liveAccountSnapshot.user
       ? await client.auth.linkIdentity({ provider: 'discord', options })
       : await client.auth.signInWithOAuth({ provider: 'discord', options });
 
     if (result?.error) throw result.error;
   } catch (error) {
-    const message = String(error?.message || 'Discord-Verbindung konnte nicht gestartet werden.');
     const target = discordElements.message || authElements.loginMessage || authElements.registerMessage;
-    setAuthMessage(target, message.includes('manual linking') ? 'Bitte manuelles Identity Linking in Supabase aktivieren.' : message, 'warn');
+    setAuthMessage(target, getDiscordLinkConflictMessage(error) || 'Discord-Verbindung konnte nicht gestartet werden.', 'warn');
     setDiscordButtonsBusy(false);
   }
 }
