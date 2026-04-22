@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { getUserFromJwt, getOwnProfile } from '../lib/supabase.js';
-import { createBasket, addPackageToBasket, getBasketAuthLinks, getBasket, getPackage } from '../lib/tebex.js';
-import { extractDiscordIdentityFromUser, getDiscordFeatureConfig, getGuildMembershipStatus } from '../lib/discord.js';
+import { createBasket, addPackageToBasket, getBasketAuthLinks, getBasket } from '../lib/tebex.js';
 
 export const tebexRouter = Router();
 
@@ -9,6 +8,27 @@ function getBearerToken(req) {
   const header = req.headers.authorization || '';
   if (!header.toLowerCase().startsWith('bearer ')) return '';
   return header.slice(7).trim();
+}
+
+function normalizeOptionalString(value) {
+  const normalized = String(value || '').trim();
+  return normalized || '';
+}
+
+function truncateText(value, maxLength = 450) {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) return '';
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength - 3)}...`;
+}
+
+function safeJsonStringify(value, maxLength = 450) {
+  if (value === null || value === undefined) return '';
+  try {
+    return truncateText(JSON.stringify(value), maxLength);
+  } catch {
+    return truncateText(String(value), maxLength);
+  }
 }
 
 function getClientIPv4(req) {
@@ -49,24 +69,40 @@ function normalizeItems(items) {
   });
 }
 
-function normalizeOptionalString(value) {
-  const normalized = String(value || '').trim();
-  return normalized || '';
-}
+function extractDiscordUserId(authUser) {
+  const directCandidates = [
+    authUser?.user_metadata?.discord_id,
+    authUser?.user_metadata?.provider_id,
+    authUser?.app_metadata?.discord_id,
+    authUser?.app_metadata?.provider_id,
+  ];
 
-function buildDiscordRequirementError(message) {
-  const error = new Error(message);
-  error.statusCode = 403;
-  error.publicMessage = message;
-  return error;
-}
+  for (const candidate of directCandidates) {
+    const normalized = normalizeOptionalString(candidate);
+    if (normalized) return normalized;
+  }
 
-function buildDiscordDisplayName({ profile, identity }) {
-  return normalizeOptionalString(
-    profile?.discord_name
-      || identity?.globalName
-      || identity?.username,
-  );
+  const identities = Array.isArray(authUser?.identities) ? authUser.identities : [];
+  for (const identity of identities) {
+    const provider = normalizeOptionalString(identity?.provider).toLowerCase();
+    if (provider !== 'discord') continue;
+
+    const identityCandidates = [
+      identity?.provider_id,
+      identity?.identity_data?.provider_id,
+      identity?.identity_data?.user_id,
+      identity?.identity_data?.sub,
+      identity?.user_id,
+      identity?.id,
+    ];
+
+    for (const candidate of identityCandidates) {
+      const normalized = normalizeOptionalString(candidate);
+      if (normalized) return normalized;
+    }
+  }
+
+  return '';
 }
 
 async function resolveCheckoutContext(req, { requireItems = true, requireBasketIdent = false } = {}) {
@@ -100,39 +136,12 @@ async function resolveCheckoutContext(req, { requireItems = true, requireBasketI
 
   const items = requireItems ? normalizeItems(req.body?.items) : [];
   const role = String(profile?.role || 'customer').trim().toLowerCase();
-  const discordConfig = getDiscordFeatureConfig();
-  const discordIdentity = extractDiscordIdentityFromUser(authUser);
-  const discordDisplayName = buildDiscordDisplayName({ profile, identity: discordIdentity });
-  const discordUserId = normalizeOptionalString(discordIdentity?.discordUserId);
-
-  let discordMembership = {
-    configured: discordConfig.configured,
-    checked: false,
-    inGuild: false,
-    guildId: discordConfig.guildId,
-    guildName: discordConfig.guildName,
-    inviteUrl: discordConfig.inviteUrl,
-  };
-
-  if (discordConfig.configured && discordUserId) {
-    discordMembership = await getGuildMembershipStatus({ discordUserId });
-  }
-
-  if (discordConfig.requiredForCheckout) {
-    if (!discordUserId) {
-      throw buildDiscordRequirementError('Bitte verbinde zuerst dein Discord-Konto, bevor du den Checkout startest.');
-    }
-
-    if (!discordMembership?.inGuild) {
-      throw buildDiscordRequirementError(`Bitte tritt zuerst dem ${discordConfig.guildName} Discord bei, bevor du einkaufst.`);
-    }
-  }
-
+  const discordUserId = extractDiscordUserId(authUser);
   const custom = {
     supabase_user_id: authUser.id,
     email: profile?.email || authUser?.email || '',
     username: profile?.username || authUser?.email?.split('@')[0] || 'User',
-    discord_name: discordDisplayName,
+    discord_name: profile?.discord_name || authUser?.user_metadata?.discord_name || '',
     discord_id: discordUserId,
     cfx_identifier: profile?.cfx_identifier || '',
     app_role: role,
@@ -147,8 +156,6 @@ async function resolveCheckoutContext(req, { requireItems = true, requireBasketI
     completeUrl,
     cancelUrl,
     custom,
-    discordConfig,
-    discordMembership,
     discordUserId,
     ipAddress: getClientIPv4(req),
   };
@@ -171,110 +178,14 @@ function getBasketUsernameId(basketData) {
   return basketData?.username_id || basketData?.data?.username_id || null;
 }
 
-function tryCollectServerId(value, bucket) {
-  const normalized = normalizeOptionalString(value);
-  if (!normalized) return;
-  bucket.add(normalized);
-}
-
-function buildPayCheckoutUrl(basketIdent) {
-  const ident = normalizeOptionalString(basketIdent);
-  return ident ? `https://pay.tebex.io/${encodeURIComponent(ident)}` : '';
-}
-
-function extractCheckoutLinks(source, basketIdent = '') {
-  const root = source?.data || source || {};
-  const links = root?.links || source?.links || {};
-  const checkoutUrl = (
-    normalizeOptionalString(links?.checkout)
-    || normalizeOptionalString(root?.checkout_url)
-    || normalizeOptionalString(root?.checkoutUrl)
-    || buildPayCheckoutUrl(root?.ident || basketIdent)
-  );
-  const paymentUrl = (
-    normalizeOptionalString(links?.payment)
-    || normalizeOptionalString(root?.payment_url)
-    || normalizeOptionalString(root?.paymentUrl)
-  );
-
-  return {
-    checkoutUrl,
-    paymentUrl,
-  };
-}
-
-function inferServerIdFromPackage(packageData) {
-  const envServerId = normalizeOptionalString(process.env.TEBEX_DEFAULT_SERVER_ID);
-  if (envServerId) return envServerId;
-  if (!packageData || typeof packageData !== 'object') return '';
-
-  const serverIds = new Set();
-  const seen = new WeakSet();
-
-  function visit(node, parentKey = '') {
-    if (!node || typeof node !== 'object') return;
-    if (seen.has(node)) return;
-    seen.add(node);
-
-    if (Array.isArray(node)) {
-      node.forEach((entry) => visit(entry, parentKey));
-      return;
-    }
-
-    Object.entries(node).forEach(([key, value]) => {
-      const lowerKey = key.toLowerCase();
-      const lowerParent = String(parentKey || '').toLowerCase();
-
-      if (lowerKey === 'server_id' || (lowerKey === 'id' && lowerParent.includes('server'))) {
-        tryCollectServerId(value, serverIds);
-      }
-
-      if (lowerKey.includes('server')) {
-        if (Array.isArray(value)) {
-          value.forEach((entry) => {
-            if (entry && typeof entry === 'object') {
-              tryCollectServerId(entry.server_id, serverIds);
-              tryCollectServerId(entry.id, serverIds);
-            }
-            visit(entry, key);
-          });
-          return;
-        }
-
-        if (value && typeof value === 'object') {
-          tryCollectServerId(value.server_id, serverIds);
-          tryCollectServerId(value.id, serverIds);
-        }
-      }
-
-      visit(value, key);
-    });
-  }
-
-  visit(packageData);
-
-  if (serverIds.size === 1) {
-    return Array.from(serverIds)[0];
-  }
-
-  return '';
-}
-
-function buildVariableDataCandidates({ basketUsernameId, packageServerId, discordUserId }) {
+function buildVariableDataCandidates({ basketUsernameId, discordUserId }) {
   const username = normalizeOptionalString(basketUsernameId);
-  const serverId = normalizeOptionalString(packageServerId);
   const discordId = normalizeOptionalString(discordUserId);
 
   const candidates = [
     discordId ? { discord_id: discordId } : null,
     discordId && username ? { discord_id: discordId, username_id: username } : null,
-    discordId && serverId ? { discord_id: discordId, server_id: serverId } : null,
-    discordId && username && serverId
-      ? { discord_id: discordId, username_id: username, server_id: serverId }
-      : null,
     username ? { username_id: username } : null,
-    username && serverId ? { username_id: username, server_id: serverId } : null,
-    serverId ? { server_id: serverId } : null,
     null,
   ];
 
@@ -288,14 +199,14 @@ function buildVariableDataCandidates({ basketUsernameId, packageServerId, discor
 }
 
 function isPackageRetryWorthyError(error) {
-  const detail = `${error?.message || ''} ${error?.publicMessage || ''}`.toLowerCase();
+  const detail = `${error?.message || ''} ${error?.publicMessage || ''} ${safeJsonStringify(error?.tebexJson || '')}`.toLowerCase();
   return (
     detail.includes('invalid options')
     || detail.includes('invalid option')
     || detail.includes('username_id')
-    || detail.includes('server_id')
     || detail.includes('discord_id')
     || detail.includes('option')
+    || detail.includes('quantity cannot be greater than 1')
     || detail.includes('while processing your request')
     || detail.includes('error while processing your request')
   );
@@ -374,48 +285,58 @@ async function refreshBasketPackageQuantities(basketIdent) {
   }
 }
 
-function createPackageFinalizeError(error, { item, packageServerId, discordUserId, attemptedCandidates, actualAttempts }) {
-  const detail = String(error?.message || error?.publicMessage || 'Tebex-Paket konnte nicht hinzugefügt werden.').trim();
-  const hintParts = [];
+function formatVariableCandidate(candidate) {
+  return candidate ? safeJsonStringify(candidate, 180) : 'ohne variable_data';
+}
 
-  if (packageServerId) {
-    hintParts.push(`Server-ID ${packageServerId} wurde geprüft`);
+function formatTebexAttemptError(error) {
+  const status = normalizeOptionalString(error?.tebexStatus || error?.statusCode || '');
+  const detail = truncateText(error?.tebexDetail || error?.message || error?.publicMessage || 'Unbekannter Tebex-Fehler', 260);
+  const tebexBody = error?.tebexJson ? safeJsonStringify(error.tebexJson, 420) : truncateText(error?.tebexRawText || '', 420);
+
+  if (status && tebexBody && tebexBody !== detail) {
+    return `HTTP ${status}: ${detail} | Tebex: ${tebexBody}`;
   }
+
+  if (status) {
+    return `HTTP ${status}: ${detail}`;
+  }
+
+  if (tebexBody && tebexBody !== detail) {
+    return `${detail} | Tebex: ${tebexBody}`;
+  }
+
+  return detail;
+}
+
+function createPackageFinalizeError(error, { item, discordUserId, attemptedResults, actualAttempts }) {
+  const detail = String(error?.message || error?.publicMessage || 'Tebex-Paket konnte nicht hinzugefügt werden.').trim();
+  const infoLines = [];
 
   if (discordUserId) {
-    hintParts.push(`Discord-ID ${discordUserId} wurde geprüft`);
+    infoLines.push(`Discord-ID ${discordUserId} wurde geprüft.`);
   }
 
-  if (!hintParts.length) {
-    hintParts.push('Bitte die Deliverables und Variablen des Tebex-Pakets prüfen');
-  }
-
-  if (attemptedCandidates.length) {
-    const candidateLabels = attemptedCandidates.map((candidate) => (candidate ? JSON.stringify(candidate) : 'ohne variable_data'));
-    hintParts.push(`Getestet: ${candidateLabels.join(' → ')}`);
+  if (attemptedResults.length) {
+    const tests = attemptedResults.map((result) => `${formatVariableCandidate(result.candidate)} => ${result.summary}`);
+    infoLines.push(`Tests:\n- ${tests.join('\n- ')}`);
   }
 
   const wrapped = new Error(detail);
   wrapped.statusCode = error?.statusCode || 502;
-  wrapped.publicMessage = `Checkout für "${item?.name || 'Paket'}" (#${item?.packageId || '-'}) fehlgeschlagen: ${detail}. ${hintParts.join(' · ')}. Versuche: ${actualAttempts}.`;
+  wrapped.publicMessage = `Checkout für "${item?.name || 'Paket'}" (Paket-ID ${item?.packageId || '-'}) fehlgeschlagen: ${detail}. ${infoLines.join(' ')}`.trim();
+  wrapped.debug = {
+    packageId: item?.packageId || '',
+    discordUserId,
+    actualAttempts,
+    attemptedResults,
+  };
   return wrapped;
 }
 
-async function getPackageForCheckout(packageId) {
-  try {
-    const response = await getPackage({ packageId });
-    return response?.data || response || null;
-  } catch (_error) {
-    return null;
-  }
-}
-
 async function addPackageToBasketWithSmartRetry({ basketIdent, item, context, basketUsernameId, knownPackageQuantities = new Map() }) {
-  const packageData = await getPackageForCheckout(item.packageId);
-  const packageServerId = inferServerIdFromPackage(packageData);
   const variableCandidates = buildVariableDataCandidates({
     basketUsernameId,
-    packageServerId,
     discordUserId: context.discordUserId,
   });
 
@@ -430,11 +351,10 @@ async function addPackageToBasketWithSmartRetry({ basketIdent, item, context, ba
 
   let lastError = null;
   let actualAttempts = 0;
-  const attemptedCandidates = [];
+  const attemptedResults = [];
 
   for (const variableData of variableCandidates) {
     actualAttempts += 1;
-    attemptedCandidates.push(variableData || null);
     try {
       const response = await addPackageToBasket({
         basketIdent,
@@ -451,6 +371,10 @@ async function addPackageToBasketWithSmartRetry({ basketIdent, item, context, ba
       return response;
     } catch (error) {
       lastError = error;
+      attemptedResults.push({
+        candidate: variableData || null,
+        summary: formatTebexAttemptError(error),
+      });
 
       if (isQuantityLimitError(error)) {
         const refreshed = await refreshBasketPackageQuantities(basketIdent);
@@ -468,9 +392,8 @@ async function addPackageToBasketWithSmartRetry({ basketIdent, item, context, ba
       if (!isPackageRetryWorthyError(error)) {
         throw createPackageFinalizeError(error, {
           item,
-          packageServerId,
           discordUserId: context.discordUserId,
-          attemptedCandidates,
+          attemptedResults,
           actualAttempts,
         });
       }
@@ -479,9 +402,8 @@ async function addPackageToBasketWithSmartRetry({ basketIdent, item, context, ba
 
   throw createPackageFinalizeError(lastError, {
     item,
-    packageServerId,
     discordUserId: context.discordUserId,
-    attemptedCandidates,
+    attemptedResults,
     actualAttempts,
   });
 }
@@ -522,20 +444,16 @@ tebexRouter.post('/checkout/start', async (req, res, next) => {
     }
 
     const preferredAuthLink = pickPreferredAuthLink(authLinks);
-    const basketLinks = extractCheckoutLinks(basket, basket.ident);
 
     res.json({
       ok: true,
       basketIdent: basket.ident,
-      checkoutUrl: basketLinks.checkoutUrl || null,
-      paymentUrl: basketLinks.paymentUrl || null,
+      checkoutUrl: basket.links?.checkout || null,
+      paymentUrl: basket.links?.payment || null,
       authUrl: preferredAuthLink?.url || null,
       authName: preferredAuthLink?.name || null,
       authReturnUrl,
       requiresAuth: Boolean(preferredAuthLink?.url),
-      discordRequired: Boolean(context.discordConfig.requiredForCheckout),
-      discordConnected: Boolean(context.discordUserId),
-      discordInGuild: Boolean(context.discordMembership?.inGuild),
       message: preferredAuthLink?.url
         ? 'Tebex-Authentifizierung erforderlich.'
         : 'Tebex-Basket wurde erfolgreich erstellt.',
@@ -552,7 +470,6 @@ tebexRouter.post('/checkout/finalize', async (req, res, next) => {
     const basketResponse = await getBasket({ basketIdent: context.basketIdent });
     const basket = basketResponse?.data || basketResponse;
     const basketUsernameId = getBasketUsernameId(basket);
-    const basketPackageQuantities = extractBasketPackageQuantities(basket);
 
     if (!basketUsernameId) {
       const error = new Error('Tebex-Benutzer ist noch nicht mit dem Basket verknüpft.');
@@ -561,38 +478,24 @@ tebexRouter.post('/checkout/finalize', async (req, res, next) => {
       throw error;
     }
 
-    let lastPackageResponse = null;
+    const knownPackageQuantities = extractBasketPackageQuantities(basket);
 
     for (const item of context.items) {
-      lastPackageResponse = await addPackageToBasketWithSmartRetry({
+      await addPackageToBasketWithSmartRetry({
         basketIdent: context.basketIdent,
         item,
         context,
         basketUsernameId,
-        knownPackageQuantities: basketPackageQuantities,
+        knownPackageQuantities,
       });
     }
-
-    let refreshedBasket = null;
-    try {
-      const refreshedBasketResponse = await getBasket({ basketIdent: context.basketIdent });
-      refreshedBasket = refreshedBasketResponse?.data || refreshedBasketResponse || null;
-    } catch (_error) {
-      refreshedBasket = null;
-    }
-
-    const refreshedLinks = extractCheckoutLinks(refreshedBasket, context.basketIdent);
-    const lastPackageLinks = extractCheckoutLinks(lastPackageResponse, context.basketIdent);
-    const requestCheckoutUrl = normalizeOptionalString(req.body?.checkoutUrl);
-    const requestPaymentUrl = normalizeOptionalString(req.body?.paymentUrl);
 
     res.json({
       ok: true,
       basketIdent: context.basketIdent,
-      checkoutUrl: refreshedLinks.checkoutUrl || lastPackageLinks.checkoutUrl || requestCheckoutUrl || buildPayCheckoutUrl(context.basketIdent) || null,
-      paymentUrl: refreshedLinks.paymentUrl || lastPackageLinks.paymentUrl || requestPaymentUrl || null,
+      checkoutUrl: String(req.body?.checkoutUrl || '').trim() || null,
+      paymentUrl: String(req.body?.paymentUrl || '').trim() || null,
       usernameId: basketUsernameId,
-      discordUserId: context.discordUserId || null,
       message: 'Pakete wurden dem Tebex-Basket hinzugefügt.',
     });
   } catch (error) {
