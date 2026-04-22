@@ -105,6 +105,24 @@ const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
   lastPreparedItem: null,
 });
 
+const supabaseProductPresentation = {
+  'berlin-strassen-crew': {
+    badge: 'Berlin Crew',
+    image: 'assets/berlin-strassen-crew.png',
+    priceHint: 'Kleidungs-Pack',
+  },
+  'tuner-v2': {
+    badge: 'Tuner',
+    image: 'assets/tuner-v2.png',
+    priceHint: 'Kleidungs-Pack',
+  },
+  'weed-outfit': {
+    badge: 'Hotbox',
+    image: 'assets/weed-outfit.png',
+    priceHint: 'Kleidungs-Pack',
+  },
+};
+
 const SUPABASE_PROJECT_REF = 'gvyglxlxvnvpykbwaqnx';
 const SUPABASE_PROJECT_URL = 'https://gvyglxlxvnvpykbwaqnx.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_1QiVV_QTfZL8H3Uh-Bdaqw_FpjCZqzv';
@@ -131,6 +149,9 @@ let tebexResumeRetryTimer = null;
 let discordStatusInFlight = null;
 let discordStatusCheckedAtMs = 0;
 const discordStatusCacheMs = 30000;
+let supabaseProductsBooted = false;
+let supabaseManagedProductsCache = [];
+let clothingUiSnapshot = null;
 
 
 function formatRelativeDate(value) {
@@ -2162,6 +2183,267 @@ function getSupabaseClient() {
 }
 
 
+function setStoreStatCount(labelText, nextValue) {
+  document.querySelectorAll('.store-stat-tile').forEach((tile) => {
+    const label = tile.querySelector('span');
+    const value = tile.querySelector('strong');
+    if (!label || !value) return;
+    if (label.textContent.trim().toLowerCase() === String(labelText || '').trim().toLowerCase()) {
+      value.textContent = String(nextValue);
+    }
+  });
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatSupabasePriceValue(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric.toFixed(2) : '0.00';
+}
+
+function formatSupabasePriceLabel(value) {
+  return `${formatSupabasePriceValue(value).replace('.', ',')} €`;
+}
+
+function normalizeSupabaseProductRow(row) {
+  if (!row || !row.slug || !row.title) return null;
+  return {
+    ...row,
+    slug: String(row.slug).trim(),
+    title: String(row.title).trim(),
+    category: String(row.category || 'other').trim().toLowerCase(),
+    product_type: String(row.product_type || row.category || 'other').trim().toLowerCase(),
+    price_eur: Number.isFinite(Number(row.price_eur)) ? Number(row.price_eur) : 0,
+    short_description: String(row.short_description || '').trim(),
+    full_description: String(row.full_description || '').trim(),
+    image_url: String(row.image_url || '').trim(),
+    tebex_package_id: String(row.tebex_package_id || '').trim(),
+    is_active: row.is_active !== false,
+    is_featured: row.is_featured === true,
+    sort_order: Number.isFinite(Number(row.sort_order)) ? Number(row.sort_order) : 0,
+  };
+}
+
+function getSupabaseProductPresentation(row) {
+  const preset = supabaseProductPresentation[row.slug] || {};
+  const firstWord = row.title.split(/\s+/).filter(Boolean)[0] || 'Produkt';
+  return {
+    badge: preset.badge || firstWord,
+    image: row.image_url || preset.image || 'assets/clothing.webp',
+    priceHint: preset.priceHint || (row.product_type === 'clothing' ? 'Kleidungs-Pack' : 'Produkt'),
+  };
+}
+
+function upsertCatalogProductFromSupabase(row) {
+  const normalizedType = row.product_type === 'free_script'
+    ? 'free-script'
+    : row.category === 'clothing' || row.product_type === 'clothing'
+      ? 'clothing'
+      : 'paid-script';
+
+  storeCatalog[row.slug] = {
+    id: storeCatalog[row.slug]?.id || row.slug,
+    slug: row.slug,
+    name: row.title,
+    price: formatSupabasePriceValue(row.price_eur),
+    priceLabel: formatSupabasePriceLabel(row.price_eur),
+    type: normalizedType,
+    tebexPackageId: row.tebex_package_id || storeCatalog[row.slug]?.tebexPackageId || '',
+  };
+
+  if (row.tebex_package_id) {
+    tebexPackageMap[row.slug] = row.tebex_package_id;
+  }
+}
+
+function captureClothingUiSnapshot() {
+  if (clothingUiSnapshot) return clothingUiSnapshot;
+
+  const homeGroups = Array.from(document.querySelectorAll('.slider-track-clothing .slider-group'));
+  const primaryHomeGroup = homeGroups[0] || null;
+  const homeItems = Array.from(primaryHomeGroup?.children || []);
+  const homeLiveCards = new Map();
+  const homePreviewCards = [];
+
+  homeItems.forEach((item) => {
+    const slug = item.querySelector('[data-open-script]')?.dataset.openScript || '';
+    if (slug) {
+      homeLiveCards.set(slug, item.outerHTML);
+    } else {
+      homePreviewCards.push(item.outerHTML);
+    }
+  });
+
+  const clothingGrid = document.getElementById('clothingGrid');
+  const gridItems = Array.from(clothingGrid?.children || []);
+  const gridLiveCards = new Map();
+  const gridPreviewCards = [];
+
+  gridItems.forEach((item) => {
+    const slug = item.querySelector('[data-open-script]')?.dataset.openScript || '';
+    if (item.classList.contains('clothing-card-live') && slug) {
+      gridLiveCards.set(slug, item.outerHTML);
+    } else {
+      gridPreviewCards.push(item.outerHTML);
+    }
+  });
+
+  clothingUiSnapshot = {
+    homeLiveCards,
+    homePreviewCards,
+    gridLiveCards,
+    gridPreviewCards,
+  };
+
+  return clothingUiSnapshot;
+}
+
+function buildDynamicProductActionMarkup(row) {
+  const catalogItem = getCatalogItem(row.slug) || storeCatalog[row.slug];
+  const hasDetail = Boolean(detailSections[row.slug]);
+
+  if (hasDetail) {
+    return `<a class="card-link" data-open-script="${escapeHtml(row.slug)}" href="#">Produkt ansehen</a>`;
+  }
+
+  return `
+    <button
+      class="card-link"
+      data-cart-add="true"
+      data-product-id="${escapeHtml(catalogItem?.id || row.slug)}"
+      data-product-name="${escapeHtml(row.title)}"
+      data-product-price="${escapeHtml(formatSupabasePriceValue(row.price_eur))}"
+      data-product-price-label="${escapeHtml(formatSupabasePriceLabel(row.price_eur))}"
+      data-product-slug="${escapeHtml(row.slug)}"
+      data-product-type="${escapeHtml(catalogItem?.type || 'clothing')}"
+      type="button"
+    >Warenkorb hinzufügen</button>
+  `;
+}
+
+function buildDynamicHomeClothingCardHtml(row) {
+  const presentation = getSupabaseProductPresentation(row);
+  return `
+    <article class="product-card glass-soft searchable marquee-card dynamic-product-card" data-product-slug="${escapeHtml(row.slug)}" data-type="${escapeHtml(`${row.category} ${row.product_type} ${row.slug} ${row.title}`)}">
+      <div class="card-badge">${escapeHtml(presentation.badge)}</div>
+      <div class="card-main card-main-vertical compact-home-card">
+        <img alt="${escapeHtml(row.title)}" decoding="async" loading="lazy" src="${escapeHtml(presentation.image)}"/>
+        <div>
+          <h4>${escapeHtml(row.title)}</h4>
+          <p>${escapeHtml(row.short_description || row.full_description || 'Live aus Supabase geladen.')}</p>
+          <div class="price-row"><strong>${escapeHtml(formatSupabasePriceLabel(row.price_eur))}</strong><small>${escapeHtml(presentation.priceHint)}</small></div>
+        </div>
+      </div>
+      ${buildDynamicProductActionMarkup(row)}
+    </article>
+  `;
+}
+
+function buildDynamicGridClothingCardHtml(row) {
+  const presentation = getSupabaseProductPresentation(row);
+  return `
+    <article class="product-card glass-soft searchable clothing-card clothing-card-live dynamic-product-card" data-product-slug="${escapeHtml(row.slug)}" data-category="${escapeHtml(row.slug)}" data-type="${escapeHtml(`${row.category} ${row.product_type} live ${row.slug} ${row.title}`)}">
+      <div class="card-badge">${escapeHtml(presentation.badge)}</div>
+      <div class="card-main card-main-vertical">
+        <img alt="${escapeHtml(row.title)}" decoding="async" loading="lazy" src="${escapeHtml(presentation.image)}"/>
+        <div>
+          <h4>${escapeHtml(row.title)}</h4>
+          <p>${escapeHtml(row.short_description || row.full_description || 'Live aus Supabase geladen.')}</p>
+          <div class="price-row"><strong>${escapeHtml(formatSupabasePriceLabel(row.price_eur))}</strong><small>${escapeHtml(presentation.priceHint)}</small></div>
+        </div>
+      </div>
+      ${buildDynamicProductActionMarkup(row)}
+    </article>
+  `;
+}
+
+function renderSupabaseManagedProducts(products) {
+  const snapshot = captureClothingUiSnapshot();
+  const liveClothingProducts = products.filter((row) => row.is_active && row.category === 'clothing');
+
+  liveClothingProducts.forEach(upsertCatalogProductFromSupabase);
+  supabaseManagedProductsCache = liveClothingProducts.slice();
+  hmStoreBridge.supabaseManagedProducts = supabaseManagedProductsCache.slice();
+
+  if (!liveClothingProducts.length) return;
+
+  const mergedHomeLive = new Map(snapshot.homeLiveCards);
+  const mergedGridLive = new Map(snapshot.gridLiveCards);
+
+  liveClothingProducts.forEach((row) => {
+    mergedHomeLive.set(row.slug, buildDynamicHomeClothingCardHtml(row));
+    mergedGridLive.set(row.slug, buildDynamicGridClothingCardHtml(row));
+  });
+
+  const homeGroups = Array.from(document.querySelectorAll('.slider-track-clothing .slider-group'));
+  const primaryHomeGroup = homeGroups[0] || null;
+  const secondaryHomeGroup = homeGroups[1] || null;
+  const homeMarkup = [...mergedHomeLive.values(), ...snapshot.homePreviewCards].join('');
+
+  if (primaryHomeGroup) primaryHomeGroup.innerHTML = homeMarkup;
+  if (secondaryHomeGroup) secondaryHomeGroup.innerHTML = homeMarkup;
+
+  const clothingGrid = document.getElementById('clothingGrid');
+  if (clothingGrid) {
+    clothingGrid.innerHTML = [...mergedGridLive.values(), ...snapshot.gridPreviewCards].join('');
+  }
+
+  const staticNonClothingLiveCount = new Set(
+    Object.values(storeCatalog)
+      .filter((item) => item && item.type !== 'clothing')
+      .map((item) => item.slug),
+  ).size;
+
+  setStoreStatCount('Kleidungs-Packs', mergedGridLive.size);
+  setStoreStatCount('Live-Produkte', staticNonClothingLiveCount + mergedGridLive.size);
+
+  bindPreparedCartButtons(document);
+  refreshSearchableCards();
+  updateCartButtonsState(loadVisibleCart());
+}
+
+async function loadSupabaseManagedProducts() {
+  if (supabaseProductsBooted) return supabaseManagedProductsCache;
+  supabaseProductsBooted = true;
+
+  const client = getSupabaseClient();
+  if (!client) return [];
+
+  const foundation = loadFoundationState();
+  const productsTable = foundation.productsTable || 'products';
+
+  try {
+    const { data, error } = await withTimeout(
+      client
+        .from(productsTable)
+        .select('title, slug, category, product_type, price_eur, short_description, full_description, image_url, tebex_package_id, is_active, is_featured, sort_order, created_at')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false }),
+      12000,
+    );
+
+    if (error) throw error;
+
+    const normalizedProducts = Array.isArray(data)
+      ? data.map(normalizeSupabaseProductRow).filter(Boolean)
+      : [];
+
+    renderSupabaseManagedProducts(normalizedProducts);
+    return normalizedProducts;
+  } catch (error) {
+    console.warn('Supabase-Produkte konnten nicht geladen werden. Fallback bleibt aktiv.', error);
+    return [];
+  }
+}
+
 function createAuthTimeoutError() {
   const error = new Error('Datenbank nicht erreichbar. Bitte später erneut versuchen.');
   error.code = 'AUTH_TIMEOUT';
@@ -2808,11 +3090,12 @@ async function copyTextToClipboard(text) {
   }
 }
 
-function setupPreparedCartButtons() {
-
-  const buttons = document.querySelectorAll('[data-cart-add="true"]');
+function bindPreparedCartButtons(root = document) {
+  const buttons = Array.from(root.querySelectorAll('[data-cart-add="true"]'));
 
   buttons.forEach((button) => {
+    if (button.dataset.cartBound === 'true') return;
+
     const preparedItem = buildPreparedCartItem(button);
 
     if (!preparedItem) {
@@ -2821,15 +3104,21 @@ function setupPreparedCartButtons() {
     }
 
     button.dataset.cartReady = 'true';
+    button.dataset.cartBound = 'true';
     button.setAttribute('aria-label', `${preparedItem.name} zum Warenkorb hinzufügen`);
 
-    button.addEventListener('click', () => {
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
       const item = buildPreparedCartItem(button);
       if (!item) return;
       addPreparedItemToCart(item);
       pulsePreparedCartButton(button);
     });
   });
+}
+
+function setupPreparedCartButtons() {
+  bindPreparedCartButtons(document);
 
   const initialCart = loadVisibleCart();
   persistVisibleCart(initialCart);
@@ -2848,14 +3137,23 @@ function bindNavigationHandlers() {
   navigationHandlersBound = true;
 }
 
+function applyProductSearchFilter(query = searchInput?.value || '') {
+  const q = String(query || '').trim().toLowerCase();
+  searchables.forEach((card) => {
+    const haystack = (card.innerText + ' ' + (card.dataset.type || '')).toLowerCase();
+    card.style.display = haystack.includes(q) ? '' : 'none';
+  });
+}
+
+function refreshSearchableCards() {
+  searchables = Array.from(document.querySelectorAll('.searchable'));
+  applyProductSearchFilter(searchInput?.value || '');
+}
+
 function bindSearchHandler() {
   if (searchHandlerBound || !searchInput) return;
   searchInput.addEventListener('input', (e) => {
-    const q = e.target.value.trim().toLowerCase();
-    searchables.forEach((card) => {
-      const haystack = (card.innerText + ' ' + (card.dataset.type || '')).toLowerCase();
-      card.style.display = haystack.includes(q) ? '' : 'none';
-    });
+    applyProductSearchFilter(e.target.value);
   });
   searchHandlerBound = true;
 }
@@ -2867,6 +3165,7 @@ function initHammerModdingApp() {
   bindSearchHandler();
   setupPreparedCartButtons();
   setupFoundationPlanner();
+  loadSupabaseManagedProducts();
   setupLiveSupabaseAuth();
   setupSmoothHomeIntro();
   setupMarquees();
