@@ -51,22 +51,16 @@
 </div>
 <div class="active-users-card glass-soft" id="activeUsersCard">
   <div class="active-users-section-head">
-    <div class="active-users-section-copy">
-      <strong>Aktive User</strong>
-      <small>Live auf der Seite</small>
-    </div>
-    <span class="active-users-count-badge is-live" id="activeUsersCountBadge">0 online</span>
+    <strong>Aktive User</strong>
+    <small>Live auf der Seite</small>
   </div>
   <div class="active-users-list" id="activeUsersList">
     <div class="active-users-empty" id="activeUsersEmpty">Gerade ist niemand online.</div>
   </div>
   <div class="active-users-divider"></div>
   <div class="active-users-section-head active-users-section-head-secondary">
-    <div class="active-users-section-copy">
-      <strong>Offline</strong>
-      <small>Zuletzt gesehen</small>
-    </div>
-    <span class="active-users-count-badge" id="recentUsersCountBadge">0 Einträge</span>
+    <strong>Zuletzt online</strong>
+    <small>Zuletzt gesehen</small>
   </div>
   <div class="active-users-list" id="recentUsersList">
     <div class="active-users-empty" id="recentUsersEmpty">Noch keine Aktivität vorhanden.</div>
@@ -84,7 +78,6 @@
     <button class="account-dock-button glass-soft" id="accountDockButton" type="button">
       <span class="account-dock-avatar" id="accountDockAvatar">
         <span class="account-dock-status-dot" id="accountDockStatusDot"></span>
-        <img alt="Profilbild" class="account-avatar-image" decoding="async" hidden="" id="accountDockAvatarImage" loading="lazy"/>
         <strong id="accountDockAvatarInitial">HM</strong>
       </span>
       <span class="account-dock-copy">
@@ -105,9 +98,7 @@
     <div class="cart-panel-list" id="cartPanelList"></div>
     <div class="cart-panel-footer">
       <button class="cart-clear-button" data-cart-clear="true" id="cartClearButton" type="button">Alles entfernen</button>
-      <button class="cart-request-button" data-cart-request="true" id="cartRequestButton" type="button">Anfrage vorbereiten</button>
-      <button class="cart-request-button" data-open-tebex-checkout="true" id="cartCheckoutButton" type="button">Direkt zu Tebex</button>
-      <button class="cart-clear-button" data-copy-tebex-draft="true" id="cartTebexDraftButton" type="button">Tebex-Draft kopieren</button>
+      <button class="cart-request-button" data-open-tebex-checkout="true" id="cartCheckoutButton" type="button">Zur Kasse</button>
       <div class="cart-panel-total">
         <span>Gesamt</span>
         <strong id="cartPanelTotal">0,00 €</strong>
@@ -125,7 +116,7 @@
         <span>Scripte</span>
       </div>
       <div class="store-stat-tile">
-        <strong>8</strong>
+        <strong>4</strong>
         <span>Kleidungs-Packs</span>
       </div>
       <div class="store-stat-tile">
@@ -133,7 +124,7 @@
         <span>Free Scripts</span>
       </div>
       <div class="store-stat-tile">
-        <strong>15</strong>
+        <strong>11</strong>
         <span>Live-Produkte</span>
       </div>
     </div>
@@ -348,54 +339,6 @@
 </div>
 <a class="card-link" data-open-script="polizei-uniform" href="#">Produkt ansehen</a>
 </article>
-<article class="product-card glass-soft searchable marquee-card" data-type="clothing kartell set live">
-<div class="card-badge">Kartell</div>
-<div class="card-main card-main-vertical compact-home-card">
-<img alt="Kartell-Set" decoding="async" src="assets/kartell-set.png"/>
-<div>
-<h4>Kartell-Set</h4>
-<p>Edles Rot-Schwarz-Set mit Mantel, Hose, Maske, Oberteil, Weste und Kleid für Männer &amp; Frauen.</p>
-<div class="price-row"><strong>25,00 €</strong><small>Kleidungs-Pack</small></div>
-</div>
-</div>
-<a class="card-link" data-open-script="kartell-set" href="#">Produkt ansehen</a>
-</article>
-<article class="product-card glass-soft searchable marquee-card" data-type="clothing berlin crew live">
-<div class="card-badge">Berlin Crew</div>
-<div class="card-main card-main-vertical compact-home-card">
-<img alt="Berlin Straßen-Crew" decoding="async" src="assets/berlin-strassen-crew.png"/>
-<div>
-<h4>Berlin Straßen-Crew</h4>
-<p>Urbanes Straßen-Pack mit Hose, Jacke, Weste, Maske und Tanktop für Männer &amp; Frauen.</p>
-<div class="price-row"><strong>19,99 €</strong><small>Kleidungs-Pack</small></div>
-</div>
-</div>
-<a class="card-link" data-open-script="berlin-strassen-crew" href="#">Produkt ansehen</a>
-</article>
-<article class="product-card glass-soft searchable marquee-card" data-type="clothing tuner garage live">
-<div class="card-badge">Tuner Garage</div>
-<div class="card-main card-main-vertical compact-home-card">
-<img alt="TunerV2" decoding="async" src="assets/tuner-v2.png"/>
-<div>
-<h4>TunerV2</h4>
-<p>Schwarzes Streetwear-Pack mit Tanktop, Jacke, Hose und Polo-Shirt für Männer &amp; Frauen.</p>
-<div class="price-row"><strong>14,99 €</strong><small>Kleidungs-Pack</small></div>
-</div>
-</div>
-<a class="card-link" data-open-script="tuner-v2" href="#">Produkt ansehen</a>
-</article>
-<article class="product-card glass-soft searchable marquee-card" data-type="clothing weed hotbox live">
-<div class="card-badge">Hotbox</div>
-<div class="card-main card-main-vertical compact-home-card">
-<img alt="Weed-Outfit" decoding="async" src="assets/weed-outfit.png"/>
-<div>
-<h4>Weed-Outfit</h4>
-<p>Neon-grünes Streetwear-Pack mit Hoodie, T-Shirt und Jogginghose für Männer &amp; Frauen.</p>
-<div class="price-row"><strong>9,99 €</strong><small>Kleidungs-Pack</small></div>
-</div>
-</div>
-<a class="card-link" data-open-script="weed-outfit" href="#">Produkt ansehen</a>
-</article>
 <article class="product-card glass-soft searchable marquee-card coming-card" data-type="clothing feuerwehr teaser">
 <div class="card-badge">Feuerwehr</div>
 <div class="card-main card-main-vertical compact-home-card upcoming-card-main">
@@ -469,54 +412,6 @@
 </div>
 </div>
 <a class="card-link" data-open-script="polizei-uniform" href="#">Produkt ansehen</a>
-</article>
-<article class="product-card glass-soft marquee-card" data-type="clothing kartell set live">
-<div class="card-badge">Kartell</div>
-<div class="card-main card-main-vertical compact-home-card">
-<img alt="Kartell-Set" decoding="async" fetchpriority="low" loading="lazy" src="assets/kartell-set.png"/>
-<div>
-<h4>Kartell-Set</h4>
-<p>Edles Rot-Schwarz-Set mit Mantel, Hose, Maske, Oberteil, Weste und Kleid für Männer &amp; Frauen.</p>
-<div class="price-row"><strong>25,00 €</strong><small>Kleidungs-Pack</small></div>
-</div>
-</div>
-<a class="card-link" data-open-script="kartell-set" href="#">Produkt ansehen</a>
-</article>
-<article class="product-card glass-soft marquee-card" data-type="clothing berlin crew live">
-<div class="card-badge">Berlin Crew</div>
-<div class="card-main card-main-vertical compact-home-card">
-<img alt="Berlin Straßen-Crew" decoding="async" fetchpriority="low" loading="lazy" src="assets/berlin-strassen-crew.png"/>
-<div>
-<h4>Berlin Straßen-Crew</h4>
-<p>Urbanes Straßen-Pack mit Hose, Jacke, Weste, Maske und Tanktop für Männer &amp; Frauen.</p>
-<div class="price-row"><strong>19,99 €</strong><small>Kleidungs-Pack</small></div>
-</div>
-</div>
-<a class="card-link" data-open-script="berlin-strassen-crew" href="#">Produkt ansehen</a>
-</article>
-<article class="product-card glass-soft marquee-card" data-type="clothing tuner garage live">
-<div class="card-badge">Tuner Garage</div>
-<div class="card-main card-main-vertical compact-home-card">
-<img alt="TunerV2" decoding="async" fetchpriority="low" loading="lazy" src="assets/tuner-v2.png"/>
-<div>
-<h4>TunerV2</h4>
-<p>Schwarzes Streetwear-Pack mit Tanktop, Jacke, Hose und Polo-Shirt für Männer &amp; Frauen.</p>
-<div class="price-row"><strong>14,99 €</strong><small>Kleidungs-Pack</small></div>
-</div>
-</div>
-<a class="card-link" data-open-script="tuner-v2" href="#">Produkt ansehen</a>
-</article>
-<article class="product-card glass-soft marquee-card" data-type="clothing weed hotbox live">
-<div class="card-badge">Hotbox</div>
-<div class="card-main card-main-vertical compact-home-card">
-<img alt="Weed-Outfit" decoding="async" fetchpriority="low" loading="lazy" src="assets/weed-outfit.png"/>
-<div>
-<h4>Weed-Outfit</h4>
-<p>Neon-grünes Streetwear-Pack mit Hoodie, T-Shirt und Jogginghose für Männer &amp; Frauen.</p>
-<div class="price-row"><strong>9,99 €</strong><small>Kleidungs-Pack</small></div>
-</div>
-</div>
-<a class="card-link" data-open-script="weed-outfit" href="#">Produkt ansehen</a>
 </article>
 <article class="product-card glass-soft marquee-card coming-card" data-type="clothing feuerwehr teaser">
 <div class="card-badge">Feuerwehr</div>
@@ -1342,234 +1237,6 @@ type="button"
 </article>
 </div>
 </section>
-<section class="section script-detail hidden-section" id="kartellSetDetailSection">
-<div class="detail-topbar">
-<button class="back-link" data-back="1" id="backToClothingKartell">← Zurück zur Kleidung</button>
-<div class="detail-tag">Kleidungs-Detailseite · Kartell-Set</div>
-</div>
-<div class="script-detail-hero glass-soft">
-<div class="script-detail-copy">
-<div class="eyebrow">Hammer Modding · Kartell-Set</div>
-<h2>KARTELL-SET<br/><span>DUNKLE ELEGANZ MIT PRÄSENZ IN ROT &amp; SCHWARZ</span></h2>
-<p>
-              Diese Kollektion vereint edle Muster, starke Kontraste und einen unverwechselbaren Charakter in Rot und Schwarz.
-              Ausdrucksstark, stilvoll und bis ins Detail raffiniert – für alle, die Mode mit Präsenz tragen wollen.
-            </p>
-<div class="detail-price-row">
-<strong>25,00 €</strong>
-<span>Kleidungs-Pack</span>
-</div>
-<div class="hero-actions">
-<button class="cta primary detail-cart-button" data-cart-add="true" data-product-id="kartell-set" data-product-name="Kartell-Set" data-product-price="25.00" data-product-price-label="25,00 €" data-product-slug="kartell-set" data-product-type="clothing" type="button">Warenkorb hinzufügen</button>
-</div>
-</div>
-<div class="script-detail-media image-media">
-<img alt="Kartell-Set Vorschau" class="detail-video detail-image contain-image" decoding="async" fetchpriority="low" loading="lazy" src="assets/kartell-set.png"/>
-</div>
-</div>
-<div class="detail-grid">
-<article class="detail-card glass-soft feature-panel">
-<div class="section-head script-head feature-head">
-<span></span>
-<h3>Enthalten</h3>
-</div>
-<div class="feature-intro">Ein markantes Rot-Schwarz-Pack mit edlen Mustern und starker Präsenz für Kartell-, Fraktions- und High-Class-RP.</div>
-<div class="feature-sales-grid">
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 01</div><p>Mantel für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 02</div><p>Hose für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 03</div><p>Maske für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 04</div><p>Oberteil für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 05</div><p>Weste für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 06</div><p>Kleid für Frauen</p></article>
-</div>
-</article>
-<article class="detail-card glass-soft">
-<div class="section-head script-head">
-<span></span>
-<h3>Auf einen Blick</h3>
-</div>
-<div class="detail-facts">
-<div class="fact-box"><strong>Preis</strong><span>25,00 €</span></div>
-<div class="fact-box"><strong>Bereich</strong><span>Kartell / Fraktion / Luxus-Look</span></div>
-<div class="fact-box"><strong>Für</strong><span>Männer &amp; Frauen</span></div>
-</div>
-<div class="detail-thumb-wrap">
-<img alt="Kartell-Set Detailbild" class="detail-thumb contain-thumb" decoding="async" fetchpriority="low" loading="lazy" src="assets/kartell-set.png"/>
-</div>
-</article>
-</div>
-</section>
-<section class="section script-detail hidden-section" id="berlinStrassenCrewDetailSection">
-<div class="detail-topbar">
-<button class="back-link" data-back="1" id="backToClothingBerlinCrew">← Zurück zur Kleidung</button>
-<div class="detail-tag">Kleidungs-Detailseite · Berlin Straßen-Crew</div>
-</div>
-<div class="script-detail-hero glass-soft">
-<div class="script-detail-copy">
-<div class="eyebrow">Hammer Modding · Berlin Straßen-Crew</div>
-<h2>BERLIN STRASSEN-CREW<br/><span>URBANER LOOK MIT KLARER STRASSEN-ATMOSPHÄRE</span></h2>
-<p>
-              Zeig deinen Style mit dem Berlin Crew Clothing Pack. Markante Designs, urbaner Look und echte Straßen-Atmosphäre
-              machen dieses Set zum starken Statement für Szenen-, Fraktions- und Crew-RP.
-            </p>
-<div class="detail-price-row">
-<strong>19,99 €</strong>
-<span>Kleidungs-Pack</span>
-</div>
-<div class="hero-actions">
-<button class="cta primary detail-cart-button" data-cart-add="true" data-product-id="berlin-strassen-crew" data-product-name="Berlin Straßen-Crew" data-product-price="19.99" data-product-price-label="19,99 €" data-product-slug="berlin-strassen-crew" data-product-type="clothing" type="button">Warenkorb hinzufügen</button>
-</div>
-</div>
-<div class="script-detail-media image-media">
-<img alt="Berlin Straßen-Crew Vorschau" class="detail-video detail-image contain-image" decoding="async" fetchpriority="low" loading="lazy" src="assets/berlin-strassen-crew.png"/>
-</div>
-</div>
-<div class="detail-grid">
-<article class="detail-card glass-soft feature-panel">
-<div class="section-head script-head feature-head">
-<span></span>
-<h3>Enthalten</h3>
-</div>
-<div class="feature-intro">Ein urbanes Crew-Pack mit markantem Berlin-Look für Männer &amp; Frauen – auffällig, direkt und perfekt für Straßencharaktere mit Wiedererkennungswert.</div>
-<div class="feature-sales-grid">
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 01</div><p>Hose für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 02</div><p>Jacke für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 03</div><p>Weste für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 04</div><p>Maske für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 05</div><p>Tanktop für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Look</div><p>Markant, urban und direkt als Straßen-Crew-Look erkennbar</p></article>
-</div>
-</article>
-<article class="detail-card glass-soft">
-<div class="section-head script-head">
-<span></span>
-<h3>Auf einen Blick</h3>
-</div>
-<div class="detail-facts">
-<div class="fact-box"><strong>Preis</strong><span>19,99 €</span></div>
-<div class="fact-box"><strong>Bereich</strong><span>Crew / Straße / Urbaner Fraktions-Look</span></div>
-<div class="fact-box"><strong>Für</strong><span>Männer &amp; Frauen</span></div>
-</div>
-<div class="detail-thumb-wrap">
-<img alt="Berlin Straßen-Crew Detailbild" class="detail-thumb contain-thumb" decoding="async" fetchpriority="low" loading="lazy" src="assets/berlin-strassen-crew.png"/>
-</div>
-</article>
-</div>
-</section>
-<section class="section script-detail hidden-section" id="tunerV2DetailSection">
-<div class="detail-topbar">
-<button class="back-link" data-back="1" id="backToClothingTunerV2">← Zurück zur Kleidung</button>
-<div class="detail-tag">Kleidungs-Detailseite · TunerV2</div>
-</div>
-<div class="script-detail-hero glass-soft">
-<div class="script-detail-copy">
-<div class="eyebrow">Hammer Modding · TunerV2</div>
-<h2>TUNERV2<br/><span>TUNER GARAGE LOOK MIT PERFORMANCE-ATTITÜDE</span></h2>
-<p>
-              TUNER GARAGE – Style trifft Straße. Markantes Design, starke Details und ein Look, der auffällt.
-              Für alle, die Performance nicht nur fahren, sondern auch tragen.
-            </p>
-<div class="detail-price-row">
-<strong>14,99 €</strong>
-<span>Kleidungs-Pack</span>
-</div>
-<div class="hero-actions">
-<button class="cta primary detail-cart-button" data-cart-add="true" data-product-id="tuner-v2" data-product-name="TunerV2" data-product-price="14.99" data-product-price-label="14,99 €" data-product-slug="tuner-v2" data-product-type="clothing" type="button">Warenkorb hinzufügen</button>
-</div>
-</div>
-<div class="script-detail-media image-media">
-<img alt="TunerV2 Vorschau" class="detail-video detail-image contain-image" decoding="async" fetchpriority="low" loading="lazy" src="assets/tuner-v2.png"/>
-</div>
-</div>
-<div class="detail-grid">
-<article class="detail-card glass-soft feature-panel">
-<div class="section-head script-head feature-head">
-<span></span>
-<h3>Enthalten</h3>
-</div>
-<div class="feature-intro">Ein starkes Garage-Pack in Schwarz, Rot und Grau für Werkstatt-, Tuner- und Performance-RP – sportlich, sauber und direkt einsatzbereit.</div>
-<div class="feature-sales-grid">
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 01</div><p>Tanktop für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 02</div><p>Jacke für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 03</div><p>Hose für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 04</div><p>Polo-Shirt für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Einsatz</div><p>Perfekt für Garagen, Werkstätten und Tuning-Crews</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Look</div><p>Sportlich, modern und performance-orientiert</p></article>
-</div>
-</article>
-<article class="detail-card glass-soft">
-<div class="section-head script-head">
-<span></span>
-<h3>Auf einen Blick</h3>
-</div>
-<div class="detail-facts">
-<div class="fact-box"><strong>Preis</strong><span>14,99 €</span></div>
-<div class="fact-box"><strong>Bereich</strong><span>Tuner / Garage / Werkstatt-RP</span></div>
-<div class="fact-box"><strong>Für</strong><span>Männer &amp; Frauen</span></div>
-</div>
-<div class="detail-thumb-wrap">
-<img alt="TunerV2 Detailbild" class="detail-thumb contain-thumb" decoding="async" fetchpriority="low" loading="lazy" src="assets/tuner-v2.png"/>
-</div>
-</article>
-</div>
-</section>
-<section class="section script-detail hidden-section" id="weedOutfitDetailSection">
-<div class="detail-topbar">
-<button class="back-link" data-back="1" id="backToClothingWeedOutfit">← Zurück zur Kleidung</button>
-<div class="detail-tag">Kleidungs-Detailseite · Weed-Outfit</div>
-</div>
-<div class="script-detail-hero glass-soft">
-<div class="script-detail-copy">
-<div class="eyebrow">Hammer Modding · Weed-Outfit</div>
-<h2>WEED-OUTFIT<br/><span>NEON-GRÜNER STREETWEAR-STYLE MIT STATEMENT-LOOK</span></h2>
-<p>
-              Neon-grüne Energy trifft auf tiefschwarzen Streetwear-Style und macht jedes Piece zum Statement.
-              Hoodie, Shirt und Jogger im einzigartigen Look – für alle, die nicht untergehen, sondern herausstechen.
-            </p>
-<div class="detail-price-row">
-<strong>9,99 €</strong>
-<span>Kleidungs-Pack</span>
-</div>
-<div class="hero-actions">
-<button class="cta primary detail-cart-button" data-cart-add="true" data-product-id="weed-outfit" data-product-name="Weed-Outfit" data-product-price="9.99" data-product-price-label="9,99 €" data-product-slug="weed-outfit" data-product-type="clothing" type="button">Warenkorb hinzufügen</button>
-</div>
-</div>
-<div class="script-detail-media image-media">
-<img alt="Weed-Outfit Vorschau" class="detail-video detail-image contain-image" decoding="async" fetchpriority="low" loading="lazy" src="assets/weed-outfit.png"/>
-</div>
-</div>
-<div class="detail-grid">
-<article class="detail-card glass-soft feature-panel">
-<div class="section-head script-head feature-head">
-<span></span>
-<h3>Enthalten</h3>
-</div>
-<div class="feature-intro">Ein auffälliges Streetwear-Pack mit schwarzer Basis und neon-grünem Hotbox-Look für Männer &amp; Frauen – perfekt für starke Präsenz im Alltag oder Szene-RP.</div>
-<div class="feature-sales-grid">
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 01</div><p>Hoodie für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 02</div><p>T-Shirt für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Teil 03</div><p>Jogginghose für Männer &amp; Frauen</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Energie</div><p>Leuchtender Neon-Stil mit starkem Schwarz-Grün-Kontrast</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Einsatz</div><p>Perfekt für Szene-, Straßen- und Hotbox-Looks</p></article>
-<article class="feature-sale-item"><div class="feature-sale-badge">Look</div><p>Direkt, auffällig und mit klarem Wiedererkennungswert</p></article>
-</div>
-</article>
-<article class="detail-card glass-soft">
-<div class="section-head script-head">
-<span></span>
-<h3>Auf einen Blick</h3>
-</div>
-<div class="detail-facts">
-<div class="fact-box"><strong>Preis</strong><span>9,99 €</span></div>
-<div class="fact-box"><strong>Bereich</strong><span>Streetwear / Szene / Hotbox-Look</span></div>
-<div class="fact-box"><strong>Für</strong><span>Männer &amp; Frauen</span></div>
-</div>
-<div class="detail-thumb-wrap">
-<img alt="Weed-Outfit Detailbild" class="detail-thumb contain-thumb" decoding="async" fetchpriority="low" loading="lazy" src="assets/weed-outfit.png"/>
-</div>
-</article>
-</div>
-</section>
 <section class="section clothing-only hidden-section" id="clothingSection">
 <div class="clothing-hero glass-soft">
 <div class="clothing-hero-copy">
@@ -1636,54 +1303,6 @@ type="button"
 </div>
 </div>
 <a class="card-link" data-open-script="polizei-uniform" href="#">Produkt ansehen</a>
-</article>
-<article class="product-card glass-soft searchable clothing-card clothing-card-live" data-category="kartell" data-type="clothing kartell live">
-<div class="card-badge">Kartell</div>
-<div class="card-main card-main-vertical">
-<img alt="Kartell-Set" decoding="async" fetchpriority="low" loading="lazy" src="assets/kartell-set.png"/>
-<div>
-<h4>Kartell-Set</h4>
-<p>Edles Rot-Schwarz-Pack mit Mantel, Hose, Maske, Oberteil, Weste und Kleid für markante Fraktions- und Szenelooks.</p>
-<div class="price-row"><strong>25,00 €</strong><small>Kleidungs-Pack</small></div>
-</div>
-</div>
-<a class="card-link" data-open-script="kartell-set" href="#">Produkt ansehen</a>
-</article>
-<article class="product-card glass-soft searchable clothing-card clothing-card-live" data-category="berlin-crew" data-type="clothing berlin crew live">
-<div class="card-badge">Berlin Crew</div>
-<div class="card-main card-main-vertical">
-<img alt="Berlin Straßen-Crew" decoding="async" fetchpriority="low" loading="lazy" src="assets/berlin-strassen-crew.png"/>
-<div>
-<h4>Berlin Straßen-Crew</h4>
-<p>Urbanes Straßen-Pack mit Hose, Jacke, Weste, Maske und Tanktop für Männer &amp; Frauen.</p>
-<div class="price-row"><strong>19,99 €</strong><small>Kleidungs-Pack</small></div>
-</div>
-</div>
-<a class="card-link" data-open-script="berlin-strassen-crew" href="#">Produkt ansehen</a>
-</article>
-<article class="product-card glass-soft searchable clothing-card clothing-card-live" data-category="tuner" data-type="clothing tuner garage live">
-<div class="card-badge">Tuner Garage</div>
-<div class="card-main card-main-vertical">
-<img alt="TunerV2" decoding="async" fetchpriority="low" loading="lazy" src="assets/tuner-v2.png"/>
-<div>
-<h4>TunerV2</h4>
-<p>Schwarzes Tuner-Garage-Pack mit Tanktop, Jacke, Hose und Polo-Shirt für Männer &amp; Frauen.</p>
-<div class="price-row"><strong>14,99 €</strong><small>Kleidungs-Pack</small></div>
-</div>
-</div>
-<a class="card-link" data-open-script="tuner-v2" href="#">Produkt ansehen</a>
-</article>
-<article class="product-card glass-soft searchable clothing-card clothing-card-live" data-category="hotbox" data-type="clothing hotbox weed live">
-<div class="card-badge">Hotbox</div>
-<div class="card-main card-main-vertical">
-<img alt="Weed-Outfit" decoding="async" fetchpriority="low" loading="lazy" src="assets/weed-outfit.png"/>
-<div>
-<h4>Weed-Outfit</h4>
-<p>Neon-grünes Streetwear-Pack mit Hoodie, T-Shirt und Jogginghose für Männer &amp; Frauen.</p>
-<div class="price-row"><strong>9,99 €</strong><small>Kleidungs-Pack</small></div>
-</div>
-</div>
-<a class="card-link" data-open-script="weed-outfit" href="#">Produkt ansehen</a>
 </article>
 <article class="product-card glass-soft searchable clothing-card" data-category="bad-fraks" data-type="clothing bad-fraks">
 <div class="card-badge">Bad-Fraks</div>
@@ -1844,7 +1463,6 @@ type="button"
       <div class="account-summary-main">
         <div class="account-profile-avatar" id="accountProfileAvatar">
           <span class="profile-status-dot" id="accountProfileStatusDot"></span>
-          <img alt="Profilbild" class="account-avatar-image" decoding="async" hidden="" id="accountProfileAvatarImage" loading="lazy"/>
           <strong id="accountProfileAvatarInitial">HM</strong>
         </div>
         <div class="account-summary-copy">
@@ -1944,26 +1562,10 @@ type="button"
           <span>CFX / License</span>
           <input class="hm-input" id="profileCfxInput" placeholder="license:xxxx oder CFX-Konto" type="text"/>
         </label>
-        <div class="foundation-field field-span-2 profile-avatar-upload-field">
-          <span>Avatar</span>
-          <input id="profileAvatarInput" type="hidden"/>
-          <input accept="image/*" hidden="" id="profileAvatarFileInput" type="file"/>
-          <div class="profile-avatar-upload-shell">
-            <div class="profile-avatar-upload-preview" id="profileAvatarPreview">
-              <img alt="Avatar Vorschau" class="profile-avatar-upload-image" decoding="async" hidden="" id="profileAvatarPreviewImage" loading="lazy"/>
-              <strong id="profileAvatarPreviewInitial">HM</strong>
-            </div>
-            <div class="profile-avatar-upload-copy">
-              <strong>Eigenes Profilbild hochladen</strong>
-              <p>Wähle ein Bild direkt vom Gerät. Es wird für dein Profil verkleinert und gespeichert.</p>
-              <div class="profile-avatar-upload-actions">
-                <label class="cta secondary compact-cta profile-avatar-upload-button" for="profileAvatarFileInput">Bild auswählen</label>
-                <button class="cta secondary compact-cta" id="profileAvatarClearButton" type="button">Avatar entfernen</button>
-              </div>
-              <small class="profile-avatar-upload-note" id="profileAvatarUploadName">Noch kein Bild ausgewählt.</small>
-            </div>
-          </div>
-        </div>
+        <label class="foundation-field field-span-2">
+          <span>Avatar URL</span>
+          <input class="hm-input" id="profileAvatarInput" placeholder="https://..." type="url"/>
+        </label>
         <div class="foundation-actions field-span-2">
           <button class="cta primary compact-cta" id="profileSaveButton" type="submit">Profil speichern</button>
         </div>
