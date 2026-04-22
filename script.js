@@ -39,6 +39,7 @@ function cacheDomReferences() {
     'serverteam-uniform': document.getElementById('serverteamUniformDetailSection'),
     'rettungsdienst-uniform': document.getElementById('rettungsdienstUniformDetailSection'),
     'polizei-uniform': document.getElementById('polizeiUniformDetailSection'),
+    'kartell-set': document.getElementById('kartellSetDetailSection'),
   };
   searchInput = document.getElementById('searchInput');
   searchables = Array.from(document.querySelectorAll('.searchable'));
@@ -59,6 +60,7 @@ const storeCatalog = {
   'serverteam-uniform': { id: 'serverteam-uniform', slug: 'serverteam-uniform', name: 'Serverteam-Uniform', price: '12.00', priceLabel: '12,00 €', type: 'clothing' },
   'rettungsdienst-uniform': { id: 'rettungsdienst-uniform', slug: 'rettungsdienst-uniform', name: 'Rettungsdienst-Uniform-Set', price: '20.00', priceLabel: '20,00 €', type: 'clothing' },
   'polizei-uniform': { id: 'polizei-uniform', slug: 'polizei-uniform', name: 'Polizei-Uniform', price: '25.00', priceLabel: '25,00 €', type: 'clothing' },
+  'kartell-set': { id: 'kartell-set', slug: 'kartell-set', name: 'Kartell-Set', price: '25.00', priceLabel: '25,00 €', type: 'clothing' },
 };
 
 const TEBEX_PUBLIC_TOKEN = 'xttm-f719ed0c6b0a19fbf46ef11d7ebc29d6ec480014';
@@ -76,6 +78,7 @@ const tebexPackageMap = {
   taxi: '7393776',
   klingel: '7403415',
   afk: '7388518',
+  'kartell-set': '7403741',
 };
 
 Object.entries(tebexPackageMap).forEach(([slug, packageId]) => {
