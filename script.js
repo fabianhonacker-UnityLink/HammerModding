@@ -308,12 +308,17 @@ function renderPresenceUsers(targetId, users = [], emptyText = 'Keine Einträge.
       const lastSeen = escapeHtml(formatPresenceTime(user.last_seen_at));
       const presencePill = showOnlineDot
         ? '<span class="active-user-presence-pill is-live"><span class="active-user-presence-pulse"></span>Live</span>'
-        : '<span class="active-user-presence-pill is-recent">Zuletzt online</span>';
-      const timeLabel = recent ? 'Zuletzt' : 'Aktivität';
+        : '<span class="active-user-presence-pill is-recent">Offline</span>';
       const safeAvatarUrl = String(user.avatar_url || '').trim();
       const avatar = safeAvatarUrl
         ? `<img src="${escapeHtml(safeAvatarUrl)}" alt="${safeName}" loading="lazy" decoding="async">`
         : `<strong>${initial}</strong>`;
+      const timeBlock = recent
+        ? `<div class="active-user-time-block">
+                <span>Zuletzt</span>
+                <strong>${lastSeen}</strong>
+              </div>`
+        : '';
       return `
         <div class="active-user-row${recent ? ' is-recent' : ' is-live'}">
           <div class="active-user-avatar">${avatar}${showOnlineDot ? '<span class="active-user-dot"></span>' : ''}</div>
@@ -326,10 +331,7 @@ function renderPresenceUsers(targetId, users = [], emptyText = 'Keine Einträge.
             </div>
             <div class="active-user-bottomline">
               <div class="active-user-role ${roleToneClass}">${safeRole}</div>
-              <div class="active-user-time-block">
-                <span>${timeLabel}</span>
-                <strong>${lastSeen}</strong>
-              </div>
+              ${timeBlock}
             </div>
           </div>
         </div>
