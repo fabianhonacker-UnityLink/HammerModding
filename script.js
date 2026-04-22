@@ -305,7 +305,6 @@ function renderPresenceUsers(targetId, users = [], emptyText = 'Keine Einträge.
       const safeRole = escapeHtml(role);
       const roleToneClass = getPresenceRoleToneClass(user.role || 'customer');
       const initial = escapeHtml(getDisplayInitial(name, 'HM'));
-      const lastSeen = escapeHtml(formatPresenceTime(user.last_seen_at));
       const presencePill = showOnlineDot
         ? '<span class="active-user-presence-pill is-live"><span class="active-user-presence-pulse"></span>Live</span>'
         : '<span class="active-user-presence-pill is-recent">Offline</span>';
@@ -313,12 +312,7 @@ function renderPresenceUsers(targetId, users = [], emptyText = 'Keine Einträge.
       const avatar = safeAvatarUrl
         ? `<img src="${escapeHtml(safeAvatarUrl)}" alt="${safeName}" loading="lazy" decoding="async">`
         : `<strong>${initial}</strong>`;
-      const timeBlock = recent
-        ? `<div class="active-user-time-block">
-                <span>Zuletzt</span>
-                <strong>${lastSeen}</strong>
-              </div>`
-        : '';
+      const timeBlock = '';
       return `
         <div class="active-user-row${recent ? ' is-recent' : ' is-live'}">
           <div class="active-user-avatar">${avatar}${showOnlineDot ? '<span class="active-user-dot"></span>' : ''}</div>
