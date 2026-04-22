@@ -31,6 +31,10 @@ async function parseJsonResponse(response) {
     const error = new Error(detail);
     error.statusCode = response.status;
     error.publicMessage = `Tebex-Fehler: ${detail}`;
+    error.tebexStatus = response.status;
+    error.tebexDetail = String(detail || '').trim();
+    error.tebexJson = json;
+    error.tebexRawText = text;
     throw error;
   }
 
@@ -96,10 +100,4 @@ export async function addPackageToBasket({ basketIdent, packageId, quantity = 1,
 export async function getBasketAuthLinks({ basketIdent, returnUrl }) {
   const token = requireEnv('TEBEX_PUBLIC_TOKEN');
   return tebexGet(`/accounts/${token}/baskets/${basketIdent}/auth?returnUrl=${encodeURIComponent(returnUrl)}`);
-}
-
-
-export async function getPackage({ packageId }) {
-  const token = requireEnv('TEBEX_PUBLIC_TOKEN');
-  return tebexGet(`/accounts/${token}/packages/${encodeURIComponent(String(packageId))}`);
 }
