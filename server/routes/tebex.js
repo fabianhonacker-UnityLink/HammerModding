@@ -266,16 +266,16 @@ function buildVariableDataCandidates({ basketUsernameId, packageServerId, discor
   const discordId = normalizeOptionalString(discordUserId);
 
   const candidates = [
-    null,
     discordId ? { discord_id: discordId } : null,
-    username ? { username_id: username } : null,
-    username && serverId ? { username_id: username, server_id: serverId } : null,
-    serverId ? { server_id: serverId } : null,
     discordId && username ? { discord_id: discordId, username_id: username } : null,
     discordId && serverId ? { discord_id: discordId, server_id: serverId } : null,
     discordId && username && serverId
       ? { discord_id: discordId, username_id: username, server_id: serverId }
       : null,
+    username ? { username_id: username } : null,
+    username && serverId ? { username_id: username, server_id: serverId } : null,
+    serverId ? { server_id: serverId } : null,
+    null,
   ];
 
   const seen = new Set();
@@ -287,7 +287,7 @@ function buildVariableDataCandidates({ basketUsernameId, packageServerId, discor
   });
 }
 
-function isRecoverablePackageOptionsError(error) {
+function isPackageRetryWorthyError(error) {
   const detail = `${error?.message || ''} ${error?.publicMessage || ''}`.toLowerCase();
   return (
     detail.includes('invalid options')
@@ -296,28 +296,108 @@ function isRecoverablePackageOptionsError(error) {
     || detail.includes('server_id')
     || detail.includes('discord_id')
     || detail.includes('option')
+    || detail.includes('while processing your request')
+    || detail.includes('error while processing your request')
   );
 }
 
-function createPackageFinalizeError(error, { item, packageServerId, discordUserId, triedCandidates }) {
+function isQuantityLimitError(error) {
+  const detail = `${error?.message || ''} ${error?.publicMessage || ''}`.toLowerCase();
+  return detail.includes('quantity cannot be greater than 1');
+}
+
+function addPackageQuantity(bucket, packageId, quantity = 1) {
+  const normalizedPackageId = normalizeOptionalString(packageId);
+  if (!normalizedPackageId) return;
+  const normalizedQuantity = Number.isFinite(Number(quantity)) && Number(quantity) > 0 ? Number(quantity) : 1;
+  bucket.set(normalizedPackageId, (bucket.get(normalizedPackageId) || 0) + normalizedQuantity);
+}
+
+function extractBasketPackageQuantities(basketData) {
+  const quantities = new Map();
+  const seen = new WeakSet();
+
+  function visit(node, parentKey = '') {
+    if (!node || typeof node !== 'object') return;
+    if (seen.has(node)) return;
+    seen.add(node);
+
+    if (Array.isArray(node)) {
+      node.forEach((entry) => visit(entry, parentKey));
+      return;
+    }
+
+    const directPackageId = normalizeOptionalString(node.package_id || node.packageId);
+    const nestedPackageId = normalizeOptionalString(
+      node.package?.id
+      || node.package?.package_id
+      || node.package?.packageId,
+    );
+    const parentLooksPackageLike = String(parentKey || '').toLowerCase().includes('package');
+    const fallbackPackageId = parentLooksPackageLike ? normalizeOptionalString(node.id) : '';
+    const quantity = Number.isFinite(Number(node.quantity)) && Number(node.quantity) > 0 ? Number(node.quantity) : 1;
+
+    addPackageQuantity(quantities, directPackageId, quantity);
+    addPackageQuantity(quantities, nestedPackageId, quantity);
+    addPackageQuantity(quantities, fallbackPackageId, quantity);
+
+    Object.entries(node).forEach(([key, value]) => {
+      visit(value, key);
+    });
+  }
+
+  visit(basketData);
+  return quantities;
+}
+
+function basketHasRequiredPackageQuantity(packageQuantities, item) {
+  if (!(packageQuantities instanceof Map)) return false;
+  const packageId = normalizeOptionalString(item?.packageId);
+  if (!packageId) return false;
+  const requiredQuantity = Number.isFinite(Number(item?.quantity)) && Number(item.quantity) > 0 ? Number(item.quantity) : 1;
+  return (packageQuantities.get(packageId) || 0) >= requiredQuantity;
+}
+
+async function refreshBasketPackageQuantities(basketIdent) {
+  try {
+    const refreshedBasketResponse = await getBasket({ basketIdent });
+    const refreshedBasket = refreshedBasketResponse?.data || refreshedBasketResponse || null;
+    return {
+      basket: refreshedBasket,
+      packageQuantities: extractBasketPackageQuantities(refreshedBasket),
+    };
+  } catch (_error) {
+    return {
+      basket: null,
+      packageQuantities: new Map(),
+    };
+  }
+}
+
+function createPackageFinalizeError(error, { item, packageServerId, discordUserId, attemptedCandidates, actualAttempts }) {
   const detail = String(error?.message || error?.publicMessage || 'Tebex-Paket konnte nicht hinzugefügt werden.').trim();
   const hintParts = [];
 
   if (packageServerId) {
-    hintParts.push(`Server-ID ${packageServerId} wurde getestet`);
+    hintParts.push(`Server-ID ${packageServerId} wurde geprüft`);
   }
 
   if (discordUserId) {
-    hintParts.push(`Discord-ID ${discordUserId} wurde getestet`);
+    hintParts.push(`Discord-ID ${discordUserId} wurde geprüft`);
   }
 
   if (!hintParts.length) {
     hintParts.push('Bitte die Deliverables und Variablen des Tebex-Pakets prüfen');
   }
 
+  if (attemptedCandidates.length) {
+    const candidateLabels = attemptedCandidates.map((candidate) => (candidate ? JSON.stringify(candidate) : 'ohne variable_data'));
+    hintParts.push(`Getestet: ${candidateLabels.join(' → ')}`);
+  }
+
   const wrapped = new Error(detail);
   wrapped.statusCode = error?.statusCode || 502;
-  wrapped.publicMessage = `Checkout für "${item?.name || 'Paket'}" (#${item?.packageId || '-'}) fehlgeschlagen: ${detail}. ${hintParts.join(' · ')}. Versucht: ${triedCandidates}.`;
+  wrapped.publicMessage = `Checkout für "${item?.name || 'Paket'}" (#${item?.packageId || '-'}) fehlgeschlagen: ${detail}. ${hintParts.join(' · ')}. Versuche: ${actualAttempts}.`;
   return wrapped;
 }
 
@@ -330,7 +410,7 @@ async function getPackageForCheckout(packageId) {
   }
 }
 
-async function addPackageToBasketWithSmartRetry({ basketIdent, item, context, basketUsernameId }) {
+async function addPackageToBasketWithSmartRetry({ basketIdent, item, context, basketUsernameId, knownPackageQuantities = new Map() }) {
   const packageData = await getPackageForCheckout(item.packageId);
   const packageServerId = inferServerIdFromPackage(packageData);
   const variableCandidates = buildVariableDataCandidates({
@@ -339,11 +419,24 @@ async function addPackageToBasketWithSmartRetry({ basketIdent, item, context, ba
     discordUserId: context.discordUserId,
   });
 
+  if (basketHasRequiredPackageQuantity(knownPackageQuantities, item)) {
+    return {
+      ok: true,
+      skipped: true,
+      reason: 'already-in-basket',
+      packageId: item.packageId,
+    };
+  }
+
   let lastError = null;
+  let actualAttempts = 0;
+  const attemptedCandidates = [];
 
   for (const variableData of variableCandidates) {
+    actualAttempts += 1;
+    attemptedCandidates.push(variableData || null);
     try {
-      return await addPackageToBasket({
+      const response = await addPackageToBasket({
         basketIdent,
         packageId: item.packageId,
         quantity: item.quantity,
@@ -354,14 +447,31 @@ async function addPackageToBasketWithSmartRetry({ basketIdent, item, context, ba
           package_id: item.packageId,
         },
       });
+      addPackageQuantity(knownPackageQuantities, item.packageId, item.quantity);
+      return response;
     } catch (error) {
       lastError = error;
-      if (!isRecoverablePackageOptionsError(error)) {
+
+      if (isQuantityLimitError(error)) {
+        const refreshed = await refreshBasketPackageQuantities(basketIdent);
+        if (basketHasRequiredPackageQuantity(refreshed.packageQuantities, item)) {
+          addPackageQuantity(knownPackageQuantities, item.packageId, item.quantity);
+          return {
+            ok: true,
+            skipped: true,
+            reason: 'quantity-already-satisfied',
+            packageId: item.packageId,
+          };
+        }
+      }
+
+      if (!isPackageRetryWorthyError(error)) {
         throw createPackageFinalizeError(error, {
           item,
           packageServerId,
           discordUserId: context.discordUserId,
-          triedCandidates: variableCandidates.length,
+          attemptedCandidates,
+          actualAttempts,
         });
       }
     }
@@ -371,7 +481,8 @@ async function addPackageToBasketWithSmartRetry({ basketIdent, item, context, ba
     item,
     packageServerId,
     discordUserId: context.discordUserId,
-    triedCandidates: variableCandidates.length,
+    attemptedCandidates,
+    actualAttempts,
   });
 }
 
@@ -441,6 +552,7 @@ tebexRouter.post('/checkout/finalize', async (req, res, next) => {
     const basketResponse = await getBasket({ basketIdent: context.basketIdent });
     const basket = basketResponse?.data || basketResponse;
     const basketUsernameId = getBasketUsernameId(basket);
+    const basketPackageQuantities = extractBasketPackageQuantities(basket);
 
     if (!basketUsernameId) {
       const error = new Error('Tebex-Benutzer ist noch nicht mit dem Basket verknüpft.');
@@ -457,6 +569,7 @@ tebexRouter.post('/checkout/finalize', async (req, res, next) => {
         item,
         context,
         basketUsernameId,
+        knownPackageQuantities: basketPackageQuantities,
       });
     }
 
