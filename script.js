@@ -1557,7 +1557,7 @@ function updateCartButtonsState(cart) {
     button.dataset.cartReady = item ? 'true' : 'false';
     button.dataset.inCart = inCart ? 'true' : 'false';
     button.classList.toggle('is-in-cart', inCart);
-    button.textContent = inCart ? 'Im Warenkorb' : 'Warenkorb hinzufügen';
+    button.textContent = inCart ? 'Im Warenkorb' : 'In den Warenkorb';
     if (item) {
       button.setAttribute('aria-label', `${item.name} zum Warenkorb hinzufügen`);
     }
@@ -2324,7 +2324,7 @@ function buildDynamicProductActionMarkup(row) {
       data-product-slug="${escapeHtml(row.slug)}"
       data-product-type="${escapeHtml(catalogItem?.type || 'clothing')}"
       type="button"
-    >Warenkorb hinzufügen</button>
+    >In den Warenkorb</button>
   `;
 }
 
