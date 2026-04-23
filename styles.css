@@ -1810,10 +1810,6 @@ body.intro-booting .bg-lightning {
 
 .account-dock-status-dot,
 .profile-status-dot {
-  z-index: 2;
-}
-.account-dock-status-dot,
-.profile-status-dot {
   position: absolute;
   right: 2px;
   bottom: 2px;
