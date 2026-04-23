@@ -3627,28 +3627,49 @@ function renderAdminUsers() {
   const elements = getAdminPortalElements();
   if (!elements.userQuickSelect) return;
   const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
+  const select = elements.userQuickSelect;
+
+  const rebuildOptions = (items = [], placeholder = 'Benutzer auswählen ...') => {
+    select.innerHTML = '';
+    const placeholderOption = document.createElement('option');
+    placeholderOption.value = '';
+    placeholderOption.textContent = placeholder;
+    select.appendChild(placeholderOption);
+
+    items.forEach((profile) => {
+      const option = document.createElement('option');
+      option.value = String(profile.id || '').trim();
+      option.textContent = `${profile.username || profile.email || 'Benutzer'} · ${mapRoleLabel(profile.role || 'kunde')}`;
+      select.appendChild(option);
+    });
+  };
 
   if (!permissions.canViewUsers) {
-    elements.userQuickSelect.innerHTML = '<option value="">Keine Freigabe</option>';
+    rebuildOptions([], 'Keine Freigabe');
+    select.disabled = true;
     hydrateAdminUserEditor(null);
     return;
   }
 
   if (!adminPortalState.profiles.length) {
-    elements.userQuickSelect.innerHTML = '<option value="">Keine Benutzer geladen</option>';
+    rebuildOptions([], 'Keine Benutzer geladen');
+    select.disabled = true;
     hydrateAdminUserEditor(null);
     return;
   }
 
   if (!getAdminProfileById(adminPortalState.selectedUserId)) {
-    adminPortalState.selectedUserId = adminPortalState.profiles[0]?.id || '';
+    adminPortalState.selectedUserId = String(adminPortalState.profiles[0]?.id || '').trim();
   }
 
-  const options = ['<option value="">Benutzer auswählen ...</option>'].concat(
-    adminPortalState.profiles.map((profile) => `<option value="${escapeHtml(profile.id || '')}"${profile.id === adminPortalState.selectedUserId ? ' selected' : ''}>${escapeHtml(profile.username || profile.email || 'Benutzer')} · ${escapeHtml(mapRoleLabel(profile.role || 'kunde'))}</option>`)
-  );
+  rebuildOptions(adminPortalState.profiles, 'Benutzer auswählen ...');
+  select.disabled = false;
+  select.value = adminPortalState.selectedUserId || '';
+  if (!select.value && adminPortalState.profiles[0]?.id) {
+    select.value = String(adminPortalState.profiles[0].id).trim();
+    adminPortalState.selectedUserId = select.value;
+  }
 
-  elements.userQuickSelect.innerHTML = options.join('');
   hydrateAdminUserEditor(getAdminProfileById(adminPortalState.selectedUserId));
 }
 
@@ -3733,6 +3754,9 @@ async function loadAdminPortalData(force = false) {
         .then(({ data, error }) => {
           if (error) throw { scope: 'profiles', error };
           adminPortalState.profiles = Array.isArray(data) ? data : [];
+          if (!getAdminProfileById(adminPortalState.selectedUserId)) {
+            adminPortalState.selectedUserId = String(adminPortalState.profiles[0]?.id || '').trim();
+          }
           renderAdminUsers();
           setAdminMessage(elements.usersMessage, `${adminPortalState.profiles.length} Benutzer geladen.`, 'success');
         })
@@ -3890,11 +3914,13 @@ async function handleAdminCatalogSync() {
   try {
     const { error } = await client.from(loadFoundationState().productsTable || 'products').upsert(payloads, { onConflict: 'slug' });
     if (error) throw error;
-    setAdminMessage(elements.productsMessage, `${payloads.length} Website-Produkte wurden nach Supabase übernommen.`, 'success');
     adminPortalState.initialized = false;
     supabaseProductsBooted = false;
     await loadAdminPortalData(true);
     await loadSupabaseManagedProducts();
+    const supabaseCount = adminPortalState.products.filter((entry) => entry.sourceKind === 'supabase').length;
+    const websiteCount = Math.max(0, adminPortalState.products.length - supabaseCount);
+    setAdminMessage(elements.productsMessage, `${payloads.length} Website-Produkte synchronisiert. Jetzt in Supabase: ${supabaseCount}. Website-Basis verbleibend: ${websiteCount}.`, 'success');
   } catch (error) {
     setAdminMessage(elements.productsMessage, `Sync fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'error');
   } finally {
@@ -3965,9 +3991,10 @@ function setupAdminPortal() {
   elements.productForm.addEventListener('submit', handleAdminProductSave);
   elements.productResetButton?.addEventListener('click', () => resetAdminProductForm());
   elements.productDeleteButton?.addEventListener('click', handleAdminProductDelete);
-  elements.productRefreshButton?.addEventListener('click', () => {
+  elements.productRefreshButton?.addEventListener('click', async () => {
+    setAdminMessage(elements.productsMessage, 'Lade Produkte neu ...');
     adminPortalState.initialized = false;
-    loadAdminPortalData(true);
+    await loadAdminPortalData(true);
   });
   elements.productTitle?.addEventListener('input', () => {
     if (!elements.productSlug) return;
@@ -3999,8 +4026,8 @@ function setupAdminPortal() {
     handleAdminRoleSave(adminPortalState.selectedUserId);
   });
 
-  elements.productSyncButton?.addEventListener('click', () => {
-    handleAdminCatalogSync();
+  elements.productSyncButton?.addEventListener('click', async () => {
+    await handleAdminCatalogSync();
   });
 
   elements.productImageFile?.addEventListener('change', () => {
