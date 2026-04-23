@@ -678,6 +678,7 @@ body.intro-booting .bg-lightning {
 .card-link {
   display: inline-flex; align-items: center; justify-content: center; margin-top: 16px; min-height: 44px; padding: 0 16px; border-radius: 14px;
   border: 1px solid rgba(255,80,80,0.22); background: rgba(255,59,59,0.10); box-shadow: var(--glow); font-weight: 700;
+  color: var(--text); font: inherit; text-decoration: none; cursor: pointer; appearance: none; -webkit-appearance: none;
 }
 
 .tile { display: grid; gap: 14px; }
