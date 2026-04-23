@@ -521,7 +521,7 @@
 <span></span>
 <h3>Script Highlights</h3>
 </div>
-<div class="cards two-col scripts-grid">
+<div class="cards two-col scripts-grid" id="scriptsGrid">
 <article class="product-card glass-soft searchable script-card" data-type="script gps">
 <div class="card-badge">Highlight</div>
 <div class="card-main card-main-vertical">
@@ -1396,7 +1396,7 @@ type="button"
 <span></span>
 <h3>Free Scripts</h3>
 </div>
-<div class="cards two-col free-grid">
+<div class="cards two-col free-grid" id="freeGrid">
 <article class="product-card glass-soft searchable free-script-card" data-type="free afk">
 <div class="card-badge">Free Release</div>
 <div class="card-main">
@@ -1634,7 +1634,10 @@ type="button"
                 <strong>Vorhandene Produkte</strong>
                 <small>Komprimierte Übersicht mit Schnellauswahl</small>
               </div>
-              <button class="cta secondary compact-cta" id="adminProductRefreshButton" type="button">Neu laden</button>
+              <div class="admin-head-actions">
+                <button class="cta secondary compact-cta" id="adminProductSyncCatalogButton" type="button">Website-Produkte syncen</button>
+                <button class="cta secondary compact-cta" id="adminProductRefreshButton" type="button">Neu laden</button>
+              </div>
             </div>
             <label class="admin-quick-select-wrap">
               <span>Schnellauswahl</span>
@@ -1730,7 +1733,57 @@ type="button"
           <small>Supabase · profiles</small>
         </div>
         <p class="foundation-note auth-message" id="adminUsersMessage"></p>
-        <div class="admin-record-list" id="adminUsersList"></div>
+        <div class="admin-users-shell">
+          <div class="admin-list-shell admin-user-select-shell">
+            <div class="admin-list-head admin-list-head-stack">
+              <div>
+                <strong>Benutzer auswählen</strong>
+                <small>Kompakte Rollenverwaltung per Dropdown</small>
+              </div>
+            </div>
+            <label class="admin-quick-select-wrap">
+              <span>Benutzer</span>
+              <select class="hm-select admin-quick-select" id="adminUserQuickSelect">
+                <option value="">Benutzer auswählen ...</option>
+              </select>
+            </label>
+            <div class="admin-user-quick-meta" id="adminUserQuickMeta">Bitte Benutzer auswählen, um die Rolle direkt zu bearbeiten.</div>
+          </div>
+
+          <div class="admin-user-editor glass-soft" id="adminUserEditor">
+            <div class="admin-user-editor-head">
+              <div>
+                <strong id="adminUserEditorName">Keine Auswahl</strong>
+                <small id="adminUserEditorMail">—</small>
+              </div>
+              <span class="admin-record-pill" id="adminUserEditorCurrentRole">—</span>
+            </div>
+            <div class="admin-user-editor-grid">
+              <div class="admin-user-kv">
+                <span>Discord</span>
+                <strong id="adminUserEditorDiscord">—</strong>
+              </div>
+              <div class="admin-user-kv">
+                <span>Status</span>
+                <strong id="adminUserEditorStatus">—</strong>
+              </div>
+            </div>
+            <label class="foundation-field">
+              <span>Rolle ändern</span>
+              <select class="hm-select admin-role-select" id="adminUserRoleSelect">
+                <option value="administrator">Administrator</option>
+                <option value="inhaberin">Inhaberin</option>
+                <option value="manager">Manager</option>
+                <option value="marketing">Marketing</option>
+                <option value="supporter">Supporter</option>
+                <option value="kunde">Kunde</option>
+              </select>
+            </label>
+            <div class="admin-form-actions admin-user-editor-actions">
+              <button class="cta secondary compact-cta" id="adminUserRoleSaveButton" type="button">Rolle speichern</button>
+            </div>
+          </div>
+        </div>
       </article>
 
       <article class="foundation-card glass-soft admin-work-card admin-support-card">

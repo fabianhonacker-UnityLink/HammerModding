@@ -152,6 +152,8 @@ const discordStatusCacheMs = 30000;
 let supabaseProductsBooted = false;
 let supabaseManagedProductsCache = [];
 let clothingUiSnapshot = null;
+let storefrontUiSnapshot = null;
+let baseProductPresentationMap = null;
 
 const adminPortalState = {
   bound: false,
@@ -163,6 +165,7 @@ const adminPortalState = {
   selectedProductId: '',
   selectedProductDbId: '',
   selectedProductSlug: '',
+  selectedUserId: '',
 };
 
 const adminRoleOptions = ['administrator', 'inhaberin', 'manager', 'marketing', 'supporter', 'kunde'];
@@ -2307,54 +2310,89 @@ function upsertCatalogProductFromSupabase(row) {
   }
 }
 
-function captureClothingUiSnapshot() {
-  if (clothingUiSnapshot) return clothingUiSnapshot;
 
-  const homeGroups = Array.from(document.querySelectorAll('.slider-track-clothing .slider-group'));
-  const primaryHomeGroup = homeGroups[0] || null;
-  const homeItems = Array.from(primaryHomeGroup?.children || []);
-  const homeLiveCards = new Map();
-  const homePreviewCards = [];
+function extractProductSlugFromCard(card) {
+  if (!card) return '';
+  return String(
+    card.querySelector('[data-open-script]')?.dataset.openScript
+      || card.querySelector('[data-cart-add="true"]')?.dataset.productSlug
+      || ''
+  ).trim();
+}
 
-  homeItems.forEach((item) => {
-    const slug = item.querySelector('[data-open-script]')?.dataset.openScript || '';
+function captureBaseProductPresentationMap() {
+  if (baseProductPresentationMap) return baseProductPresentationMap;
+  const map = {};
+  document.querySelectorAll('article.product-card').forEach((card) => {
+    const slug = extractProductSlugFromCard(card);
+    if (!slug || map[slug]) return;
+    map[slug] = {
+      badge: String(card.querySelector('.card-badge')?.textContent || '').trim(),
+      image: String(card.querySelector('img')?.getAttribute('src') || '').trim(),
+      short: String(card.querySelector('p')?.textContent || '').trim(),
+      priceHint: String(card.querySelector('.price-row small')?.textContent || '').trim(),
+    };
+  });
+  baseProductPresentationMap = map;
+  return map;
+}
+
+function captureSliderSnapshot(trackSelector) {
+  const groups = Array.from(document.querySelectorAll(`${trackSelector} .slider-group`));
+  const primaryGroup = groups[0] || null;
+  const liveCards = new Map();
+  const previewCards = [];
+  Array.from(primaryGroup?.children || []).forEach((item) => {
+    const slug = extractProductSlugFromCard(item);
     if (slug) {
-      homeLiveCards.set(slug, item.outerHTML);
+      liveCards.set(slug, item.outerHTML);
     } else {
-      homePreviewCards.push(item.outerHTML);
+      previewCards.push(item.outerHTML);
     }
   });
+  return { trackSelector, liveCards, previewCards };
+}
 
-  const clothingGrid = document.getElementById('clothingGrid');
-  const gridItems = Array.from(clothingGrid?.children || []);
-  const gridLiveCards = new Map();
-  const gridPreviewCards = [];
-
-  gridItems.forEach((item) => {
-    const slug = item.querySelector('[data-open-script]')?.dataset.openScript || '';
-    if (item.classList.contains('clothing-card-live') && slug) {
-      gridLiveCards.set(slug, item.outerHTML);
+function captureGridSnapshot(gridSelector, isLiveCard) {
+  const grid = document.querySelector(gridSelector);
+  const liveCards = new Map();
+  const previewCards = [];
+  Array.from(grid?.children || []).forEach((item) => {
+    const slug = extractProductSlugFromCard(item);
+    if (slug && (!isLiveCard || isLiveCard(item))) {
+      liveCards.set(slug, item.outerHTML);
     } else {
-      gridPreviewCards.push(item.outerHTML);
+      previewCards.push(item.outerHTML);
     }
   });
+  return { gridSelector, liveCards, previewCards };
+}
 
-  clothingUiSnapshot = {
-    homeLiveCards,
-    homePreviewCards,
-    gridLiveCards,
-    gridPreviewCards,
+function captureStorefrontUiSnapshot() {
+  if (storefrontUiSnapshot) return storefrontUiSnapshot;
+  storefrontUiSnapshot = {
+    homeScripts: captureSliderSnapshot('.slider-track-paid'),
+    homeClothing: captureSliderSnapshot('.slider-track-clothing'),
+    scriptsGrid: captureGridSnapshot('#scriptsGrid'),
+    freeGrid: captureGridSnapshot('#freeGrid'),
+    clothingGrid: captureGridSnapshot('#clothingGrid', (item) => item.classList.contains('clothing-card-live')),
   };
+  return storefrontUiSnapshot;
+}
 
+function captureClothingUiSnapshot() {
+  const snapshot = captureStorefrontUiSnapshot();
+  clothingUiSnapshot = snapshot.homeClothing;
   return clothingUiSnapshot;
 }
 
 function buildDynamicProductActionMarkup(row) {
   const catalogItem = getCatalogItem(row.slug) || storeCatalog[row.slug];
   const hasDetail = Boolean(detailSections[row.slug]);
+  const actionLabel = row.category === 'scripts' || row.category === 'free_scripts' ? 'Jetzt ansehen' : 'Produkt ansehen';
 
   if (hasDetail) {
-    return `<a class="card-link" data-open-script="${escapeHtml(row.slug)}" href="#">Produkt ansehen</a>`;
+    return `<a class="card-link" data-open-script="${escapeHtml(row.slug)}" href="#">${escapeHtml(actionLabel)}</a>`;
   }
 
   return `
@@ -2372,7 +2410,28 @@ function buildDynamicProductActionMarkup(row) {
   `;
 }
 
-function buildDynamicHomeClothingCardHtml(row) {
+function getSupabaseProductPresentation(row) {
+  const baseMap = captureBaseProductPresentationMap();
+  const base = baseMap[row.slug] || {};
+  const preset = supabaseProductPresentation[row.slug] || {};
+  const firstWord = row.title.split(/\s+/).filter(Boolean)[0] || 'Produkt';
+  const fallbackHint = row.category === 'scripts'
+    ? 'Script'
+    : row.category === 'free_scripts'
+      ? 'Kostenlos'
+      : row.product_type === 'clothing'
+        ? 'Kleidungs-Pack'
+        : 'Produkt';
+
+  return {
+    badge: preset.badge || base.badge || firstWord,
+    image: row.image_url || preset.image || base.image || 'assets/content.png',
+    priceHint: preset.priceHint || base.priceHint || fallbackHint,
+    short: row.short_description || row.full_description || base.short || 'Live aus Supabase geladen.',
+  };
+}
+
+function buildDynamicHomeCardHtml(row) {
   const presentation = getSupabaseProductPresentation(row);
   return `
     <article class="product-card glass-soft searchable marquee-card dynamic-product-card" data-product-slug="${escapeHtml(row.slug)}" data-type="${escapeHtml(`${row.category} ${row.product_type} ${row.slug} ${row.title}`)}">
@@ -2381,7 +2440,7 @@ function buildDynamicHomeClothingCardHtml(row) {
         <img alt="${escapeHtml(row.title)}" decoding="async" loading="lazy" src="${escapeHtml(presentation.image)}"/>
         <div>
           <h4>${escapeHtml(row.title)}</h4>
-          <p>${escapeHtml(row.short_description || row.full_description || 'Live aus Supabase geladen.')}</p>
+          <p>${escapeHtml(presentation.short)}</p>
           <div class="price-row"><strong>${escapeHtml(formatSupabasePriceLabel(row.price_eur))}</strong><small>${escapeHtml(presentation.priceHint)}</small></div>
         </div>
       </div>
@@ -2390,16 +2449,23 @@ function buildDynamicHomeClothingCardHtml(row) {
   `;
 }
 
-function buildDynamicGridClothingCardHtml(row) {
+function buildDynamicGridCardHtml(row) {
   const presentation = getSupabaseProductPresentation(row);
+  const cardClass = row.category === 'scripts'
+    ? 'script-card'
+    : row.category === 'free_scripts'
+      ? 'free-script-card'
+      : 'clothing-card clothing-card-live';
+  const categoryAttr = row.category === 'clothing' ? ` data-category="${escapeHtml(row.slug)}"` : '';
+
   return `
-    <article class="product-card glass-soft searchable clothing-card clothing-card-live dynamic-product-card" data-product-slug="${escapeHtml(row.slug)}" data-category="${escapeHtml(row.slug)}" data-type="${escapeHtml(`${row.category} ${row.product_type} live ${row.slug} ${row.title}`)}">
+    <article class="product-card glass-soft searchable ${cardClass} dynamic-product-card" data-product-slug="${escapeHtml(row.slug)}"${categoryAttr} data-type="${escapeHtml(`${row.category} ${row.product_type} live ${row.slug} ${row.title}`)}">
       <div class="card-badge">${escapeHtml(presentation.badge)}</div>
       <div class="card-main card-main-vertical">
         <img alt="${escapeHtml(row.title)}" decoding="async" loading="lazy" src="${escapeHtml(presentation.image)}"/>
         <div>
           <h4>${escapeHtml(row.title)}</h4>
-          <p>${escapeHtml(row.short_description || row.full_description || 'Live aus Supabase geladen.')}</p>
+          <p>${escapeHtml(presentation.short)}</p>
           <div class="price-row"><strong>${escapeHtml(formatSupabasePriceLabel(row.price_eur))}</strong><small>${escapeHtml(presentation.priceHint)}</small></div>
         </div>
       </div>
@@ -2408,45 +2474,57 @@ function buildDynamicGridClothingCardHtml(row) {
   `;
 }
 
-function renderSupabaseManagedProducts(products) {
-  const snapshot = captureClothingUiSnapshot();
-  const liveClothingProducts = products.filter((row) => row.is_active && row.category === 'clothing');
+function renderMergedTrack(snapshot, rows) {
+  if (!snapshot) return;
+  const merged = new Map(snapshot.liveCards);
+  rows.forEach((row) => {
+    merged.set(row.slug, buildDynamicHomeCardHtml(row));
+  });
+  const markup = [...merged.values(), ...snapshot.previewCards].join('');
+  const groups = Array.from(document.querySelectorAll(`${snapshot.trackSelector} .slider-group`));
+  groups.forEach((group) => {
+    group.innerHTML = markup;
+  });
+}
 
-  liveClothingProducts.forEach(upsertCatalogProductFromSupabase);
-  supabaseManagedProductsCache = liveClothingProducts.slice();
+function renderMergedGrid(snapshot, rows) {
+  if (!snapshot) return 0;
+  const merged = new Map(snapshot.liveCards);
+  rows.forEach((row) => {
+    merged.set(row.slug, buildDynamicGridCardHtml(row));
+  });
+  const grid = document.querySelector(snapshot.gridSelector);
+  if (grid) {
+    grid.innerHTML = [...merged.values(), ...snapshot.previewCards].join('');
+  }
+  return merged.size;
+}
+
+function renderSupabaseManagedProducts(products) {
+  const snapshot = captureStorefrontUiSnapshot();
+  const activeProducts = products.filter((row) => row.is_active);
+
+  activeProducts.forEach(upsertCatalogProductFromSupabase);
+  supabaseManagedProductsCache = activeProducts.slice();
   hmStoreBridge.supabaseManagedProducts = supabaseManagedProductsCache.slice();
 
-  if (!liveClothingProducts.length) return;
+  if (!activeProducts.length) return;
 
-  const mergedHomeLive = new Map(snapshot.homeLiveCards);
-  const mergedGridLive = new Map(snapshot.gridLiveCards);
+  const scripts = activeProducts.filter((row) => row.category === 'scripts');
+  const freeScripts = activeProducts.filter((row) => row.category === 'free_scripts');
+  const clothing = activeProducts.filter((row) => row.category === 'clothing');
 
-  liveClothingProducts.forEach((row) => {
-    mergedHomeLive.set(row.slug, buildDynamicHomeClothingCardHtml(row));
-    mergedGridLive.set(row.slug, buildDynamicGridClothingCardHtml(row));
-  });
+  renderMergedTrack(snapshot.homeScripts, scripts);
+  renderMergedTrack(snapshot.homeClothing, clothing);
 
-  const homeGroups = Array.from(document.querySelectorAll('.slider-track-clothing .slider-group'));
-  const primaryHomeGroup = homeGroups[0] || null;
-  const secondaryHomeGroup = homeGroups[1] || null;
-  const homeMarkup = [...mergedHomeLive.values(), ...snapshot.homePreviewCards].join('');
+  const scriptsCount = renderMergedGrid(snapshot.scriptsGrid, scripts) || snapshot.scriptsGrid.liveCards.size;
+  const freeCount = renderMergedGrid(snapshot.freeGrid, freeScripts) || snapshot.freeGrid.liveCards.size;
+  const clothingCount = renderMergedGrid(snapshot.clothingGrid, clothing) || snapshot.clothingGrid.liveCards.size;
 
-  if (primaryHomeGroup) primaryHomeGroup.innerHTML = homeMarkup;
-  if (secondaryHomeGroup) secondaryHomeGroup.innerHTML = homeMarkup;
-
-  const clothingGrid = document.getElementById('clothingGrid');
-  if (clothingGrid) {
-    clothingGrid.innerHTML = [...mergedGridLive.values(), ...snapshot.gridPreviewCards].join('');
-  }
-
-  const staticNonClothingLiveCount = new Set(
-    Object.values(storeCatalog)
-      .filter((item) => item && item.type !== 'clothing')
-      .map((item) => item.slug),
-  ).size;
-
-  setStoreStatCount('Kleidungs-Packs', mergedGridLive.size);
-  setStoreStatCount('Live-Produkte', staticNonClothingLiveCount + mergedGridLive.size);
+  setStoreStatCount('Scripte', scriptsCount);
+  setStoreStatCount('Free Scripts', freeCount);
+  setStoreStatCount('Kleidungs-Packs', clothingCount);
+  setStoreStatCount('Live-Produkte', scriptsCount + freeCount + clothingCount);
 
   bindPreparedCartButtons(document);
   refreshSearchableCards();
@@ -3216,9 +3294,19 @@ function getAdminPortalElements() {
     usersMessage: document.getElementById('adminUsersMessage'),
     supportMessage: document.getElementById('adminSupportMessage'),
     productsList: document.getElementById('adminProductsList'),
-    usersList: document.getElementById('adminUsersList'),
+    userQuickSelect: document.getElementById('adminUserQuickSelect'),
+    userQuickMeta: document.getElementById('adminUserQuickMeta'),
+    userEditor: document.getElementById('adminUserEditor'),
+    userEditorName: document.getElementById('adminUserEditorName'),
+    userEditorMail: document.getElementById('adminUserEditorMail'),
+    userEditorCurrentRole: document.getElementById('adminUserEditorCurrentRole'),
+    userEditorDiscord: document.getElementById('adminUserEditorDiscord'),
+    userEditorStatus: document.getElementById('adminUserEditorStatus'),
+    userRoleSelect: document.getElementById('adminUserRoleSelect'),
+    userRoleSaveButton: document.getElementById('adminUserRoleSaveButton'),
     supportList: document.getElementById('adminSupportList'),
     productRefreshButton: document.getElementById('adminProductRefreshButton'),
+    productSyncButton: document.getElementById('adminProductSyncCatalogButton'),
     productQuickSelect: document.getElementById('adminProductQuickSelect'),
     productForm: document.getElementById('adminProductForm'),
     productFormTitle: document.getElementById('adminProductFormTitle'),
@@ -3303,6 +3391,28 @@ function mergeAdminPortalProducts(supabaseRows = []) {
   });
 
   return [...merged.values()].sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || String(a.title || '').localeCompare(String(b.title || '')));
+}
+
+function buildCatalogSyncPayloads() {
+  const base = captureBaseProductPresentationMap();
+  return buildCatalogAdminProductEntries().map((entry) => ({
+    title: entry.title,
+    slug: entry.slug,
+    category: entry.category,
+    product_type: entry.product_type,
+    price_eur: Number(entry.price_eur || 0) || 0,
+    short_description: base[entry.slug]?.short || entry.short_description || '',
+    full_description: base[entry.slug]?.short || entry.full_description || '',
+    image_url: base[entry.slug]?.image || entry.image_url || '',
+    tebex_package_id: entry.tebex_package_id || '',
+    is_active: entry.is_active !== false,
+    is_featured: entry.is_featured === true,
+    sort_order: Number(entry.sort_order || 0) || 0,
+  }));
+}
+
+function getAdminProfileById(profileId) {
+  return adminPortalState.profiles.find((entry) => entry.id === profileId) || null;
 }
 
 function getAdminProductByKey(productKey) {
@@ -3486,36 +3596,60 @@ function renderAdminProducts() {
   }).join('');
 }
 
+function hydrateAdminUserEditor(profile) {
+  const elements = getAdminPortalElements();
+  const selected = profile || null;
+  const roleLabel = mapRoleLabel(selected?.role || 'kunde');
+
+  if (elements.userQuickMeta) {
+    elements.userQuickMeta.textContent = selected
+      ? `${selected.email || 'ohne Mail'} · ${selected.discord_name || 'kein Discord'} · ${selected.is_active === false ? 'inaktiv' : 'aktiv'}`
+      : 'Bitte Benutzer auswählen, um die Rolle direkt zu bearbeiten.';
+  }
+
+  if (elements.userEditorName) elements.userEditorName.textContent = selected?.username || selected?.email || 'Keine Auswahl';
+  if (elements.userEditorMail) elements.userEditorMail.textContent = selected?.email || '—';
+  if (elements.userEditorCurrentRole) elements.userEditorCurrentRole.textContent = roleLabel;
+  if (elements.userEditorDiscord) elements.userEditorDiscord.textContent = selected?.discord_name || '—';
+  if (elements.userEditorStatus) elements.userEditorStatus.textContent = selected ? (selected.is_active === false ? 'Inaktiv' : 'Aktiv') : '—';
+
+  if (elements.userRoleSelect) {
+    elements.userRoleSelect.value = getNormalizedRole(selected?.role || 'kunde');
+    elements.userRoleSelect.disabled = !selected;
+  }
+
+  if (elements.userRoleSaveButton) {
+    elements.userRoleSaveButton.disabled = !selected;
+  }
+}
+
 function renderAdminUsers() {
   const elements = getAdminPortalElements();
-  if (!elements.usersList) return;
+  if (!elements.userQuickSelect) return;
   const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
+
   if (!permissions.canViewUsers) {
-    elements.usersList.innerHTML = '<div class="admin-record-empty">Nur Administratoren sehen hier die komplette Benutzer- und Rollenverwaltung.</div>';
+    elements.userQuickSelect.innerHTML = '<option value="">Keine Freigabe</option>';
+    hydrateAdminUserEditor(null);
     return;
   }
+
   if (!adminPortalState.profiles.length) {
-    elements.usersList.innerHTML = '<div class="admin-record-empty">Keine Benutzer geladen. Falls du nur dich selbst siehst oder nichts erscheint, fehlt noch die passende Profiles-RLS für Administratoren.</div>';
+    elements.userQuickSelect.innerHTML = '<option value="">Keine Benutzer geladen</option>';
+    hydrateAdminUserEditor(null);
     return;
   }
-  elements.usersList.innerHTML = adminPortalState.profiles.map((profile) => {
-    const selectedRole = getNormalizedRole(profile.role || 'kunde');
-    const options = adminRoleOptions.map((role) => `<option value="${role}"${role === selectedRole ? ' selected' : ''}>${mapRoleLabel(role)}</option>`).join('');
-    return `
-      <article class="admin-record-card admin-user-row" data-profile-id="${escapeHtml(profile.id || '')}">
-        <div class="admin-user-main">
-          <div class="admin-user-meta">
-            <strong>${escapeHtml(profile.username || profile.email || 'Benutzer')}</strong>
-            <div class="admin-user-mail">${escapeHtml(profile.email || 'ohne Mail')} · ${escapeHtml(profile.discord_name || 'kein Discord')}</div>
-          </div>
-          <div class="admin-user-actions">
-            <select class="hm-select admin-role-select" data-admin-role-select="${escapeHtml(profile.id || '')}">${options}</select>
-            <button class="cta secondary compact-cta" data-admin-role-save="${escapeHtml(profile.id || '')}" type="button">Rolle speichern</button>
-          </div>
-        </div>
-      </article>
-    `;
-  }).join('');
+
+  if (!getAdminProfileById(adminPortalState.selectedUserId)) {
+    adminPortalState.selectedUserId = adminPortalState.profiles[0]?.id || '';
+  }
+
+  const options = ['<option value="">Benutzer auswählen ...</option>'].concat(
+    adminPortalState.profiles.map((profile) => `<option value="${escapeHtml(profile.id || '')}"${profile.id === adminPortalState.selectedUserId ? ' selected' : ''}>${escapeHtml(profile.username || profile.email || 'Benutzer')} · ${escapeHtml(mapRoleLabel(profile.role || 'kunde'))}</option>`)
+  );
+
+  elements.userQuickSelect.innerHTML = options.join('');
+  hydrateAdminUserEditor(getAdminProfileById(adminPortalState.selectedUserId));
 }
 
 function renderAdminSupport() {
@@ -3737,15 +3871,51 @@ async function handleAdminProductDelete() {
   }
 }
 
-async function handleAdminRoleSave(profileId) {
+async function handleAdminCatalogSync() {
+  const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
+  const elements = getAdminPortalElements();
+  if (!permissions.canEditProducts) {
+    return setAdminMessage(elements.productsMessage, 'Deine Rolle darf Website-Produkte nicht nach Supabase übernehmen.', 'error');
+  }
+  const client = getSupabaseClient();
+  if (!client) return setAdminMessage(elements.productsMessage, 'Supabase ist nicht verbunden.', 'error');
+  const payloads = buildCatalogSyncPayloads();
+  if (!payloads.length) return setAdminMessage(elements.productsMessage, 'Keine Website-Produkte zum Sync gefunden.', 'error');
+
+  if (elements.productSyncButton) {
+    elements.productSyncButton.disabled = true;
+    elements.productSyncButton.textContent = 'Synchronisiere ...';
+  }
+
+  try {
+    const { error } = await client.from(loadFoundationState().productsTable || 'products').upsert(payloads, { onConflict: 'slug' });
+    if (error) throw error;
+    setAdminMessage(elements.productsMessage, `${payloads.length} Website-Produkte wurden nach Supabase übernommen.`, 'success');
+    adminPortalState.initialized = false;
+    supabaseProductsBooted = false;
+    await loadAdminPortalData(true);
+    await loadSupabaseManagedProducts();
+  } catch (error) {
+    setAdminMessage(elements.productsMessage, `Sync fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'error');
+  } finally {
+    if (elements.productSyncButton) {
+      elements.productSyncButton.disabled = false;
+      elements.productSyncButton.textContent = 'Website-Produkte syncen';
+    }
+  }
+}
+
+async function handleAdminRoleSave(profileId = adminPortalState.selectedUserId) {
   const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
   const elements = getAdminPortalElements();
   if (!permissions.canManageRoles) {
     return setAdminMessage(elements.usersMessage, 'Nur Administratoren dürfen Rollen ändern.', 'error');
   }
-  const select = document.querySelector(`[data-admin-role-select="${CSS.escape(profileId)}"]`);
-  if (!select) return;
-  const nextRole = getNormalizedRole(select.value);
+  const selectedProfile = getAdminProfileById(profileId);
+  if (!selectedProfile || !elements.userRoleSelect) {
+    return setAdminMessage(elements.usersMessage, 'Bitte zuerst einen Benutzer auswählen.', 'error');
+  }
+  const nextRole = getNormalizedRole(elements.userRoleSelect.value);
   try {
     const client = getSupabaseClient();
     const { error } = await client.from('profiles').update({ role: nextRole }).eq('id', profileId);
@@ -3820,6 +3990,19 @@ function setupAdminPortal() {
     if (product) hydrateAdminProductForm(product);
   });
 
+  elements.userQuickSelect?.addEventListener('change', () => {
+    adminPortalState.selectedUserId = String(elements.userQuickSelect?.value || '').trim();
+    hydrateAdminUserEditor(getAdminProfileById(adminPortalState.selectedUserId));
+  });
+
+  elements.userRoleSaveButton?.addEventListener('click', () => {
+    handleAdminRoleSave(adminPortalState.selectedUserId);
+  });
+
+  elements.productSyncButton?.addEventListener('click', () => {
+    handleAdminCatalogSync();
+  });
+
   elements.productImageFile?.addEventListener('change', () => {
     const file = elements.productImageFile?.files?.[0] || null;
     if (elements.productImageHint) {
@@ -3830,18 +4013,13 @@ function setupAdminPortal() {
   });
 
   document.addEventListener('click', (event) => {
-    const target = event.target instanceof Element ? event.target.closest('[data-admin-product-edit], [data-admin-role-save], [data-admin-support-save]') : null;
+    const target = event.target instanceof Element ? event.target.closest('[data-admin-product-edit], [data-admin-support-save]') : null;
     if (!target) return;
     if (target.hasAttribute('data-admin-product-edit')) {
       event.preventDefault();
       const productId = target.getAttribute('data-admin-product-edit') || '';
       const product = getAdminProductByKey(productId);
       if (product) hydrateAdminProductForm(product);
-      return;
-    }
-    if (target.hasAttribute('data-admin-role-save')) {
-      event.preventDefault();
-      handleAdminRoleSave(target.getAttribute('data-admin-role-save') || '');
       return;
     }
     if (target.hasAttribute('data-admin-support-save')) {
