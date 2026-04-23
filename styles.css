@@ -1781,6 +1781,22 @@ body.intro-booting .bg-lightning {
   border-radius: inherit;
   display: block;
 }
+.account-avatar-image {
+  z-index: 2;
+}
+.account-dock-avatar strong,
+.account-dropdown-avatar strong,
+.account-profile-avatar strong {
+  position: relative;
+  z-index: 1;
+  transition: opacity .18s ease, visibility .18s ease;
+}
+.account-dock-avatar.has-image strong,
+.account-dropdown-avatar.has-image strong,
+.account-profile-avatar.has-image strong {
+  opacity: 0;
+  visibility: hidden;
+}
 .account-dock-avatar { width: 40px; height: 40px; font-size: 13px; }
 .account-dropdown-avatar { width: 40px; height: 40px; font-size: 13px; }
 .account-profile-avatar { width: 64px; height: 64px; font-size: 22px; }
@@ -3704,7 +3720,17 @@ body.intro-booting .bg-lightning {
   align-items: center;
 }
 .admin-role-select {
-  min-width: 160px;
+  min-width: 190px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,110,110,0.18);
+  background-color: rgba(9,7,10,0.94);
+  color: #f8f8fb;
+  box-shadow: inset 0 0 20px rgba(255,255,255,0.015), 0 0 18px rgba(255,45,45,0.05);
+}
+.admin-role-select option,
+.admin-status-select option {
+  background: #12070a;
+  color: #f5f6f8;
 }
 .admin-support-row {
   display: grid;

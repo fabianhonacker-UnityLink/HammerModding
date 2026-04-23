@@ -152,6 +152,12 @@ const discordStatusCacheMs = 30000;
 let supabaseProductsBooted = false;
 let supabaseManagedProductsCache = [];
 let clothingUiSnapshot = null;
+let lastProfilePersistenceError = '';
+
+function setLastProfilePersistenceError(message = '') {
+  lastProfilePersistenceError = String(message || '').trim();
+}
+
 
 const adminPortalState = {
   bound: false,
@@ -424,15 +430,21 @@ async function refreshActiveUsersUi() {
       client.rpc('get_recent_users'),
     ]);
 
+    const liveUsers = !activeError && Array.isArray(activeData) ? activeData : [];
+    const liveUserIds = new Set(liveUsers.map((entry) => String(entry?.id || '')).filter(Boolean));
+    const recentUsers = !recentError && Array.isArray(recentData)
+      ? recentData.filter((entry) => !liveUserIds.has(String(entry?.id || '')))
+      : [];
+
     renderPresenceUsers(
       'activeUsersList',
-      !activeError && Array.isArray(activeData) ? activeData : [],
+      liveUsers,
       'Gerade ist niemand online.',
       { showOnlineDot: true },
     );
     renderPresenceUsers(
       'recentUsersList',
-      !recentError && Array.isArray(recentData) ? recentData : [],
+      recentUsers,
       'Noch keine Aktivität vorhanden.',
       { recent: true },
     );
@@ -2554,12 +2566,15 @@ async function fetchLiveProfile(userId) {
       .maybeSingle();
 
     if (error) {
+      setLastProfilePersistenceError(error.message || 'Profil konnte nicht geladen werden.');
       if (isMissingProfilesTableError(error)) return null;
       return null;
     }
 
+    setLastProfilePersistenceError('');
     return data || null;
   } catch (error) {
+    setLastProfilePersistenceError(error?.message || 'Profil konnte nicht geladen werden.');
     return null;
   }
 }
@@ -2603,12 +2618,15 @@ async function upsertLiveProfile(user, profileDraft = {}) {
       .maybeSingle();
 
     if (error) {
+      setLastProfilePersistenceError(error.message || 'Profil konnte nicht gespeichert werden.');
       if (isMissingProfilesTableError(error)) return null;
       return null;
     }
 
+    setLastProfilePersistenceError('');
     return data || null;
   } catch (error) {
+    setLastProfilePersistenceError(error?.message || 'Profil konnte nicht gespeichert werden.');
     return null;
   }
 }
@@ -2626,12 +2644,15 @@ async function patchLiveProfile(userId, patch = {}) {
       .maybeSingle();
 
     if (error) {
+      setLastProfilePersistenceError(error.message || 'Profil konnte nicht gespeichert werden.');
       if (isMissingProfilesTableError(error)) return null;
       return null;
     }
 
+    setLastProfilePersistenceError('');
     return data || null;
   } catch (error) {
+    setLastProfilePersistenceError(error?.message || 'Profil konnte nicht gespeichert werden.');
     return null;
   }
 }
@@ -3054,16 +3075,26 @@ async function handleProfileEditorSave(event) {
   }
 
   try {
-    const profile = await upsertLiveProfile(user, payload);
+    setLastProfilePersistenceError('');
+    let profile = await patchLiveProfile(user.id, payload);
+    if (!profile) {
+      const existingProfile = await fetchLiveProfile(user.id);
+      profile = existingProfile ? await patchLiveProfile(user.id, payload) : await upsertLiveProfile(user, payload);
+    }
+
     if (profile) {
       liveAccountSnapshot.profile = profile;
       setAuthMessage(elements.message, 'Profil gespeichert.', 'success');
+      syncAccountAvatarViews(user, profile);
+      updateAccountDock(user, profile);
+      setAccountShellUi(user, profile);
     } else {
-      setAuthMessage(elements.message, 'Profil konnte noch nicht gespeichert werden. Bitte SQL in Supabase ausführen.', 'warn');
+      const detail = lastProfilePersistenceError || 'Bitte prüfe die Profiles-RLS in Supabase.';
+      setAuthMessage(elements.message, `Profil konnte nicht gespeichert werden: ${detail}`, 'warn');
     }
     await refreshLiveAuthUi();
   } catch (error) {
-    setAuthMessage(elements.message, 'Profil konnte nicht gespeichert werden.', 'warn');
+    setAuthMessage(elements.message, `Profil konnte nicht gespeichert werden: ${error?.message || 'Unbekannter Fehler'}`, 'warn');
   } finally {
     if (elements.saveButton) {
       elements.saveButton.disabled = false;
