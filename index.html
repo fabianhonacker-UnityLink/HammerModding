@@ -1580,32 +1580,152 @@ type="button"
 <div class="account-shell glass-soft admin-shell">
   <div class="account-shell-head admin-shell-head">
     <div>
-      <div class="eyebrow">Hammer Modding · Verwaltung</div>
-      <h2>VERWALTUNG</h2>
+      <div class="eyebrow">Hammer Modding · Admin Portal</div>
+      <h2>VERWALTUNG &amp; ROLLEN</h2>
     </div>
   </div>
-  <div class="admin-panel-grid">
-    <article class="foundation-card glass-soft admin-panel-card">
-      <div class="foundation-card-head">
-        <strong>Produkte</strong>
-        <small>Platzhalter</small>
-      </div>
-      <p class="foundation-copy">Hier kommt später die Produktverwaltung zum Hinzufügen, Bearbeiten und Entfernen von Artikeln rein.</p>
-    </article>
-    <article class="foundation-card glass-soft admin-panel-card">
-      <div class="foundation-card-head">
-        <strong>Benutzer &amp; Rollen</strong>
-        <small>Platzhalter</small>
-      </div>
-      <p class="foundation-copy">Hier werden später Berechtigungen, Rollen und geschützte Bereiche verwaltet.</p>
-    </article>
-    <article class="foundation-card glass-soft admin-panel-card">
-      <div class="foundation-card-head">
-        <strong>Käufe &amp; Freischaltungen</strong>
-        <small>Platzhalter</small>
-      </div>
-      <p class="foundation-copy">Hier kommt später die Übersicht für Käufe, Freischaltungen und Tebex-Zuordnungen rein.</p>
-    </article>
+
+  <article class="foundation-card glass-soft admin-lock-card" id="adminPortalLocked">
+    <div class="foundation-card-head">
+      <strong>Geschützter Bereich</strong>
+      <small>Nur für berechtigte Rollen</small>
+    </div>
+    <p class="foundation-copy" id="adminLockedCopy">Melde dich mit einer berechtigten Rolle an, um Produkte, Benutzer und Support zu verwalten.</p>
+  </article>
+
+  <div class="admin-portal-shell hidden-section" id="adminPortalContent">
+    <div class="admin-panel-grid admin-panel-grid-top">
+      <article class="foundation-card glass-soft admin-panel-card">
+        <div class="foundation-card-head">
+          <strong>Produktverwaltung</strong>
+          <small id="adminProductsRoleHint">Bereit</small>
+        </div>
+        <p class="foundation-copy">Produkte aus Supabase laden, bearbeiten, neu anlegen und je nach Rolle auch löschen.</p>
+      </article>
+      <article class="foundation-card glass-soft admin-panel-card">
+        <div class="foundation-card-head">
+          <strong>Benutzer &amp; Rollen</strong>
+          <small id="adminUsersRoleHint">Administrator</small>
+        </div>
+        <p class="foundation-copy">Benutzerkonten sehen und Rollen direkt auf der Website anpassen.</p>
+      </article>
+      <article class="foundation-card glass-soft admin-panel-card">
+        <div class="foundation-card-head">
+          <strong>Support-Inbox</strong>
+          <small id="adminSupportRoleHint">Support / Leitung</small>
+        </div>
+        <p class="foundation-copy">Eingehende Anfragen, Wünsche und offene Supportfälle im Blick behalten.</p>
+      </article>
+    </div>
+
+    <div class="admin-workspace-grid">
+      <article class="foundation-card glass-soft admin-work-card admin-products-card">
+        <div class="foundation-card-head">
+          <strong>Produkte</strong>
+          <small>Supabase · products</small>
+        </div>
+        <p class="foundation-note auth-message" id="adminProductsMessage"></p>
+        <div class="admin-products-grid">
+          <div class="admin-list-shell">
+            <div class="admin-list-head">
+              <strong>Vorhandene Produkte</strong>
+              <button class="cta secondary compact-cta" id="adminProductRefreshButton" type="button">Neu laden</button>
+            </div>
+            <div class="admin-record-list" id="adminProductsList"></div>
+          </div>
+          <form class="foundation-form-shell admin-form-shell" id="adminProductForm">
+            <div class="foundation-form-head">
+              <strong id="adminProductFormTitle">Produkt anlegen</strong>
+              <small id="adminProductFormHint">Neu</small>
+            </div>
+            <input id="adminProductId" type="hidden"/>
+            <div class="foundation-form-grid">
+              <label class="foundation-field">
+                <span>Titel</span>
+                <input class="hm-input" id="adminProductTitle" placeholder="z. B. Berlin Straßen-Crew" required type="text"/>
+              </label>
+              <label class="foundation-field">
+                <span>Slug</span>
+                <input class="hm-input" id="adminProductSlug" placeholder="berlin-strassen-crew" required type="text"/>
+              </label>
+              <label class="foundation-field">
+                <span>Kategorie</span>
+                <select class="hm-select" id="adminProductCategory">
+                  <option value="clothing">Kleidung</option>
+                  <option value="scripts">Scripte</option>
+                  <option value="free_scripts">Free Scripts</option>
+                  <option value="other">Sonstiges</option>
+                </select>
+              </label>
+              <label class="foundation-field">
+                <span>Produkttyp</span>
+                <select class="hm-select" id="adminProductType">
+                  <option value="clothing">Kleidung</option>
+                  <option value="script">Script</option>
+                  <option value="free_script">Free Script</option>
+                  <option value="preview">Preview</option>
+                  <option value="other">Sonstiges</option>
+                </select>
+              </label>
+              <label class="foundation-field">
+                <span>Preis in €</span>
+                <input class="hm-input" id="adminProductPrice" min="0" placeholder="19.99" step="0.01" type="number"/>
+              </label>
+              <label class="foundation-field">
+                <span>Tebex Paket-ID</span>
+                <input class="hm-input" id="adminProductTebexId" placeholder="7405118" type="text"/>
+              </label>
+              <label class="foundation-field field-span-2">
+                <span>Bild-URL</span>
+                <input class="hm-input" id="adminProductImageUrl" placeholder="assets/berlin-strassen-crew.png" type="text"/>
+              </label>
+              <label class="foundation-field field-span-2">
+                <span>Kurzbeschreibung</span>
+                <textarea class="hm-textarea compact-textarea" id="adminProductShort" placeholder="Kurzer Teaser für Karten und Listen."></textarea>
+              </label>
+              <label class="foundation-field field-span-2">
+                <span>Beschreibung</span>
+                <textarea class="hm-textarea compact-textarea" id="adminProductFull" placeholder="Längere Beschreibung für Verwaltung und spätere Detailseiten."></textarea>
+              </label>
+              <label class="foundation-field">
+                <span>Sortierung</span>
+                <input class="hm-input" id="adminProductSort" min="0" step="1" type="number" value="0"/>
+              </label>
+              <label class="foundation-field admin-checkbox-field">
+                <span>Status</span>
+                <div class="admin-checkbox-row">
+                  <label><input checked id="adminProductActive" type="checkbox"/> Aktiv</label>
+                  <label><input id="adminProductFeatured" type="checkbox"/> Hervorgehoben</label>
+                </div>
+              </label>
+            </div>
+            <div class="admin-form-actions">
+              <button class="cta secondary compact-cta" id="adminProductResetButton" type="button">Zurücksetzen</button>
+              <button class="cta secondary compact-cta" id="adminProductDeleteButton" type="button">Löschen</button>
+              <button class="cta primary compact-cta" id="adminProductSaveButton" type="submit">Speichern</button>
+            </div>
+          </form>
+        </div>
+      </article>
+
+      <article class="foundation-card glass-soft admin-work-card admin-users-card">
+        <div class="foundation-card-head">
+          <strong>Benutzer &amp; Rollen</strong>
+          <small>Supabase · profiles</small>
+        </div>
+        <p class="foundation-note auth-message" id="adminUsersMessage"></p>
+        <div class="admin-record-list" id="adminUsersList"></div>
+      </article>
+
+      <article class="foundation-card glass-soft admin-work-card admin-support-card">
+        <div class="foundation-card-head">
+          <strong>Support-Inbox</strong>
+          <small>Supabase · support_requests</small>
+        </div>
+        <p class="foundation-note auth-message" id="adminSupportMessage"></p>
+        <div class="admin-record-list" id="adminSupportList"></div>
+      </article>
+    </div>
   </div>
 </div>
 </section>

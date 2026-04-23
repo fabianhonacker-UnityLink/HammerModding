@@ -3545,27 +3545,205 @@ body.intro-booting .bg-lightning {
 }
 
 
-/* Dynamic clothing buttons final white text fix */
-.clothing-card-live .card-link,
-.clothing-card-live .card-link:link,
-.clothing-card-live .card-link:visited,
-.clothing-card-live .card-link:hover,
-.clothing-card-live .card-link:active,
-.dynamic-product-card .card-link,
-.dynamic-product-card .card-link:link,
-.dynamic-product-card .card-link:visited,
-.dynamic-product-card .card-link:hover,
-.dynamic-product-card .card-link:active,
-button.card-link[data-cart-add="true"],
-button.card-link[data-cart-add="true"]:hover,
-button.card-link[data-cart-add="true"]:active,
-button.card-link[data-cart-add="true"]:focus {
-  color: #ffffff !important;
-  -webkit-text-fill-color: #ffffff !important;
+/* ===== Admin Portal Phase 1 ===== */
+.admin-lock-card {
+  display: grid;
+  gap: 10px;
 }
-
-.clothing-card-live .card-link *,
-.dynamic-product-card .card-link * {
-  color: #ffffff !important;
-  -webkit-text-fill-color: #ffffff !important;
+.admin-portal-shell {
+  display: grid;
+  gap: 12px;
+}
+.admin-panel-grid-top {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.admin-workspace-grid {
+  display: grid;
+  gap: 12px;
+}
+.admin-work-card {
+  display: grid;
+  gap: 12px;
+}
+.admin-products-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.86fr) minmax(0, 1.14fr);
+  gap: 12px;
+}
+.admin-list-shell {
+  display: grid;
+  gap: 10px;
+}
+.admin-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.admin-list-head strong {
+  font-size: 14px;
+}
+.admin-record-list {
+  display: grid;
+  gap: 10px;
+}
+.admin-record-empty {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 13px;
+}
+.admin-record-card {
+  padding: 12px 13px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  display: grid;
+  gap: 10px;
+}
+.admin-record-card.is-selected {
+  border-color: rgba(255,90,90,0.24);
+  box-shadow: 0 0 20px rgba(255,40,40,0.10);
+}
+.admin-record-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.admin-record-head strong {
+  font-size: 14px;
+  line-height: 1.3;
+}
+.admin-record-head small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted-2);
+  font-size: 10px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.admin-record-copy {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.admin-record-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.admin-record-pill {
+  min-height: 24px;
+  padding: 0 9px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #fff;
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.admin-form-shell {
+  padding: 14px;
+}
+.admin-form-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.admin-checkbox-field {
+  align-content: end;
+}
+.admin-checkbox-row {
+  min-height: 42px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(5,5,6,0.82);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 12px;
+  color: var(--text);
+  font-size: 12px;
+}
+.admin-checkbox-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.admin-user-row {
+  display: grid;
+  gap: 10px;
+}
+.admin-user-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.admin-user-meta {
+  display: grid;
+  gap: 4px;
+}
+.admin-user-mail {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.admin-user-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.admin-role-select {
+  min-width: 160px;
+}
+.admin-support-row {
+  display: grid;
+  gap: 10px;
+}
+.admin-support-message {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.admin-support-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.admin-status-select {
+  min-width: 170px;
+}
+.admin-portal-shell .foundation-note.auth-message {
+  min-height: 18px;
+}
+@media (max-width: 1180px) {
+  .admin-panel-grid-top,
+  .admin-products-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 760px) {
+  .admin-user-main,
+  .admin-support-actions,
+  .admin-form-actions,
+  .admin-list-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .admin-role-select,
+  .admin-status-select {
+    min-width: 0;
+  }
 }

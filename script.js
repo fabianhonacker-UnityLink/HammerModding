@@ -153,6 +153,19 @@ let supabaseProductsBooted = false;
 let supabaseManagedProductsCache = [];
 let clothingUiSnapshot = null;
 
+const adminPortalState = {
+  bound: false,
+  initialized: false,
+  loading: false,
+  products: [],
+  profiles: [],
+  supportRequests: [],
+  selectedProductId: '',
+};
+
+const adminRoleOptions = ['administrator', 'inhaberin', 'manager', 'marketing', 'supporter', 'kunde'];
+
+
 
 function formatRelativeDate(value) {
   if (!value) return '-';
@@ -270,16 +283,38 @@ function formatLastPurchase(profile, activity) {
   return label || formatRelativeDate(date);
 }
 
+function getNormalizedRole(role) {
+  return String(role || '').trim().toLowerCase();
+}
+
 function mapRoleLabel(role) {
-  const normalized = String(role || '').trim().toLowerCase();
+  const normalized = getNormalizedRole(role);
   if (normalized === 'administrator' || normalized === 'admin') return 'Administrator';
-  if (normalized === 'owner' || normalized === 'inhaberin') return 'Inhaberin';
+  if (normalized === 'inhaberin' || normalized === 'owner') return 'Inhaberin';
+  if (normalized === 'manager') return 'Manager';
+  if (normalized === 'marketing') return 'Marketing';
+  if (normalized === 'supporter') return 'Supporter';
   if (normalized === 'developer' || normalized === 'entwickler') return 'Entwickler';
   if (normalized === 'designer') return 'Designer';
   if (normalized === 'partner') return 'Partner';
   if (normalized === 'customer' || normalized === 'kunde') return 'Kunde';
   if (normalized === 'guest' || normalized === 'gast') return 'Gast';
   return role || 'Gast';
+}
+
+function getAdminPermissions(role) {
+  const normalized = getNormalizedRole(role);
+  return {
+    role: normalized,
+    canAccessPortal: ['administrator', 'inhaberin', 'manager', 'marketing', 'supporter'].includes(normalized),
+    canViewProducts: ['administrator', 'inhaberin', 'manager', 'marketing'].includes(normalized),
+    canEditProducts: ['administrator', 'inhaberin', 'manager', 'marketing'].includes(normalized),
+    canDeleteProducts: ['administrator', 'inhaberin', 'manager'].includes(normalized),
+    canViewUsers: normalized === 'administrator',
+    canManageRoles: normalized === 'administrator',
+    canViewSupport: ['administrator', 'inhaberin', 'manager', 'supporter'].includes(normalized),
+    canEditSupport: ['administrator', 'inhaberin', 'manager', 'supporter'].includes(normalized),
+  };
 }
 
 
@@ -298,9 +333,12 @@ function escapeHtml(value) {
 }
 
 function getPresenceRoleToneClass(role) {
-  const normalized = String(role || '').trim().toLowerCase();
+  const normalized = getNormalizedRole(role);
   if (normalized === 'administrator' || normalized === 'admin') return 'is-admin';
-  if (normalized === 'owner' || normalized === 'inhaberin') return 'is-owner';
+  if (normalized === 'inhaberin' || normalized === 'owner') return 'is-owner';
+  if (normalized === 'manager') return 'is-owner';
+  if (normalized === 'marketing') return 'is-designer';
+  if (normalized === 'supporter') return 'is-partner';
   if (normalized === 'developer' || normalized === 'entwickler') return 'is-developer';
   if (normalized === 'designer') return 'is-designer';
   if (normalized === 'partner') return 'is-partner';
@@ -951,6 +989,10 @@ function showSection(section) {
   setVisible(systemSection, section === 'system');
   setVisible(contactSection, section === 'contact');
   hideAllDetails();
+  if (section === 'system') {
+    updateAdminPortalAccess();
+    loadAdminPortalData();
+  }
   syncVideoPlayback();
 }
 
@@ -2837,9 +2879,14 @@ async function refreshLiveAuthUi() {
   updateAccountDock(user, profile);
   hydrateProfileEditor(user, profile);
   updateDiscordStatusUi(discordStatus);
+  updateAdminPortalAccess();
+  adminPortalState.initialized = false;
   updateRequestDraftFields(loadVisibleCart());
   setupPresenceHeartbeat();
   refreshActiveUsersUi();
+  if (!systemSection?.classList.contains('hidden-section')) {
+    loadAdminPortalData(true);
+  }
 }
 
 async function handleLiveRegister(event) {
@@ -3158,6 +3205,525 @@ function bindSearchHandler() {
   searchHandlerBound = true;
 }
 
+function getAdminPortalElements() {
+  return {
+    locked: document.getElementById('adminPortalLocked'),
+    lockedCopy: document.getElementById('adminLockedCopy'),
+    content: document.getElementById('adminPortalContent'),
+    productsMessage: document.getElementById('adminProductsMessage'),
+    usersMessage: document.getElementById('adminUsersMessage'),
+    supportMessage: document.getElementById('adminSupportMessage'),
+    productsList: document.getElementById('adminProductsList'),
+    usersList: document.getElementById('adminUsersList'),
+    supportList: document.getElementById('adminSupportList'),
+    productRefreshButton: document.getElementById('adminProductRefreshButton'),
+    productForm: document.getElementById('adminProductForm'),
+    productFormTitle: document.getElementById('adminProductFormTitle'),
+    productFormHint: document.getElementById('adminProductFormHint'),
+    productId: document.getElementById('adminProductId'),
+    productTitle: document.getElementById('adminProductTitle'),
+    productSlug: document.getElementById('adminProductSlug'),
+    productCategory: document.getElementById('adminProductCategory'),
+    productType: document.getElementById('adminProductType'),
+    productPrice: document.getElementById('adminProductPrice'),
+    productTebexId: document.getElementById('adminProductTebexId'),
+    productImageUrl: document.getElementById('adminProductImageUrl'),
+    productShort: document.getElementById('adminProductShort'),
+    productFull: document.getElementById('adminProductFull'),
+    productSort: document.getElementById('adminProductSort'),
+    productActive: document.getElementById('adminProductActive'),
+    productFeatured: document.getElementById('adminProductFeatured'),
+    productResetButton: document.getElementById('adminProductResetButton'),
+    productDeleteButton: document.getElementById('adminProductDeleteButton'),
+    productSaveButton: document.getElementById('adminProductSaveButton'),
+    productsRoleHint: document.getElementById('adminProductsRoleHint'),
+    usersRoleHint: document.getElementById('adminUsersRoleHint'),
+    supportRoleHint: document.getElementById('adminSupportRoleHint'),
+  };
+}
+
+function slugifyProductValue(value) {
+  return String(value || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
+
+function setAdminMessage(element, message = '', type = 'neutral') {
+  if (!element) return;
+  setAuthMessage(element, message, type === 'error' ? 'warn' : type === 'success' ? 'success' : 'neutral');
+}
+
+function updateAdminPortalAccess() {
+  const elements = getAdminPortalElements();
+  if (!elements.locked || !elements.content) return;
+
+  const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
+  const roleLabel = mapRoleLabel(liveAccountSnapshot.profile?.role || 'guest');
+
+  if (!liveAccountSnapshot.user || !permissions.canAccessPortal) {
+    elements.locked.classList.remove('hidden-section');
+    elements.content.classList.add('hidden-section');
+    if (elements.lockedCopy) {
+      elements.lockedCopy.textContent = liveAccountSnapshot.user
+        ? `Deine aktuelle Rolle (${roleLabel}) hat keinen Zugriff auf das Admin-Portal.`
+        : 'Melde dich mit einer berechtigten Rolle an, um Produkte, Benutzer und Support zu verwalten.';
+    }
+    return permissions;
+  }
+
+  elements.locked.classList.add('hidden-section');
+  elements.content.classList.remove('hidden-section');
+  if (elements.productsRoleHint) elements.productsRoleHint.textContent = permissions.canEditProducts ? `${roleLabel} · Produktzugriff` : `${roleLabel} · nur Ansicht`;
+  if (elements.usersRoleHint) elements.usersRoleHint.textContent = permissions.canManageRoles ? 'Administrator · aktiv' : `${roleLabel} · keine Rollenvergabe`;
+  if (elements.supportRoleHint) elements.supportRoleHint.textContent = permissions.canViewSupport ? `${roleLabel} · Supportzugriff` : `${roleLabel} · kein Supportzugriff`;
+  return permissions;
+}
+
+function resetAdminProductForm(keepMessage = false) {
+  const elements = getAdminPortalElements();
+  if (!elements.productForm) return;
+  elements.productForm.reset();
+  if (elements.productId) elements.productId.value = '';
+  if (elements.productSort) elements.productSort.value = '0';
+  if (elements.productActive) elements.productActive.checked = true;
+  if (elements.productFeatured) elements.productFeatured.checked = false;
+  if (elements.productFormTitle) elements.productFormTitle.textContent = 'Produkt anlegen';
+  if (elements.productFormHint) elements.productFormHint.textContent = 'Neu';
+  adminPortalState.selectedProductId = '';
+  document.querySelectorAll('.admin-product-card').forEach((card) => card.classList.remove('is-selected'));
+  if (!keepMessage) setAdminMessage(elements.productsMessage, '');
+  updateAdminProductControls();
+}
+
+function hydrateAdminProductForm(product) {
+  const elements = getAdminPortalElements();
+  if (!product) return resetAdminProductForm(true);
+  adminPortalState.selectedProductId = product.id || '';
+  if (elements.productId) elements.productId.value = product.id || '';
+  if (elements.productTitle) elements.productTitle.value = product.title || '';
+  if (elements.productSlug) elements.productSlug.value = product.slug || '';
+  if (elements.productCategory) elements.productCategory.value = product.category || 'clothing';
+  if (elements.productType) elements.productType.value = product.product_type || 'clothing';
+  if (elements.productPrice) elements.productPrice.value = Number(product.price_eur || 0).toFixed(2);
+  if (elements.productTebexId) elements.productTebexId.value = product.tebex_package_id || '';
+  if (elements.productImageUrl) elements.productImageUrl.value = product.image_url || '';
+  if (elements.productShort) elements.productShort.value = product.short_description || '';
+  if (elements.productFull) elements.productFull.value = product.full_description || '';
+  if (elements.productSort) elements.productSort.value = String(product.sort_order || 0);
+  if (elements.productActive) elements.productActive.checked = product.is_active !== false;
+  if (elements.productFeatured) elements.productFeatured.checked = product.is_featured === true;
+  if (elements.productFormTitle) elements.productFormTitle.textContent = product.title || 'Produkt bearbeiten';
+  if (elements.productFormHint) elements.productFormHint.textContent = 'Bearbeiten';
+  document.querySelectorAll('.admin-product-card').forEach((card) => card.classList.toggle('is-selected', card.dataset.productId === product.id));
+  updateAdminProductControls();
+}
+
+function updateAdminProductControls() {
+  const elements = getAdminPortalElements();
+  const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
+  const editable = Boolean(liveAccountSnapshot.user && permissions.canEditProducts);
+  const deletable = Boolean(liveAccountSnapshot.user && permissions.canDeleteProducts && adminPortalState.selectedProductId);
+  [
+    elements.productTitle,
+    elements.productSlug,
+    elements.productCategory,
+    elements.productType,
+    elements.productPrice,
+    elements.productTebexId,
+    elements.productImageUrl,
+    elements.productShort,
+    elements.productFull,
+    elements.productSort,
+    elements.productActive,
+    elements.productFeatured,
+  ].forEach((field) => {
+    if (!field) return;
+    field.disabled = !editable;
+  });
+  if (elements.productSaveButton) elements.productSaveButton.disabled = !editable;
+  if (elements.productDeleteButton) elements.productDeleteButton.disabled = !deletable;
+}
+
+function renderAdminProducts() {
+  const elements = getAdminPortalElements();
+  if (!elements.productsList) return;
+  const products = [...adminPortalState.products].sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || String(a.title || '').localeCompare(String(b.title || '')));
+  if (!products.length) {
+    elements.productsList.innerHTML = '<div class="admin-record-empty">Noch keine Produkte geladen. Sobald Supabase liefert, erscheinen sie hier.</div>';
+    return;
+  }
+  elements.productsList.innerHTML = products.map((product) => {
+    const roleType = mapRoleLabel(product.product_type || product.category || 'Produkt');
+    const priceLabel = formatSupabasePriceLabel(product.price_eur || 0);
+    return `
+      <article class="admin-record-card admin-product-card${adminPortalState.selectedProductId === product.id ? ' is-selected' : ''}" data-product-id="${escapeHtml(product.id)}">
+        <div class="admin-record-head">
+          <div>
+            <strong>${escapeHtml(product.title || 'Produkt')}</strong>
+            <small>${escapeHtml(product.slug || 'ohne-slug')}</small>
+          </div>
+          <button class="cta secondary compact-cta" data-admin-product-edit="${escapeHtml(product.id)}" type="button">Bearbeiten</button>
+        </div>
+        <div class="admin-record-copy">${escapeHtml(product.short_description || product.full_description || 'Keine Beschreibung hinterlegt.')}</div>
+        <div class="admin-record-meta">
+          <span class="admin-record-pill">${escapeHtml(priceLabel)}</span>
+          <span class="admin-record-pill">${escapeHtml(roleType)}</span>
+          <span class="admin-record-pill">${product.is_active ? 'Aktiv' : 'Inaktiv'}</span>
+          <span class="admin-record-pill">Sortierung ${escapeHtml(String(product.sort_order || 0))}</span>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+function renderAdminUsers() {
+  const elements = getAdminPortalElements();
+  if (!elements.usersList) return;
+  const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
+  if (!permissions.canViewUsers) {
+    elements.usersList.innerHTML = '<div class="admin-record-empty">Nur Administratoren sehen hier die komplette Benutzer- und Rollenverwaltung.</div>';
+    return;
+  }
+  if (!adminPortalState.profiles.length) {
+    elements.usersList.innerHTML = '<div class="admin-record-empty">Keine Benutzer geladen. Falls du nur dich selbst siehst oder nichts erscheint, fehlt noch die passende Profiles-RLS für Administratoren.</div>';
+    return;
+  }
+  elements.usersList.innerHTML = adminPortalState.profiles.map((profile) => {
+    const selectedRole = getNormalizedRole(profile.role || 'kunde');
+    const options = adminRoleOptions.map((role) => `<option value="${role}"${role === selectedRole ? ' selected' : ''}>${mapRoleLabel(role)}</option>`).join('');
+    return `
+      <article class="admin-record-card admin-user-row" data-profile-id="${escapeHtml(profile.id || '')}">
+        <div class="admin-user-main">
+          <div class="admin-user-meta">
+            <strong>${escapeHtml(profile.username || profile.email || 'Benutzer')}</strong>
+            <div class="admin-user-mail">${escapeHtml(profile.email || 'ohne Mail')} · ${escapeHtml(profile.discord_name || 'kein Discord')}</div>
+          </div>
+          <div class="admin-user-actions">
+            <select class="hm-select admin-role-select" data-admin-role-select="${escapeHtml(profile.id || '')}">${options}</select>
+            <button class="cta secondary compact-cta" data-admin-role-save="${escapeHtml(profile.id || '')}" type="button">Rolle speichern</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+function renderAdminSupport() {
+  const elements = getAdminPortalElements();
+  if (!elements.supportList) return;
+  const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
+  if (!permissions.canViewSupport) {
+    elements.supportList.innerHTML = '<div class="admin-record-empty">Für deine Rolle ist die Support-Inbox nicht freigeschaltet.</div>';
+    return;
+  }
+  if (!adminPortalState.supportRequests.length) {
+    elements.supportList.innerHTML = '<div class="admin-record-empty">Noch keine Supportanfragen vorhanden.</div>';
+    return;
+  }
+  elements.supportList.innerHTML = adminPortalState.supportRequests.map((entry) => {
+    const status = String(entry.status || 'open');
+    return `
+      <article class="admin-record-card admin-support-row" data-support-id="${escapeHtml(entry.id || '')}">
+        <div class="admin-record-head">
+          <div>
+            <strong>${escapeHtml(entry.subject || 'Ohne Betreff')}</strong>
+            <small>${escapeHtml(entry.name || 'Unbekannt')} · ${escapeHtml(entry.email || entry.discord_name || 'kein Kontakt')}</small>
+          </div>
+        </div>
+        <div class="admin-support-message">${escapeHtml(entry.message || 'Keine Nachricht.')}</div>
+        <div class="admin-support-actions">
+          <select class="hm-select admin-status-select" data-admin-support-status="${escapeHtml(entry.id || '')}">
+            <option value="open"${status === 'open' ? ' selected' : ''}>Offen</option>
+            <option value="in_progress"${status === 'in_progress' ? ' selected' : ''}>In Bearbeitung</option>
+            <option value="closed"${status === 'closed' ? ' selected' : ''}>Geschlossen</option>
+          </select>
+          <button class="cta secondary compact-cta" data-admin-support-save="${escapeHtml(entry.id || '')}" type="button">Status speichern</button>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+async function loadAdminPortalData(force = false) {
+  const permissions = updateAdminPortalAccess();
+  if (!permissions.canAccessPortal || adminPortalState.loading) return;
+  const client = getSupabaseClient();
+  if (!client) return;
+  if (adminPortalState.initialized && !force) return;
+
+  const elements = getAdminPortalElements();
+  adminPortalState.loading = true;
+  setAdminMessage(elements.productsMessage, permissions.canViewProducts ? 'Lade Produkte ...' : 'Deine Rolle hat nur eingeschränkten Produktzugriff.');
+  setAdminMessage(elements.usersMessage, permissions.canViewUsers ? 'Lade Benutzer ...' : 'Benutzerverwaltung ist aktuell nur für Administratoren freigeschaltet.');
+  setAdminMessage(elements.supportMessage, permissions.canViewSupport ? 'Lade Supportanfragen ...' : 'Support-Inbox ist für deine Rolle nicht freigeschaltet.');
+
+  const foundation = loadFoundationState();
+  const requests = [];
+  if (permissions.canViewProducts) {
+    requests.push(
+      client.from(foundation.productsTable || 'products').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: false })
+        .then(({ data, error }) => {
+          if (error) throw { scope: 'products', error };
+          adminPortalState.products = Array.isArray(data) ? data.map(normalizeSupabaseProductRow).filter(Boolean) : [];
+          renderAdminProducts();
+          setAdminMessage(elements.productsMessage, `${adminPortalState.products.length} Produkte geladen.`, 'success');
+        })
+        .catch((wrapped) => {
+          const error = wrapped?.error || wrapped;
+          adminPortalState.products = [];
+          renderAdminProducts();
+          setAdminMessage(elements.productsMessage, `Produkte konnten nicht geladen werden: ${error.message || 'Unbekannter Fehler'}`, 'error');
+        })
+    );
+  } else {
+    adminPortalState.products = [];
+    renderAdminProducts();
+  }
+
+  if (permissions.canViewUsers) {
+    requests.push(
+      client.from('profiles').select('id, email, username, discord_name, role, is_active, created_at').order('created_at', { ascending: true })
+        .then(({ data, error }) => {
+          if (error) throw { scope: 'profiles', error };
+          adminPortalState.profiles = Array.isArray(data) ? data : [];
+          renderAdminUsers();
+          setAdminMessage(elements.usersMessage, `${adminPortalState.profiles.length} Benutzer geladen.`, 'success');
+        })
+        .catch((wrapped) => {
+          const error = wrapped?.error || wrapped;
+          adminPortalState.profiles = [];
+          renderAdminUsers();
+          setAdminMessage(elements.usersMessage, `Benutzer konnten nicht geladen werden: ${error.message || 'Unbekannter Fehler'}`, 'error');
+        })
+    );
+  } else {
+    adminPortalState.profiles = [];
+    renderAdminUsers();
+  }
+
+  if (permissions.canViewSupport) {
+    requests.push(
+      client.from('support_requests').select('*').order('created_at', { ascending: false })
+        .then(({ data, error }) => {
+          if (error) throw { scope: 'support', error };
+          adminPortalState.supportRequests = Array.isArray(data) ? data : [];
+          renderAdminSupport();
+          setAdminMessage(elements.supportMessage, `${adminPortalState.supportRequests.length} Supporteinträge geladen.`, 'success');
+        })
+        .catch((wrapped) => {
+          const error = wrapped?.error || wrapped;
+          adminPortalState.supportRequests = [];
+          renderAdminSupport();
+          setAdminMessage(elements.supportMessage, `Support konnte nicht geladen werden: ${error.message || 'Unbekannter Fehler'}`, 'error');
+        })
+    );
+  } else {
+    adminPortalState.supportRequests = [];
+    renderAdminSupport();
+  }
+
+  await Promise.all(requests);
+  adminPortalState.loading = false;
+  adminPortalState.initialized = true;
+  updateAdminProductControls();
+}
+
+function collectAdminProductPayload() {
+  const elements = getAdminPortalElements();
+  const title = String(elements.productTitle?.value || '').trim();
+  const slugInput = String(elements.productSlug?.value || '').trim();
+  const slug = slugifyProductValue(slugInput || title);
+  return {
+    title,
+    slug,
+    category: String(elements.productCategory?.value || 'clothing').trim(),
+    product_type: String(elements.productType?.value || 'clothing').trim(),
+    price_eur: Number(elements.productPrice?.value || 0) || 0,
+    tebex_package_id: String(elements.productTebexId?.value || '').trim(),
+    image_url: String(elements.productImageUrl?.value || '').trim(),
+    short_description: String(elements.productShort?.value || '').trim(),
+    full_description: String(elements.productFull?.value || '').trim(),
+    sort_order: Number(elements.productSort?.value || 0) || 0,
+    is_active: Boolean(elements.productActive?.checked),
+    is_featured: Boolean(elements.productFeatured?.checked),
+  };
+}
+
+async function handleAdminProductSave(event) {
+  event.preventDefault();
+  const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
+  const elements = getAdminPortalElements();
+  if (!permissions.canEditProducts) {
+    return setAdminMessage(elements.productsMessage, 'Deine Rolle darf Produkte nicht bearbeiten.', 'error');
+  }
+  const client = getSupabaseClient();
+  if (!client) return setAdminMessage(elements.productsMessage, 'Supabase ist nicht verbunden.', 'error');
+  const payload = collectAdminProductPayload();
+  if (!payload.title || !payload.slug) {
+    return setAdminMessage(elements.productsMessage, 'Titel und Slug sind Pflicht.', 'error');
+  }
+  if (elements.productSlug) elements.productSlug.value = payload.slug;
+  if (elements.productSaveButton) {
+    elements.productSaveButton.disabled = true;
+    elements.productSaveButton.textContent = 'Speichere ...';
+  }
+  try {
+    let query;
+    if (adminPortalState.selectedProductId) {
+      query = client.from(loadFoundationState().productsTable || 'products').update(payload).eq('id', adminPortalState.selectedProductId).select('*').single();
+    } else {
+      query = client.from(loadFoundationState().productsTable || 'products').insert(payload).select('*').single();
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    setAdminMessage(elements.productsMessage, `${payload.title} wurde gespeichert.`, 'success');
+    resetAdminProductForm(true);
+    adminPortalState.initialized = false;
+    await loadAdminPortalData(true);
+    if (data?.slug) {
+      supabaseProductsBooted = false;
+      loadSupabaseManagedProducts();
+    }
+  } catch (error) {
+    setAdminMessage(elements.productsMessage, `Speichern fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'error');
+  } finally {
+    if (elements.productSaveButton) {
+      elements.productSaveButton.disabled = false;
+      elements.productSaveButton.textContent = 'Speichern';
+    }
+  }
+}
+
+async function handleAdminProductDelete() {
+  const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
+  const elements = getAdminPortalElements();
+  if (!permissions.canDeleteProducts || !adminPortalState.selectedProductId) {
+    return setAdminMessage(elements.productsMessage, 'Löschen ist für deine Rolle oder ohne Auswahl nicht erlaubt.', 'error');
+  }
+  const target = adminPortalState.products.find((entry) => entry.id === adminPortalState.selectedProductId);
+  if (!target) return;
+  if (!window.confirm(`Produkt "${target.title}" wirklich löschen?`)) return;
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    const { error } = await client.from(loadFoundationState().productsTable || 'products').delete().eq('id', adminPortalState.selectedProductId);
+    if (error) throw error;
+    setAdminMessage(elements.productsMessage, `${target.title} wurde gelöscht.`, 'success');
+    resetAdminProductForm(true);
+    adminPortalState.initialized = false;
+    await loadAdminPortalData(true);
+    supabaseProductsBooted = false;
+    loadSupabaseManagedProducts();
+  } catch (error) {
+    setAdminMessage(elements.productsMessage, `Löschen fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'error');
+  }
+}
+
+async function handleAdminRoleSave(profileId) {
+  const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
+  const elements = getAdminPortalElements();
+  if (!permissions.canManageRoles) {
+    return setAdminMessage(elements.usersMessage, 'Nur Administratoren dürfen Rollen ändern.', 'error');
+  }
+  const select = document.querySelector(`[data-admin-role-select="${CSS.escape(profileId)}"]`);
+  if (!select) return;
+  const nextRole = getNormalizedRole(select.value);
+  try {
+    const client = getSupabaseClient();
+    const { error } = await client.from('profiles').update({ role: nextRole }).eq('id', profileId);
+    if (error) throw error;
+    setAdminMessage(elements.usersMessage, `Rolle wurde auf ${mapRoleLabel(nextRole)} gesetzt.`, 'success');
+    adminPortalState.initialized = false;
+    await loadAdminPortalData(true);
+    if (liveAccountSnapshot.user?.id === profileId) {
+      await refreshLiveAuthUi();
+    }
+  } catch (error) {
+    setAdminMessage(elements.usersMessage, `Rolle konnte nicht gespeichert werden: ${error.message || 'Unbekannter Fehler'}`, 'error');
+  }
+}
+
+async function handleAdminSupportSave(requestId) {
+  const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
+  const elements = getAdminPortalElements();
+  if (!permissions.canEditSupport) {
+    return setAdminMessage(elements.supportMessage, 'Deine Rolle darf Supportstatus nicht ändern.', 'error');
+  }
+  const select = document.querySelector(`[data-admin-support-status="${CSS.escape(requestId)}"]`);
+  if (!select) return;
+  const nextStatus = String(select.value || 'open');
+  try {
+    const client = getSupabaseClient();
+    const payload = {
+      status: nextStatus,
+      closed_at: nextStatus === 'closed' ? new Date().toISOString() : null,
+    };
+    const { error } = await client.from('support_requests').update(payload).eq('id', requestId);
+    if (error) throw error;
+    setAdminMessage(elements.supportMessage, 'Supportstatus gespeichert.', 'success');
+    adminPortalState.initialized = false;
+    await loadAdminPortalData(true);
+  } catch (error) {
+    setAdminMessage(elements.supportMessage, `Supportstatus konnte nicht gespeichert werden: ${error.message || 'Unbekannter Fehler'}`, 'error');
+  }
+}
+
+function setupAdminPortal() {
+  if (adminPortalState.bound) return;
+  adminPortalState.initialized = false;
+  const elements = getAdminPortalElements();
+  if (!elements.productForm) return;
+
+  elements.productForm.addEventListener('submit', handleAdminProductSave);
+  elements.productResetButton?.addEventListener('click', () => resetAdminProductForm());
+  elements.productDeleteButton?.addEventListener('click', handleAdminProductDelete);
+  elements.productRefreshButton?.addEventListener('click', () => {
+    adminPortalState.initialized = false;
+    loadAdminPortalData(true);
+  });
+  elements.productTitle?.addEventListener('input', () => {
+    if (!elements.productSlug) return;
+    if (!elements.productSlug.value || elements.productSlug.dataset.autofill === 'true') {
+      elements.productSlug.value = slugifyProductValue(elements.productTitle.value || '');
+      elements.productSlug.dataset.autofill = 'true';
+    }
+  });
+  elements.productSlug?.addEventListener('input', () => {
+    elements.productSlug.dataset.autofill = elements.productSlug.value ? 'false' : 'true';
+  });
+
+  document.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target.closest('[data-admin-product-edit], [data-admin-role-save], [data-admin-support-save]') : null;
+    if (!target) return;
+    if (target.hasAttribute('data-admin-product-edit')) {
+      event.preventDefault();
+      const productId = target.getAttribute('data-admin-product-edit') || '';
+      const product = adminPortalState.products.find((entry) => entry.id === productId);
+      if (product) hydrateAdminProductForm(product);
+      return;
+    }
+    if (target.hasAttribute('data-admin-role-save')) {
+      event.preventDefault();
+      handleAdminRoleSave(target.getAttribute('data-admin-role-save') || '');
+      return;
+    }
+    if (target.hasAttribute('data-admin-support-save')) {
+      event.preventDefault();
+      handleAdminSupportSave(target.getAttribute('data-admin-support-save') || '');
+    }
+  });
+
+  updateAdminPortalAccess();
+  resetAdminProductForm(true);
+  renderAdminProducts();
+  renderAdminUsers();
+  renderAdminSupport();
+  adminPortalState.bound = true;
+}
+
 function initHammerModdingApp() {
   if (appInitialized) return;
   cacheDomReferences();
@@ -3165,6 +3731,7 @@ function initHammerModdingApp() {
   bindSearchHandler();
   setupPreparedCartButtons();
   setupFoundationPlanner();
+  setupAdminPortal();
   loadSupabaseManagedProducts();
   setupLiveSupabaseAuth();
   setupSmoothHomeIntro();
