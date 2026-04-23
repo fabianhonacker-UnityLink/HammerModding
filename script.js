@@ -161,6 +161,8 @@ const adminPortalState = {
   profiles: [],
   supportRequests: [],
   selectedProductId: '',
+  selectedProductDbId: '',
+  selectedProductSlug: '',
 };
 
 const adminRoleOptions = ['administrator', 'inhaberin', 'manager', 'marketing', 'supporter', 'kunde'];
@@ -3228,6 +3230,8 @@ function getAdminPortalElements() {
     productPrice: document.getElementById('adminProductPrice'),
     productTebexId: document.getElementById('adminProductTebexId'),
     productImageUrl: document.getElementById('adminProductImageUrl'),
+    productImageFile: document.getElementById('adminProductImageFile'),
+    productImageHint: document.getElementById('adminProductImageHint'),
     productShort: document.getElementById('adminProductShort'),
     productFull: document.getElementById('adminProductFull'),
     productSort: document.getElementById('adminProductSort'),
@@ -3240,6 +3244,88 @@ function getAdminPortalElements() {
     usersRoleHint: document.getElementById('adminUsersRoleHint'),
     supportRoleHint: document.getElementById('adminSupportRoleHint'),
   };
+}
+
+
+function mapCatalogTypeToAdminCategory(type) {
+  if (type === 'clothing') return 'clothing';
+  if (type === 'free-script') return 'free_scripts';
+  if (type === 'paid-script') return 'scripts';
+  return 'other';
+}
+
+function mapCatalogTypeToAdminProductType(type) {
+  if (type === 'clothing') return 'clothing';
+  if (type === 'free-script') return 'free_script';
+  if (type === 'paid-script') return 'script';
+  return 'other';
+}
+
+function buildCatalogAdminProductEntries() {
+  return Object.values(storeCatalog)
+    .filter(Boolean)
+    .map((item, index) => ({
+      id: `catalog:${item.slug}`,
+      dbId: '',
+      slug: item.slug,
+      title: item.name,
+      category: mapCatalogTypeToAdminCategory(item.type),
+      product_type: mapCatalogTypeToAdminProductType(item.type),
+      price_eur: Number(item.price || 0) || 0,
+      short_description: '',
+      full_description: '',
+      image_url: '',
+      tebex_package_id: item.tebexPackageId || '',
+      is_active: true,
+      is_featured: false,
+      sort_order: (index + 1) * 10,
+      sourceKind: 'catalog',
+      sourceLabel: 'Website-Basis',
+    }));
+}
+
+function mergeAdminPortalProducts(supabaseRows = []) {
+  const merged = new Map();
+  buildCatalogAdminProductEntries().forEach((entry) => {
+    merged.set(entry.slug, entry);
+  });
+
+  (Array.isArray(supabaseRows) ? supabaseRows : []).forEach((row) => {
+    if (!row) return;
+    merged.set(row.slug, {
+      ...row,
+      id: `db:${row.id}`,
+      dbId: row.id,
+      sourceKind: 'supabase',
+      sourceLabel: 'Supabase',
+    });
+  });
+
+  return [...merged.values()].sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || String(a.title || '').localeCompare(String(b.title || '')));
+}
+
+function getAdminProductByKey(productKey) {
+  return adminPortalState.products.find((entry) => entry.id === productKey) || null;
+}
+
+async function convertProductImageFileToDataUrl(file) {
+  if (!file) return '';
+  if (!String(file.type || '').startsWith('image/')) throw new Error('Bitte nur Bilddateien hochladen.');
+  if (file.size > 8 * 1024 * 1024) throw new Error('Das Produktbild ist zu groß. Bitte maximal 8 MB verwenden.');
+
+  const image = await loadImageFromFile(file);
+  const maxWidth = 1600;
+  const maxHeight = 1200;
+  const ratio = Math.min(maxWidth / image.width, maxHeight / image.height, 1);
+  const width = Math.max(1, Math.round(image.width * ratio));
+  const height = Math.max(1, Math.round(image.height * ratio));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Bild konnte nicht verarbeitet werden.');
+  context.drawImage(image, 0, 0, width, height);
+  return canvas.toDataURL('image/webp', 0.9);
 }
 
 function slugifyProductValue(value) {
@@ -3290,9 +3376,13 @@ function resetAdminProductForm(keepMessage = false) {
   if (elements.productSort) elements.productSort.value = '0';
   if (elements.productActive) elements.productActive.checked = true;
   if (elements.productFeatured) elements.productFeatured.checked = false;
+  if (elements.productImageFile) elements.productImageFile.value = '';
+  if (elements.productImageHint) elements.productImageHint.textContent = 'Du kannst eine URL eintragen oder direkt ein Bild hochladen. Ein Upload überschreibt die URL beim Speichern.';
   if (elements.productFormTitle) elements.productFormTitle.textContent = 'Produkt anlegen';
   if (elements.productFormHint) elements.productFormHint.textContent = 'Neu';
   adminPortalState.selectedProductId = '';
+  adminPortalState.selectedProductDbId = '';
+  adminPortalState.selectedProductSlug = '';
   document.querySelectorAll('.admin-product-card').forEach((card) => card.classList.remove('is-selected'));
   if (!keepMessage) setAdminMessage(elements.productsMessage, '');
   updateAdminProductControls();
@@ -3302,7 +3392,9 @@ function hydrateAdminProductForm(product) {
   const elements = getAdminPortalElements();
   if (!product) return resetAdminProductForm(true);
   adminPortalState.selectedProductId = product.id || '';
-  if (elements.productId) elements.productId.value = product.id || '';
+  adminPortalState.selectedProductDbId = product.dbId || '';
+  adminPortalState.selectedProductSlug = product.slug || '';
+  if (elements.productId) elements.productId.value = product.dbId || '';
   if (elements.productTitle) elements.productTitle.value = product.title || '';
   if (elements.productSlug) elements.productSlug.value = product.slug || '';
   if (elements.productCategory) elements.productCategory.value = product.category || 'clothing';
@@ -3315,8 +3407,14 @@ function hydrateAdminProductForm(product) {
   if (elements.productSort) elements.productSort.value = String(product.sort_order || 0);
   if (elements.productActive) elements.productActive.checked = product.is_active !== false;
   if (elements.productFeatured) elements.productFeatured.checked = product.is_featured === true;
+  if (elements.productImageFile) elements.productImageFile.value = '';
+  if (elements.productImageHint) {
+    elements.productImageHint.textContent = product.sourceKind === 'catalog'
+      ? 'Frontend-Produkt geladen. Du kannst es jetzt mit URL oder Upload in Supabase übernehmen.'
+      : 'Supabase-Produkt geladen. Upload überschreibt die URL beim Speichern.';
+  }
   if (elements.productFormTitle) elements.productFormTitle.textContent = product.title || 'Produkt bearbeiten';
-  if (elements.productFormHint) elements.productFormHint.textContent = 'Bearbeiten';
+  if (elements.productFormHint) elements.productFormHint.textContent = product.sourceKind === 'catalog' ? 'Website-Basis' : 'Bearbeiten';
   document.querySelectorAll('.admin-product-card').forEach((card) => card.classList.toggle('is-selected', card.dataset.productId === product.id));
   updateAdminProductControls();
 }
@@ -3325,7 +3423,7 @@ function updateAdminProductControls() {
   const elements = getAdminPortalElements();
   const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
   const editable = Boolean(liveAccountSnapshot.user && permissions.canEditProducts);
-  const deletable = Boolean(liveAccountSnapshot.user && permissions.canDeleteProducts && adminPortalState.selectedProductId);
+  const deletable = Boolean(liveAccountSnapshot.user && permissions.canDeleteProducts && adminPortalState.selectedProductDbId);
   [
     elements.productTitle,
     elements.productSlug,
@@ -3334,6 +3432,7 @@ function updateAdminProductControls() {
     elements.productPrice,
     elements.productTebexId,
     elements.productImageUrl,
+    elements.productImageFile,
     elements.productShort,
     elements.productFull,
     elements.productSort,
@@ -3371,6 +3470,7 @@ function renderAdminProducts() {
         <div class="admin-record-meta">
           <span class="admin-record-pill">${escapeHtml(priceLabel)}</span>
           <span class="admin-record-pill">${escapeHtml(roleType)}</span>
+          <span class="admin-record-pill ${product.sourceKind === 'catalog' ? 'is-source-catalog' : 'is-source-supabase'}">${escapeHtml(product.sourceLabel || 'Supabase')}</span>
           <span class="admin-record-pill">${product.is_active ? 'Aktiv' : 'Inaktiv'}</span>
           <span class="admin-record-pill">Sortierung ${escapeHtml(String(product.sort_order || 0))}</span>
         </div>
@@ -3467,15 +3567,18 @@ async function loadAdminPortalData(force = false) {
       client.from(foundation.productsTable || 'products').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: false })
         .then(({ data, error }) => {
           if (error) throw { scope: 'products', error };
-          adminPortalState.products = Array.isArray(data) ? data.map(normalizeSupabaseProductRow).filter(Boolean) : [];
+          const supabaseRows = Array.isArray(data) ? data.map(normalizeSupabaseProductRow).filter(Boolean) : [];
+          adminPortalState.products = mergeAdminPortalProducts(supabaseRows);
           renderAdminProducts();
-          setAdminMessage(elements.productsMessage, `${adminPortalState.products.length} Produkte geladen.`, 'success');
+          const supabaseCount = supabaseRows.length;
+          const totalCount = adminPortalState.products.length;
+          setAdminMessage(elements.productsMessage, `${totalCount} Produkte geladen (${supabaseCount} aus Supabase, ${Math.max(0, totalCount - supabaseCount)} aus dem Website-Stand).`, 'success');
         })
         .catch((wrapped) => {
           const error = wrapped?.error || wrapped;
-          adminPortalState.products = [];
+          adminPortalState.products = mergeAdminPortalProducts([]);
           renderAdminProducts();
-          setAdminMessage(elements.productsMessage, `Produkte konnten nicht geladen werden: ${error.message || 'Unbekannter Fehler'}`, 'error');
+          setAdminMessage(elements.productsMessage, `Supabase-Produkte konnten nicht geladen werden. Website-Produkte bleiben sichtbar: ${error.message || 'Unbekannter Fehler'}`, 'error');
         })
     );
   } else {
@@ -3531,11 +3634,16 @@ async function loadAdminPortalData(force = false) {
   updateAdminProductControls();
 }
 
-function collectAdminProductPayload() {
+async function collectAdminProductPayload() {
   const elements = getAdminPortalElements();
   const title = String(elements.productTitle?.value || '').trim();
   const slugInput = String(elements.productSlug?.value || '').trim();
   const slug = slugifyProductValue(slugInput || title);
+  let imageUrl = String(elements.productImageUrl?.value || '').trim();
+  const uploadFile = elements.productImageFile?.files?.[0] || null;
+  if (uploadFile) {
+    imageUrl = await convertProductImageFileToDataUrl(uploadFile);
+  }
   return {
     title,
     slug,
@@ -3543,7 +3651,7 @@ function collectAdminProductPayload() {
     product_type: String(elements.productType?.value || 'clothing').trim(),
     price_eur: Number(elements.productPrice?.value || 0) || 0,
     tebex_package_id: String(elements.productTebexId?.value || '').trim(),
-    image_url: String(elements.productImageUrl?.value || '').trim(),
+    image_url: imageUrl,
     short_description: String(elements.productShort?.value || '').trim(),
     full_description: String(elements.productFull?.value || '').trim(),
     sort_order: Number(elements.productSort?.value || 0) || 0,
@@ -3561,7 +3669,7 @@ async function handleAdminProductSave(event) {
   }
   const client = getSupabaseClient();
   if (!client) return setAdminMessage(elements.productsMessage, 'Supabase ist nicht verbunden.', 'error');
-  const payload = collectAdminProductPayload();
+  const payload = await collectAdminProductPayload();
   if (!payload.title || !payload.slug) {
     return setAdminMessage(elements.productsMessage, 'Titel und Slug sind Pflicht.', 'error');
   }
@@ -3572,8 +3680,8 @@ async function handleAdminProductSave(event) {
   }
   try {
     let query;
-    if (adminPortalState.selectedProductId) {
-      query = client.from(loadFoundationState().productsTable || 'products').update(payload).eq('id', adminPortalState.selectedProductId).select('*').single();
+    if (adminPortalState.selectedProductDbId) {
+      query = client.from(loadFoundationState().productsTable || 'products').update(payload).eq('id', adminPortalState.selectedProductDbId).select('*').single();
     } else {
       query = client.from(loadFoundationState().productsTable || 'products').insert(payload).select('*').single();
     }
@@ -3600,16 +3708,16 @@ async function handleAdminProductSave(event) {
 async function handleAdminProductDelete() {
   const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
   const elements = getAdminPortalElements();
-  if (!permissions.canDeleteProducts || !adminPortalState.selectedProductId) {
+  if (!permissions.canDeleteProducts || !adminPortalState.selectedProductDbId) {
     return setAdminMessage(elements.productsMessage, 'Löschen ist für deine Rolle oder ohne Auswahl nicht erlaubt.', 'error');
   }
-  const target = adminPortalState.products.find((entry) => entry.id === adminPortalState.selectedProductId);
+  const target = getAdminProductByKey(adminPortalState.selectedProductId);
   if (!target) return;
   if (!window.confirm(`Produkt "${target.title}" wirklich löschen?`)) return;
   const client = getSupabaseClient();
   if (!client) return;
   try {
-    const { error } = await client.from(loadFoundationState().productsTable || 'products').delete().eq('id', adminPortalState.selectedProductId);
+    const { error } = await client.from(loadFoundationState().productsTable || 'products').delete().eq('id', adminPortalState.selectedProductDbId);
     if (error) throw error;
     setAdminMessage(elements.productsMessage, `${target.title} wurde gelöscht.`, 'success');
     resetAdminProductForm(true);
@@ -3695,13 +3803,22 @@ function setupAdminPortal() {
     elements.productSlug.dataset.autofill = elements.productSlug.value ? 'false' : 'true';
   });
 
+  elements.productImageFile?.addEventListener('change', () => {
+    const file = elements.productImageFile?.files?.[0] || null;
+    if (elements.productImageHint) {
+      elements.productImageHint.textContent = file
+        ? `${file.name} ausgewählt. Der Upload überschreibt die Bild-URL beim Speichern.`
+        : 'Du kannst eine URL eintragen oder direkt ein Bild hochladen. Ein Upload überschreibt die URL beim Speichern.';
+    }
+  });
+
   document.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target.closest('[data-admin-product-edit], [data-admin-role-save], [data-admin-support-save]') : null;
     if (!target) return;
     if (target.hasAttribute('data-admin-product-edit')) {
       event.preventDefault();
       const productId = target.getAttribute('data-admin-product-edit') || '';
-      const product = adminPortalState.products.find((entry) => entry.id === productId);
+      const product = getAdminProductByKey(productId);
       if (product) hydrateAdminProductForm(product);
       return;
     }

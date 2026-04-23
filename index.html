@@ -1677,7 +1677,12 @@ type="button"
               </label>
               <label class="foundation-field field-span-2">
                 <span>Bild-URL</span>
-                <input class="hm-input" id="adminProductImageUrl" placeholder="assets/berlin-strassen-crew.png" type="text"/>
+                <input class="hm-input" id="adminProductImageUrl" placeholder="assets/berlin-strassen-crew.png oder https://..." type="text"/>
+              </label>
+              <label class="foundation-field field-span-2">
+                <span>Bild hochladen</span>
+                <input accept="image/*" class="hm-input" id="adminProductImageFile" type="file"/>
+                <small class="foundation-note" id="adminProductImageHint">Du kannst eine URL eintragen oder direkt ein Bild hochladen. Ein Upload überschreibt die URL beim Speichern.</small>
               </label>
               <label class="foundation-field field-span-2">
                 <span>Kurzbeschreibung</span>
