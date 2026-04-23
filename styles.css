@@ -3543,3 +3543,29 @@ body.intro-booting .bg-lightning {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Dynamic clothing buttons final white text fix */
+.clothing-card-live .card-link,
+.clothing-card-live .card-link:link,
+.clothing-card-live .card-link:visited,
+.clothing-card-live .card-link:hover,
+.clothing-card-live .card-link:active,
+.dynamic-product-card .card-link,
+.dynamic-product-card .card-link:link,
+.dynamic-product-card .card-link:visited,
+.dynamic-product-card .card-link:hover,
+.dynamic-product-card .card-link:active,
+button.card-link[data-cart-add="true"],
+button.card-link[data-cart-add="true"]:hover,
+button.card-link[data-cart-add="true"]:active,
+button.card-link[data-cart-add="true"]:focus {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+.clothing-card-live .card-link *,
+.dynamic-product-card .card-link * {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
