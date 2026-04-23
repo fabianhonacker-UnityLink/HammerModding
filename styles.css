@@ -1781,6 +1781,18 @@ body.intro-booting .bg-lightning {
   border-radius: inherit;
   display: block;
 }
+.account-dock-avatar.has-image strong,
+.account-dropdown-avatar.has-image strong,
+.account-profile-avatar.has-image strong,
+.profile-avatar-upload-preview.has-image strong {
+  display: none;
+}
+.account-dock-avatar.has-image .account-avatar-image,
+.account-dropdown-avatar.has-image .account-avatar-image,
+.account-profile-avatar.has-image .account-avatar-image,
+.profile-avatar-upload-preview.has-image .profile-avatar-upload-image {
+  display: block !important;
+}
 .account-dock-avatar { width: 40px; height: 40px; font-size: 13px; }
 .account-dropdown-avatar { width: 40px; height: 40px; font-size: 13px; }
 .account-profile-avatar { width: 64px; height: 64px; font-size: 22px; }
@@ -1797,23 +1809,6 @@ body.intro-booting .bg-lightning {
 }
 .account-status-online { background: #4ddf86; }
 .account-status-offline { background: rgba(255,255,255,0.28); }
-
-.account-dock-avatar.has-image strong,
-.account-profile-avatar.has-image strong,
-.account-dropdown-avatar.has-image strong {
-  opacity: 0;
-}
-
-.account-dock-avatar .account-avatar-image,
-.account-profile-avatar .account-avatar-image,
-.account-dropdown-avatar .account-avatar-image {
-  z-index: 1;
-}
-
-.account-dock-status-dot,
-.profile-status-dot {
-  z-index: 2;
-}
 .account-dock-copy { display: grid; gap: 4px; flex: 1; min-width: 0; }
 .account-dock-copy small { font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: var(--muted-2); }
 .account-dock-copy strong { font-size: 13px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -3569,27 +3564,38 @@ body.intro-booting .bg-lightning {
 }
 .admin-portal-shell {
   display: grid;
-  gap: 12px;
+  gap: 14px;
+}
+.admin-shell {
+  max-width: 1280px;
+  margin: 0 auto;
 }
 .admin-panel-grid-top {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .admin-workspace-grid {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 .admin-work-card {
   display: grid;
   gap: 12px;
+  padding: 14px;
 }
 .admin-products-grid {
   display: grid;
-  grid-template-columns: minmax(300px, 0.86fr) minmax(0, 1.14fr);
-  gap: 12px;
+  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
 }
 .admin-list-shell {
   display: grid;
   gap: 10px;
+  padding: 12px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
 }
 .admin-list-head {
   display: flex;
@@ -3597,12 +3603,61 @@ body.intro-booting .bg-lightning {
   justify-content: space-between;
   gap: 10px;
 }
+.admin-list-head-stack {
+  align-items: flex-start;
+}
+.admin-list-head > div {
+  display: grid;
+  gap: 4px;
+}
 .admin-list-head strong {
   font-size: 14px;
+}
+.admin-list-head small {
+  color: var(--muted-2);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.admin-quick-select-wrap {
+  display: grid;
+  gap: 6px;
+}
+.admin-quick-select-wrap > span {
+  color: var(--muted-2);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.admin-quick-select,
+.admin-role-select,
+.admin-status-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: rgba(9,8,10,0.94);
+  background-image: linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.72) 50%), linear-gradient(135deg, rgba(255,255,255,0.72) 50%, transparent 50%);
+  background-position: calc(100% - 18px) calc(50% - 3px), calc(100% - 12px) calc(50% - 3px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
 }
 .admin-record-list {
   display: grid;
   gap: 10px;
+}
+.admin-record-list-products {
+  max-height: 720px;
+  overflow: auto;
+  padding-right: 4px;
+}
+.admin-record-list-products::-webkit-scrollbar {
+  width: 8px;
+}
+.admin-record-list-products::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 999px;
 }
 .admin-record-empty {
   padding: 12px 14px;
@@ -3616,14 +3671,22 @@ body.intro-booting .bg-lightning {
 .admin-record-card {
   padding: 12px 13px;
   border-radius: 18px;
-  background: rgba(255,255,255,0.03);
+  background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.022));
   border: 1px solid rgba(255,255,255,0.08);
   display: grid;
   gap: 10px;
 }
+.admin-product-card {
+  position: relative;
+  transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+.admin-product-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255,90,90,0.18);
+}
 .admin-record-card.is-selected {
-  border-color: rgba(255,90,90,0.24);
-  box-shadow: 0 0 20px rgba(255,40,40,0.10);
+  border-color: rgba(255,90,90,0.28);
+  box-shadow: 0 0 24px rgba(255,40,40,0.10), inset 0 0 0 1px rgba(255,90,90,0.12);
 }
 .admin-record-head {
   display: flex;
@@ -3668,6 +3731,13 @@ body.intro-booting .bg-lightning {
 }
 .admin-form-shell {
   padding: 14px;
+  border-radius: 22px;
+  position: sticky;
+  top: 88px;
+}
+.admin-form-shell .foundation-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 .admin-form-actions {
   display: flex;
@@ -3695,7 +3765,12 @@ body.intro-booting .bg-lightning {
   align-items: center;
   gap: 7px;
 }
-.admin-user-row {
+.admin-users-card,
+.admin-support-card {
+  padding: 14px;
+}
+.admin-user-row,
+.admin-support-row {
   display: grid;
   gap: 10px;
 }
@@ -3703,7 +3778,7 @@ body.intro-booting .bg-lightning {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
 }
 .admin-user-meta {
   display: grid;
@@ -3714,18 +3789,15 @@ body.intro-booting .bg-lightning {
   font-size: 12px;
   line-height: 1.5;
 }
-.admin-user-actions {
+.admin-user-actions,
+.admin-support-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   align-items: center;
 }
 .admin-role-select {
-  min-width: 160px;
-}
-.admin-support-row {
-  display: grid;
-  gap: 10px;
+  min-width: 180px;
 }
 .admin-support-message {
   color: var(--muted);
@@ -3733,14 +3805,8 @@ body.intro-booting .bg-lightning {
   line-height: 1.6;
   white-space: pre-wrap;
 }
-.admin-support-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
 .admin-status-select {
-  min-width: 170px;
+  min-width: 190px;
 }
 .admin-portal-shell .foundation-note.auth-message {
   min-height: 18px;
@@ -3749,6 +3815,9 @@ body.intro-booting .bg-lightning {
   .admin-panel-grid-top,
   .admin-products-grid {
     grid-template-columns: 1fr;
+  }
+  .admin-form-shell {
+    position: static;
   }
 }
 @media (max-width: 760px) {
@@ -3759,25 +3828,25 @@ body.intro-booting .bg-lightning {
     flex-direction: column;
     align-items: stretch;
   }
+  .admin-form-shell .foundation-form-grid {
+    grid-template-columns: 1fr;
+  }
   .admin-role-select,
-  .admin-status-select {
+  .admin-status-select,
+  .admin-quick-select {
     min-width: 0;
   }
 }
-
-
 .admin-record-pill.is-source-catalog {
   color: #ffe8bf;
   background: rgba(226,180,74,0.12);
   border-color: rgba(226,180,74,0.22);
 }
-
 .admin-record-pill.is-source-supabase {
   color: #d8fff0;
   background: rgba(57,186,142,0.12);
   border-color: rgba(57,186,142,0.22);
 }
-
 #adminProductImageFile {
   padding: 9px 11px;
 }

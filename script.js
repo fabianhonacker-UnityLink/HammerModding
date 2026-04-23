@@ -152,12 +152,6 @@ const discordStatusCacheMs = 30000;
 let supabaseProductsBooted = false;
 let supabaseManagedProductsCache = [];
 let clothingUiSnapshot = null;
-let lastProfilePersistenceError = '';
-
-function setLastProfilePersistenceError(message = '') {
-  lastProfilePersistenceError = String(message || '').trim();
-}
-
 
 const adminPortalState = {
   bound: false,
@@ -430,21 +424,15 @@ async function refreshActiveUsersUi() {
       client.rpc('get_recent_users'),
     ]);
 
-    const liveUsers = !activeError && Array.isArray(activeData) ? activeData : [];
-    const liveUserIds = new Set(liveUsers.map((entry) => String(entry?.id || '')).filter(Boolean));
-    const recentUsers = !recentError && Array.isArray(recentData)
-      ? recentData.filter((entry) => !liveUserIds.has(String(entry?.id || '')))
-      : [];
-
     renderPresenceUsers(
       'activeUsersList',
-      liveUsers,
+      !activeError && Array.isArray(activeData) ? activeData : [],
       'Gerade ist niemand online.',
       { showOnlineDot: true },
     );
     renderPresenceUsers(
       'recentUsersList',
-      recentUsers,
+      !recentError && Array.isArray(recentData) ? recentData : [],
       'Noch keine Aktivität vorhanden.',
       { recent: true },
     );
@@ -2566,15 +2554,12 @@ async function fetchLiveProfile(userId) {
       .maybeSingle();
 
     if (error) {
-      setLastProfilePersistenceError(error.message || 'Profil konnte nicht geladen werden.');
       if (isMissingProfilesTableError(error)) return null;
       return null;
     }
 
-    setLastProfilePersistenceError('');
     return data || null;
   } catch (error) {
-    setLastProfilePersistenceError(error?.message || 'Profil konnte nicht geladen werden.');
     return null;
   }
 }
@@ -2618,15 +2603,12 @@ async function upsertLiveProfile(user, profileDraft = {}) {
       .maybeSingle();
 
     if (error) {
-      setLastProfilePersistenceError(error.message || 'Profil konnte nicht gespeichert werden.');
       if (isMissingProfilesTableError(error)) return null;
       return null;
     }
 
-    setLastProfilePersistenceError('');
     return data || null;
   } catch (error) {
-    setLastProfilePersistenceError(error?.message || 'Profil konnte nicht gespeichert werden.');
     return null;
   }
 }
@@ -2644,15 +2626,12 @@ async function patchLiveProfile(userId, patch = {}) {
       .maybeSingle();
 
     if (error) {
-      setLastProfilePersistenceError(error.message || 'Profil konnte nicht gespeichert werden.');
       if (isMissingProfilesTableError(error)) return null;
       return null;
     }
 
-    setLastProfilePersistenceError('');
     return data || null;
   } catch (error) {
-    setLastProfilePersistenceError(error?.message || 'Profil konnte nicht gespeichert werden.');
     return null;
   }
 }
@@ -3075,26 +3054,16 @@ async function handleProfileEditorSave(event) {
   }
 
   try {
-    setLastProfilePersistenceError('');
-    let profile = await patchLiveProfile(user.id, payload);
-    if (!profile) {
-      const existingProfile = await fetchLiveProfile(user.id);
-      profile = existingProfile ? await patchLiveProfile(user.id, payload) : await upsertLiveProfile(user, payload);
-    }
-
+    const profile = await upsertLiveProfile(user, payload);
     if (profile) {
       liveAccountSnapshot.profile = profile;
       setAuthMessage(elements.message, 'Profil gespeichert.', 'success');
-      syncAccountAvatarViews(user, profile);
-      updateAccountDock(user, profile);
-      setAccountShellUi(user, profile);
     } else {
-      const detail = lastProfilePersistenceError || 'Bitte prüfe die Profiles-RLS in Supabase.';
-      setAuthMessage(elements.message, `Profil konnte nicht gespeichert werden: ${detail}`, 'warn');
+      setAuthMessage(elements.message, 'Profil konnte noch nicht gespeichert werden. Bitte SQL in Supabase ausführen.', 'warn');
     }
     await refreshLiveAuthUi();
   } catch (error) {
-    setAuthMessage(elements.message, `Profil konnte nicht gespeichert werden: ${error?.message || 'Unbekannter Fehler'}`, 'warn');
+    setAuthMessage(elements.message, 'Profil konnte nicht gespeichert werden.', 'warn');
   } finally {
     if (elements.saveButton) {
       elements.saveButton.disabled = false;
@@ -3250,6 +3219,7 @@ function getAdminPortalElements() {
     usersList: document.getElementById('adminUsersList'),
     supportList: document.getElementById('adminSupportList'),
     productRefreshButton: document.getElementById('adminProductRefreshButton'),
+    productQuickSelect: document.getElementById('adminProductQuickSelect'),
     productForm: document.getElementById('adminProductForm'),
     productFormTitle: document.getElementById('adminProductFormTitle'),
     productFormHint: document.getElementById('adminProductFormHint'),
@@ -3411,6 +3381,7 @@ function resetAdminProductForm(keepMessage = false) {
   if (elements.productImageHint) elements.productImageHint.textContent = 'Du kannst eine URL eintragen oder direkt ein Bild hochladen. Ein Upload überschreibt die URL beim Speichern.';
   if (elements.productFormTitle) elements.productFormTitle.textContent = 'Produkt anlegen';
   if (elements.productFormHint) elements.productFormHint.textContent = 'Neu';
+  if (elements.productQuickSelect) elements.productQuickSelect.value = '';
   adminPortalState.selectedProductId = '';
   adminPortalState.selectedProductDbId = '';
   adminPortalState.selectedProductSlug = '';
@@ -3481,6 +3452,11 @@ function renderAdminProducts() {
   const elements = getAdminPortalElements();
   if (!elements.productsList) return;
   const products = [...adminPortalState.products].sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || String(a.title || '').localeCompare(String(b.title || '')));
+  if (elements.productQuickSelect) {
+    const options = ['<option value="">Produkt auswählen ...</option>']
+      .concat(products.map((product) => `<option value="${escapeHtml(product.id)}"${adminPortalState.selectedProductId === product.id ? ' selected' : ''}>${escapeHtml(product.title || 'Produkt')} · ${escapeHtml(product.sourceLabel || 'Quelle')}</option>`));
+    elements.productQuickSelect.innerHTML = options.join('');
+  }
   if (!products.length) {
     elements.productsList.innerHTML = '<div class="admin-record-empty">Noch keine Produkte geladen. Sobald Supabase liefert, erscheinen sie hier.</div>';
     return;
@@ -3832,6 +3808,16 @@ function setupAdminPortal() {
   });
   elements.productSlug?.addEventListener('input', () => {
     elements.productSlug.dataset.autofill = elements.productSlug.value ? 'false' : 'true';
+  });
+
+  elements.productQuickSelect?.addEventListener('change', () => {
+    const productId = elements.productQuickSelect?.value || '';
+    if (!productId) {
+      resetAdminProductForm(true);
+      return;
+    }
+    const product = getAdminProductByKey(productId);
+    if (product) hydrateAdminProductForm(product);
   });
 
   elements.productImageFile?.addEventListener('change', () => {

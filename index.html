@@ -77,7 +77,7 @@
   <div class="account-dock-row">
     <button class="account-dock-button glass-soft" id="accountDockButton" type="button">
       <span class="account-dock-avatar" id="accountDockAvatar">
-        <img alt="Profilbild" class="account-avatar-image" hidden id="accountDockAvatarImage" loading="lazy" decoding="async">
+        <img class="account-avatar-image" id="accountDockAvatarImage" alt="Profilbild" hidden>
         <span class="account-dock-status-dot" id="accountDockStatusDot"></span>
         <strong id="accountDockAvatarInitial">HM</strong>
       </span>
@@ -1463,7 +1463,7 @@ type="button"
     <article class="account-summary-card glass-soft">
       <div class="account-summary-main">
         <div class="account-profile-avatar" id="accountProfileAvatar">
-          <img alt="Profilbild" class="account-avatar-image" hidden id="accountProfileAvatarImage" loading="lazy" decoding="async">
+          <img class="account-avatar-image" id="accountProfileAvatarImage" alt="Profilbild" hidden>
           <span class="profile-status-dot" id="accountProfileStatusDot"></span>
           <strong id="accountProfileAvatarInitial">HM</strong>
         </div>
@@ -1629,11 +1629,20 @@ type="button"
         <p class="foundation-note auth-message" id="adminProductsMessage"></p>
         <div class="admin-products-grid">
           <div class="admin-list-shell">
-            <div class="admin-list-head">
-              <strong>Vorhandene Produkte</strong>
+            <div class="admin-list-head admin-list-head-stack">
+              <div>
+                <strong>Vorhandene Produkte</strong>
+                <small>Komprimierte Übersicht mit Schnellauswahl</small>
+              </div>
               <button class="cta secondary compact-cta" id="adminProductRefreshButton" type="button">Neu laden</button>
             </div>
-            <div class="admin-record-list" id="adminProductsList"></div>
+            <label class="admin-quick-select-wrap">
+              <span>Schnellauswahl</span>
+              <select class="hm-select admin-quick-select" id="adminProductQuickSelect">
+                <option value="">Produkt auswählen ...</option>
+              </select>
+            </label>
+            <div class="admin-record-list admin-record-list-products" id="adminProductsList"></div>
           </div>
           <form class="foundation-form-shell admin-form-shell" id="adminProductForm">
             <div class="foundation-form-head">
