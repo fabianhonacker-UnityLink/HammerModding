@@ -199,6 +199,29 @@ const ADMIN_PREVIEW_PLACEHOLDER = `data:image/svg+xml;charset=UTF-8,${encodeURIC
 
 const HM_PRODUCT_DETAIL_PREFIX = '__HM_DETAIL__';
 
+const HM_PRODUCT_DETAIL_COLUMN_KEYS = [
+  'detail_title',
+  'detail_headline',
+  'detail_intro',
+  'detail_price_hint',
+  'detail_side_image_url',
+  'detail_feature_intro',
+  'detail_part_01',
+  'detail_part_02',
+  'detail_part_03',
+  'detail_einsatz',
+  'detail_look',
+  'detail_nutzen',
+  'detail_quick_01_label',
+  'detail_quick_01_value',
+  'detail_quick_02_label',
+  'detail_quick_02_value',
+  'detail_quick_03_label',
+  'detail_quick_03_value',
+  'detail_quick_04_label',
+  'detail_quick_04_value',
+];
+
 function getProductTypeLabel(type, category = '') {
   const normalizedType = getNormalizedRole(type);
   const normalizedCategory = getNormalizedRole(category);
@@ -317,8 +340,38 @@ function encodeStoredProductDetail(detail = {}) {
   return `${HM_PRODUCT_DETAIL_PREFIX}${JSON.stringify(normalizeStoredProductDetail(detail))}`;
 }
 
+function buildStoredProductDetailFromColumns(product = {}) {
+  const source = product && typeof product === 'object' ? product : {};
+  const quickFacts = [1, 2, 3, 4].map((index) => {
+    const key = String(index).padStart(2, '0');
+    return {
+      label: String(source[`detail_quick_${key}_label`] || '').trim(),
+      value: String(source[`detail_quick_${key}_value`] || '').trim(),
+    };
+  }).filter((entry) => entry.label || entry.value);
+
+  const normalized = normalizeStoredProductDetail({
+    detailTitle: source.detail_title,
+    detailHeadline: source.detail_headline,
+    detailIntro: source.detail_intro,
+    detailPriceHint: source.detail_price_hint,
+    detailFeatureIntro: source.detail_feature_intro,
+    detailPart01: source.detail_part_01,
+    detailPart02: source.detail_part_02,
+    detailPart03: source.detail_part_03,
+    detailEinsatz: source.detail_einsatz,
+    detailLook: source.detail_look,
+    detailNutzen: source.detail_nutzen,
+    detailSideImageUrl: source.detail_side_image_url,
+    quickFacts,
+  });
+
+  return hasMeaningfulProductDetail(normalized) ? normalized : null;
+}
+
 function getStoredProductDetail(product = {}) {
-  return decodeStoredProductDetail(product.detail_data)
+  return buildStoredProductDetailFromColumns(product)
+    || decodeStoredProductDetail(product.detail_data)
     || decodeStoredProductDetail(product.detail_config)
     || decodeStoredProductDetail(product.full_description);
 }
@@ -371,6 +424,33 @@ function buildDetailPayloadFromAdminForm(elements, product = {}) {
     detailNutzen: String(elements.detailNutzen?.value || '').trim(),
     detailSideImageUrl: String(elements.detailSideImageUrl?.value || '').trim(),
     quickFacts,
+  };
+}
+
+function buildDetailColumnPayload(detail = {}) {
+  const normalized = normalizeStoredProductDetail(detail);
+  const fact = (index) => normalized.quickFacts[index] || { label: '', value: '' };
+  return {
+    detail_title: normalized.detailTitle || '',
+    detail_headline: normalized.detailHeadline || '',
+    detail_intro: normalized.detailIntro || '',
+    detail_price_hint: normalized.detailPriceHint || '',
+    detail_side_image_url: normalized.detailSideImageUrl || '',
+    detail_feature_intro: normalized.detailFeatureIntro || '',
+    detail_part_01: normalized.detailPart01 || '',
+    detail_part_02: normalized.detailPart02 || '',
+    detail_part_03: normalized.detailPart03 || '',
+    detail_einsatz: normalized.detailEinsatz || '',
+    detail_look: normalized.detailLook || '',
+    detail_nutzen: normalized.detailNutzen || '',
+    detail_quick_01_label: fact(0).label || '',
+    detail_quick_01_value: fact(0).value || '',
+    detail_quick_02_label: fact(1).label || '',
+    detail_quick_02_value: fact(1).value || '',
+    detail_quick_03_label: fact(2).label || '',
+    detail_quick_03_value: fact(2).value || '',
+    detail_quick_04_label: fact(3).label || '',
+    detail_quick_04_value: fact(3).value || '',
   };
 }
 
@@ -3955,6 +4035,7 @@ function buildCatalogSyncPayloads() {
       short_description: prepared.short_description,
       full_description: encodeStoredProductDetail(detailConfig),
       detail_data: normalizeStoredProductDetail(detailConfig),
+      ...buildDetailColumnPayload(detailConfig),
       image_url: prepared.image_url,
       tebex_package_id: entry.tebex_package_id || '',
       is_active: entry.is_active !== false,
@@ -4416,6 +4497,7 @@ async function collectAdminProductPayload() {
     short_description: String(elements.productShort?.value || '').trim(),
   };
   const detailPayload = buildDetailPayloadFromAdminForm(elements, draftProduct);
+  const detailColumns = buildDetailColumnPayload(detailPayload);
   return {
     title,
     slug,
@@ -4427,24 +4509,31 @@ async function collectAdminProductPayload() {
     short_description: draftProduct.short_description,
     full_description: encodeStoredProductDetail(detailPayload),
     detail_data: normalizeStoredProductDetail(detailPayload),
+    ...detailColumns,
     sort_order: Number(elements.productSort?.value || 0) || 0,
     is_active: Boolean(elements.productActive?.checked),
     is_featured: Boolean(elements.productFeatured?.checked),
   };
 }
 
-function stripDetailDataFromProductPayload(payload = {}) {
-  const { detail_data: _detailData, ...fallbackPayload } = payload;
+function stripSchemaExtensionFieldsFromProductPayload(payload = {}) {
+  const fallbackPayload = { ...payload };
+  delete fallbackPayload.detail_data;
+  HM_PRODUCT_DETAIL_COLUMN_KEYS.forEach((key) => {
+    delete fallbackPayload[key];
+  });
   return fallbackPayload;
 }
 
-function isMissingDetailDataColumnError(error) {
+function isMissingProductSchemaColumnError(error) {
   const message = String(error?.message || '').toLowerCase();
-  return message.includes('detail_data') && (message.includes('column') || message.includes('schema cache') || message.includes('could not find'));
+  const isColumnError = message.includes('column') || message.includes('schema cache') || message.includes('could not find');
+  if (!isColumnError) return false;
+  return message.includes('detail_data') || HM_PRODUCT_DETAIL_COLUMN_KEYS.some((key) => message.includes(key));
 }
 
-async function executeAdminProductSave(client, tableName, payload, selectedDbId, includeDetailData = true) {
-  const savePayload = includeDetailData ? payload : stripDetailDataFromProductPayload(payload);
+async function executeAdminProductSave(client, tableName, payload, selectedDbId, includeSchemaExtensionFields = true) {
+  const savePayload = includeSchemaExtensionFields ? payload : stripSchemaExtensionFieldsFromProductPayload(payload);
   if (selectedDbId) {
     return client.from(tableName).update(savePayload).eq('id', selectedDbId).select('*').single();
   }
@@ -4483,20 +4572,20 @@ async function saveAdminProductToSupabase(options = {}) {
   try {
     const tableName = loadFoundationState().productsTable || 'products';
     let result = await executeAdminProductSave(client, tableName, payload, adminPortalState.selectedProductDbId, true);
-    let savedWithoutDetailDataColumn = false;
+    let savedWithoutSchemaColumns = false;
 
-    if (result.error && isMissingDetailDataColumnError(result.error)) {
+    if (result.error && isMissingProductSchemaColumnError(result.error)) {
       result = await executeAdminProductSave(client, tableName, payload, adminPortalState.selectedProductDbId, false);
-      savedWithoutDetailDataColumn = true;
+      savedWithoutSchemaColumns = true;
     }
 
     if (result.error) throw result.error;
     const data = result.data;
     const hiddenHint = payload.is_active ? '' : ' Das Produkt ist gespeichert, aber aktuell verborgen/inaktiv.';
-    const detailHint = savedWithoutDetailDataColumn
-      ? ' Hinweis: Die neue detail_data-Spalte fehlt noch, deshalb wurden die Detaildaten zusätzlich im alten full_description-Fallback gespeichert.'
+    const detailHint = savedWithoutSchemaColumns
+      ? ' Hinweis: Die neuen Detailspalten fehlen noch. Bitte die SQL-Datei für das Produkt-Schema ausführen, damit alle Detailfelder einzeln gespeichert werden.'
       : '';
-    setAdminMessage(elements.productsMessage, `${payload.title} wurde in Supabase gespeichert.${hiddenHint}${detailHint}`, savedWithoutDetailDataColumn ? 'warn' : 'success');
+    setAdminMessage(elements.productsMessage, `${payload.title} wurde in Supabase gespeichert.${hiddenHint}${detailHint}`, savedWithoutSchemaColumns ? 'warn' : 'success');
     resetAdminProductForm(true);
     adminPortalState.initialized = false;
     await loadAdminPortalData(true);
