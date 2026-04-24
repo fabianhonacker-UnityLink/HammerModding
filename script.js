@@ -199,29 +199,6 @@ const ADMIN_PREVIEW_PLACEHOLDER = `data:image/svg+xml;charset=UTF-8,${encodeURIC
 
 const HM_PRODUCT_DETAIL_PREFIX = '__HM_DETAIL__';
 
-const HM_PRODUCT_DETAIL_COLUMN_KEYS = [
-  'detail_title',
-  'detail_headline',
-  'detail_intro',
-  'detail_price_hint',
-  'detail_side_image_url',
-  'detail_feature_intro',
-  'detail_part_01',
-  'detail_part_02',
-  'detail_part_03',
-  'detail_einsatz',
-  'detail_look',
-  'detail_nutzen',
-  'detail_quick_01_label',
-  'detail_quick_01_value',
-  'detail_quick_02_label',
-  'detail_quick_02_value',
-  'detail_quick_03_label',
-  'detail_quick_03_value',
-  'detail_quick_04_label',
-  'detail_quick_04_value',
-];
-
 function getProductTypeLabel(type, category = '') {
   const normalizedType = getNormalizedRole(type);
   const normalizedCategory = getNormalizedRole(category);
@@ -264,148 +241,196 @@ function getDefaultQuickFacts(product = {}) {
   return facts.filter((entry) => entry.label && entry.value).slice(0, 4);
 }
 
-function normalizeStoredProductDetail(detail = {}) {
-  const source = detail && typeof detail === 'object' ? detail : {};
-  const quickFactsSource = Array.isArray(source.quickFacts)
-    ? source.quickFacts
-    : Array.isArray(source.quick_facts)
-      ? source.quick_facts
-      : [];
-  return {
-    version: 1,
-    detailTitle: String(source.detailTitle || source.detail_title || '').trim(),
-    detailHeadline: String(source.detailHeadline || source.detail_headline || '').trim(),
-    detailIntro: String(source.detailIntro || source.detail_intro || '').trim(),
-    detailPriceHint: String(source.detailPriceHint || source.detail_price_hint || '').trim(),
-    detailFeatureIntro: String(source.detailFeatureIntro || source.detail_feature_intro || '').trim(),
-    detailPart01: String(source.detailPart01 || source.detail_part_01 || '').trim(),
-    detailPart02: String(source.detailPart02 || source.detail_part_02 || '').trim(),
-    detailPart03: String(source.detailPart03 || source.detail_part_03 || '').trim(),
-    detailEinsatz: String(source.detailEinsatz || source.detail_einsatz || '').trim(),
-    detailLook: String(source.detailLook || source.detail_look || '').trim(),
-    detailNutzen: String(source.detailNutzen || source.detail_nutzen || '').trim(),
-    detailSideImageUrl: String(source.detailSideImageUrl || source.detail_side_image_url || '').trim(),
-    quickFacts: quickFactsSource
-      .map((entry) => ({
-        label: String(entry?.label || '').trim(),
-        value: String(entry?.value || '').trim(),
-      }))
-      .filter((entry) => entry.label || entry.value)
-      .slice(0, 4),
-  };
-}
-
-function hasMeaningfulProductDetail(detail = {}) {
-  return Boolean(
-    detail.detailTitle
-    || detail.detailHeadline
-    || detail.detailIntro
-    || detail.detailPriceHint
-    || detail.detailFeatureIntro
-    || detail.detailPart01
-    || detail.detailPart02
-    || detail.detailPart03
-    || detail.detailEinsatz
-    || detail.detailLook
-    || detail.detailNutzen
-    || detail.detailSideImageUrl
-    || (Array.isArray(detail.quickFacts) && detail.quickFacts.length)
-  );
-}
-
 function decodeStoredProductDetail(rawValue) {
-  if (!rawValue) return null;
-  if (typeof rawValue === 'object') {
-    const normalized = normalizeStoredProductDetail(rawValue);
-    return hasMeaningfulProductDetail(normalized) ? normalized : null;
-  }
-
   const raw = String(rawValue || '').trim();
-  if (!raw) return null;
-
-  const jsonText = raw.startsWith(HM_PRODUCT_DETAIL_PREFIX)
-    ? raw.slice(HM_PRODUCT_DETAIL_PREFIX.length)
-    : raw.startsWith('{')
-      ? raw
-      : '';
-  if (!jsonText) return null;
-
+  if (!raw || !raw.startsWith(HM_PRODUCT_DETAIL_PREFIX)) return null;
   try {
-    const parsed = JSON.parse(jsonText);
-    const normalized = normalizeStoredProductDetail(parsed);
-    return hasMeaningfulProductDetail(normalized) ? normalized : null;
+    const parsed = JSON.parse(raw.slice(HM_PRODUCT_DETAIL_PREFIX.length));
+    return parsed && typeof parsed === 'object' ? parsed : null;
   } catch (error) {
     return null;
   }
 }
 
 function encodeStoredProductDetail(detail = {}) {
-  return `${HM_PRODUCT_DETAIL_PREFIX}${JSON.stringify(normalizeStoredProductDetail(detail))}`;
+  const payload = {
+    version: 1,
+    detailTitle: String(detail.detailTitle || '').trim(),
+    detailHeadline: String(detail.detailHeadline || '').trim(),
+    detailIntro: String(detail.detailIntro || '').trim(),
+    detailPriceHint: String(detail.detailPriceHint || '').trim(),
+    detailFeatureIntro: String(detail.detailFeatureIntro || '').trim(),
+    detailPart01: String(detail.detailPart01 || '').trim(),
+    detailPart02: String(detail.detailPart02 || '').trim(),
+    detailPart03: String(detail.detailPart03 || '').trim(),
+    detailEinsatz: String(detail.detailEinsatz || '').trim(),
+    detailLook: String(detail.detailLook || '').trim(),
+    detailNutzen: String(detail.detailNutzen || '').trim(),
+    detailSideImageUrl: String(detail.detailSideImageUrl || '').trim(),
+    quickFacts: Array.isArray(detail.quickFacts)
+      ? detail.quickFacts
+          .map((entry) => ({
+            label: String(entry?.label || '').trim(),
+            value: String(entry?.value || '').trim(),
+          }))
+          .filter((entry) => entry.label || entry.value)
+          .slice(0, 4)
+      : [],
+  };
+  return `${HM_PRODUCT_DETAIL_PREFIX}${JSON.stringify(payload)}`;
 }
 
-function buildStoredProductDetailFromColumns(product = {}) {
-  const source = product && typeof product === 'object' ? product : {};
-  const quickFacts = [1, 2, 3, 4].map((index) => {
+function normalizeDetailTextValue(value) {
+  const text = String(value ?? '').trim();
+  return text.toUpperCase() === 'EMPTY' ? '' : text;
+}
+
+function readProductDetailData(product = {}) {
+  const raw = product?.detail_data;
+  if (!raw) return {};
+  if (typeof raw === 'object') return raw;
+  try {
+    const parsed = JSON.parse(String(raw || '{}'));
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function getDetailDataValue(detailData = {}, camelKey = '', snakeKey = '') {
+  if (!detailData || typeof detailData !== 'object') return '';
+  return normalizeDetailTextValue(detailData[camelKey] ?? detailData[snakeKey] ?? '');
+}
+
+function getDirectDetailValue(product = {}, columnName = '') {
+  return normalizeDetailTextValue(product?.[columnName] ?? '');
+}
+
+function getMergedDetailValue(product = {}, detailData = {}, stored = {}, columnName = '', camelKey = '', snakeKey = '') {
+  return (
+    getDirectDetailValue(product, columnName)
+    || getDetailDataValue(detailData, camelKey, snakeKey)
+    || normalizeDetailTextValue(stored?.[camelKey])
+  );
+}
+
+function buildDetailColumnsFromPayload(detail = {}) {
+  const quickFacts = Array.isArray(detail.quickFacts) ? detail.quickFacts : [];
+  const quick = [0, 1, 2, 3].map((index) => ({
+    label: normalizeDetailTextValue(quickFacts[index]?.label || ''),
+    value: normalizeDetailTextValue(quickFacts[index]?.value || ''),
+  }));
+
+  return {
+    detail_title: normalizeDetailTextValue(detail.detailTitle),
+    detail_headline: normalizeDetailTextValue(detail.detailHeadline),
+    detail_intro: normalizeDetailTextValue(detail.detailIntro),
+    detail_price_hint: normalizeDetailTextValue(detail.detailPriceHint),
+    detail_side_image_url: normalizeDetailTextValue(detail.detailSideImageUrl),
+    detail_feature_intro: normalizeDetailTextValue(detail.detailFeatureIntro),
+    detail_part_01: normalizeDetailTextValue(detail.detailPart01),
+    detail_part_02: normalizeDetailTextValue(detail.detailPart02),
+    detail_part_03: normalizeDetailTextValue(detail.detailPart03),
+    detail_einsatz: normalizeDetailTextValue(detail.detailEinsatz),
+    detail_look: normalizeDetailTextValue(detail.detailLook),
+    detail_nutzen: normalizeDetailTextValue(detail.detailNutzen),
+    detail_quick_01_label: quick[0].label,
+    detail_quick_01_value: quick[0].value,
+    detail_quick_02_label: quick[1].label,
+    detail_quick_02_value: quick[1].value,
+    detail_quick_03_label: quick[2].label,
+    detail_quick_03_value: quick[2].value,
+    detail_quick_04_label: quick[3].label,
+    detail_quick_04_value: quick[3].value,
+  };
+}
+
+function buildDetailDataFromPayload(detail = {}) {
+  return {
+    version: 2,
+    detailTitle: normalizeDetailTextValue(detail.detailTitle),
+    detailHeadline: normalizeDetailTextValue(detail.detailHeadline),
+    detailIntro: normalizeDetailTextValue(detail.detailIntro),
+    detailPriceHint: normalizeDetailTextValue(detail.detailPriceHint),
+    detailSideImageUrl: normalizeDetailTextValue(detail.detailSideImageUrl),
+    detailFeatureIntro: normalizeDetailTextValue(detail.detailFeatureIntro),
+    detailPart01: normalizeDetailTextValue(detail.detailPart01),
+    detailPart02: normalizeDetailTextValue(detail.detailPart02),
+    detailPart03: normalizeDetailTextValue(detail.detailPart03),
+    detailEinsatz: normalizeDetailTextValue(detail.detailEinsatz),
+    detailLook: normalizeDetailTextValue(detail.detailLook),
+    detailNutzen: normalizeDetailTextValue(detail.detailNutzen),
+    quickFacts: (Array.isArray(detail.quickFacts) ? detail.quickFacts : [])
+      .map((entry) => ({
+        label: normalizeDetailTextValue(entry?.label || ''),
+        value: normalizeDetailTextValue(entry?.value || ''),
+      }))
+      .filter((entry) => entry.label || entry.value)
+      .slice(0, 4),
+  };
+}
+
+function resolveProductDetailConfig(product = {}) {
+  const stored = decodeStoredProductDetail(product.full_description) || {};
+  const detailData = readProductDetailData(product);
+  const fallbackTitle = normalizeDetailTextValue(product.title);
+  const fallbackHeadline = normalizeDetailTextValue(product.short_description) || fallbackTitle;
+  const fallbackPriceHint = getProductTypeLabel(product.product_type, product.category);
+  const fallbackImage = normalizeDetailTextValue(product.image_url) || 'assets/content.png';
+
+  const detailTitle = getMergedDetailValue(product, detailData, stored, 'detail_title', 'detailTitle', 'detail_title') || fallbackTitle;
+  const detailHeadline = getMergedDetailValue(product, detailData, stored, 'detail_headline', 'detailHeadline', 'detail_headline') || fallbackHeadline;
+  const detailIntro = (
+    getMergedDetailValue(product, detailData, stored, 'detail_intro', 'detailIntro', 'detail_intro')
+    || normalizeDetailTextValue(product.full_description_text)
+    || normalizeDetailTextValue(product.short_description)
+  );
+  const detailPriceHint = getMergedDetailValue(product, detailData, stored, 'detail_price_hint', 'detailPriceHint', 'detail_price_hint') || fallbackPriceHint;
+  const detailFeatureIntro = (
+    getMergedDetailValue(product, detailData, stored, 'detail_feature_intro', 'detailFeatureIntro', 'detail_feature_intro')
+    || normalizeDetailTextValue(product.short_description)
+  );
+  const detailSideImageUrl = getMergedDetailValue(product, detailData, stored, 'detail_side_image_url', 'detailSideImageUrl', 'detail_side_image_url') || fallbackImage;
+
+  const columnQuickFacts = [1, 2, 3, 4].map((index) => {
     const key = String(index).padStart(2, '0');
     return {
-      label: String(source[`detail_quick_${key}_label`] || '').trim(),
-      value: String(source[`detail_quick_${key}_value`] || '').trim(),
+      label: getDirectDetailValue(product, `detail_quick_${key}_label`),
+      value: getDirectDetailValue(product, `detail_quick_${key}_value`),
     };
   }).filter((entry) => entry.label || entry.value);
 
-  const normalized = normalizeStoredProductDetail({
-    detailTitle: source.detail_title,
-    detailHeadline: source.detail_headline,
-    detailIntro: source.detail_intro,
-    detailPriceHint: source.detail_price_hint,
-    detailFeatureIntro: source.detail_feature_intro,
-    detailPart01: source.detail_part_01,
-    detailPart02: source.detail_part_02,
-    detailPart03: source.detail_part_03,
-    detailEinsatz: source.detail_einsatz,
-    detailLook: source.detail_look,
-    detailNutzen: source.detail_nutzen,
-    detailSideImageUrl: source.detail_side_image_url,
-    quickFacts,
-  });
+  const dataQuickFacts = Array.isArray(detailData.quickFacts)
+    ? detailData.quickFacts.map((entry) => ({
+        label: normalizeDetailTextValue(entry?.label || ''),
+        value: normalizeDetailTextValue(entry?.value || ''),
+      })).filter((entry) => entry.label || entry.value)
+    : [];
 
-  return hasMeaningfulProductDetail(normalized) ? normalized : null;
-}
-
-function getStoredProductDetail(product = {}) {
-  return buildStoredProductDetailFromColumns(product)
-    || decodeStoredProductDetail(product.detail_data)
-    || decodeStoredProductDetail(product.detail_config)
-    || decodeStoredProductDetail(product.full_description);
-}
-function resolveProductDetailConfig(product = {}) {
-  const stored = getStoredProductDetail(product);
-  const plainIntro = stored ? String(stored.detailIntro || '').trim() : String(product.full_description || '').trim();
-  const fallbackTitle = String(product.title || '').trim();
-  const fallbackHeadline = String(product.short_description || '').trim() || fallbackTitle;
-  const fallbackPriceHint = getProductTypeLabel(product.product_type, product.category);
-  const fallbackImage = String(product.image_url || '').trim() || 'assets/content.png';
-  const quickFacts = (stored?.quickFacts || []).map((entry) => ({
-    label: String(entry?.label || '').trim(),
-    value: String(entry?.value || '').trim(),
-  })).filter((entry) => entry.label || entry.value);
+  const legacyQuickFacts = Array.isArray(stored.quickFacts)
+    ? stored.quickFacts.map((entry) => ({
+        label: normalizeDetailTextValue(entry?.label || ''),
+        value: normalizeDetailTextValue(entry?.value || ''),
+      })).filter((entry) => entry.label || entry.value)
+    : [];
 
   return {
-    detailTitle: String(stored?.detailTitle || fallbackTitle).trim(),
-    detailHeadline: String(stored?.detailHeadline || fallbackHeadline).trim(),
-    detailIntro: plainIntro || String(product.short_description || '').trim(),
-    detailPriceHint: String(stored?.detailPriceHint || fallbackPriceHint).trim(),
-    detailFeatureIntro: String(stored?.detailFeatureIntro || product.short_description || '').trim(),
-    detailPart01: String(stored?.detailPart01 || '').trim(),
-    detailPart02: String(stored?.detailPart02 || '').trim(),
-    detailPart03: String(stored?.detailPart03 || '').trim(),
-    detailEinsatz: String(stored?.detailEinsatz || '').trim(),
-    detailLook: String(stored?.detailLook || '').trim(),
-    detailNutzen: String(stored?.detailNutzen || '').trim(),
-    detailSideImageUrl: String(stored?.detailSideImageUrl || fallbackImage).trim(),
-    quickFacts: quickFacts.length ? quickFacts : getDefaultQuickFacts(product),
+    detailTitle,
+    detailHeadline,
+    detailIntro,
+    detailPriceHint,
+    detailFeatureIntro,
+    detailPart01: getMergedDetailValue(product, detailData, stored, 'detail_part_01', 'detailPart01', 'detail_part_01'),
+    detailPart02: getMergedDetailValue(product, detailData, stored, 'detail_part_02', 'detailPart02', 'detail_part_02'),
+    detailPart03: getMergedDetailValue(product, detailData, stored, 'detail_part_03', 'detailPart03', 'detail_part_03'),
+    detailEinsatz: getMergedDetailValue(product, detailData, stored, 'detail_einsatz', 'detailEinsatz', 'detail_einsatz'),
+    detailLook: getMergedDetailValue(product, detailData, stored, 'detail_look', 'detailLook', 'detail_look'),
+    detailNutzen: getMergedDetailValue(product, detailData, stored, 'detail_nutzen', 'detailNutzen', 'detail_nutzen'),
+    detailSideImageUrl,
+    quickFacts: (columnQuickFacts.length ? columnQuickFacts : dataQuickFacts.length ? dataQuickFacts : legacyQuickFacts.length ? legacyQuickFacts : getDefaultQuickFacts(product)).slice(0, 4),
   };
 }
+
 
 function buildDetailPayloadFromAdminForm(elements, product = {}) {
   const quickFacts = [1, 2, 3, 4].map((index) => ({
@@ -427,33 +452,6 @@ function buildDetailPayloadFromAdminForm(elements, product = {}) {
     detailNutzen: String(elements.detailNutzen?.value || '').trim(),
     detailSideImageUrl: String(elements.detailSideImageUrl?.value || '').trim(),
     quickFacts,
-  };
-}
-
-function buildDetailColumnPayload(detail = {}) {
-  const normalized = normalizeStoredProductDetail(detail);
-  const fact = (index) => normalized.quickFacts[index] || { label: '', value: '' };
-  return {
-    detail_title: normalized.detailTitle || '',
-    detail_headline: normalized.detailHeadline || '',
-    detail_intro: normalized.detailIntro || '',
-    detail_price_hint: normalized.detailPriceHint || '',
-    detail_side_image_url: normalized.detailSideImageUrl || '',
-    detail_feature_intro: normalized.detailFeatureIntro || '',
-    detail_part_01: normalized.detailPart01 || '',
-    detail_part_02: normalized.detailPart02 || '',
-    detail_part_03: normalized.detailPart03 || '',
-    detail_einsatz: normalized.detailEinsatz || '',
-    detail_look: normalized.detailLook || '',
-    detail_nutzen: normalized.detailNutzen || '',
-    detail_quick_01_label: fact(0).label || '',
-    detail_quick_01_value: fact(0).value || '',
-    detail_quick_02_label: fact(1).label || '',
-    detail_quick_02_value: fact(1).value || '',
-    detail_quick_03_label: fact(2).label || '',
-    detail_quick_03_value: fact(2).value || '',
-    detail_quick_04_label: fact(3).label || '',
-    detail_quick_04_value: fact(3).value || '',
   };
 }
 
@@ -480,102 +478,8 @@ function getAdminProductPreviewCopy(product = {}) {
   return String(product.short_description || config.detailIntro || '').trim();
 }
 
-function getProductDetailScore(product = {}) {
-  const detail = getStoredProductDetail(product) || {};
-  const values = [
-    detail.detailTitle,
-    detail.detailHeadline,
-    detail.detailIntro,
-    detail.detailPriceHint,
-    detail.detailFeatureIntro,
-    detail.detailPart01,
-    detail.detailPart02,
-    detail.detailPart03,
-    detail.detailEinsatz,
-    detail.detailLook,
-    detail.detailNutzen,
-    detail.detailSideImageUrl,
-    product.short_description,
-    product.image_url,
-  ];
-  const fieldScore = values.reduce((score, value) => score + (String(value || '').trim() ? 1 : 0), 0);
-  const quickFactScore = Array.isArray(detail.quickFacts)
-    ? detail.quickFacts.reduce((score, entry) => score + (entry.label || entry.value ? 1 : 0), 0)
-    : 0;
-  return fieldScore + quickFactScore;
-}
-
-function getProductTimestampScore(product = {}) {
-  const updated = Date.parse(product.updated_at || '') || 0;
-  const created = Date.parse(product.created_at || '') || 0;
-  return Math.max(updated, created);
-}
-
-function chooseBetterSupabaseProduct(current, candidate) {
-  if (!current) return candidate || null;
-  if (!candidate) return current;
-
-  const candidateDetailScore = getProductDetailScore(candidate);
-  const currentDetailScore = getProductDetailScore(current);
-  if (candidateDetailScore !== currentDetailScore) {
-    return candidateDetailScore > currentDetailScore ? candidate : current;
-  }
-
-  if ((candidate.is_active !== false) !== (current.is_active !== false)) {
-    return candidate.is_active !== false ? candidate : current;
-  }
-
-  const candidateTime = getProductTimestampScore(candidate);
-  const currentTime = getProductTimestampScore(current);
-  if (candidateTime !== currentTime) return candidateTime > currentTime ? candidate : current;
-
-  return candidate;
-}
-
-function dedupeSupabaseProductsBySlug(products = []) {
-  const map = new Map();
-  (Array.isArray(products) ? products : []).forEach((product) => {
-    if (!product || !product.slug) return;
-    const key = String(product.slug || '').trim();
-    if (!key) return;
-    map.set(key, chooseBetterSupabaseProduct(map.get(key), product));
-  });
-  return [...map.values()].sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || String(a.title || '').localeCompare(String(b.title || '')));
-}
-
 function getSupabaseManagedProductBySlug(slug) {
-  const key = String(slug || '').trim();
-  if (!key) return null;
-  const candidates = supabaseManagedProductsCache.filter((entry) => entry.slug === key);
-  return candidates.reduce((best, entry) => chooseBetterSupabaseProduct(best, entry), null);
-}
-
-async function fetchFreshSupabaseProductBySlug(slug) {
-  const key = String(slug || '').trim();
-  if (!key) return null;
-  const client = getSupabaseClient();
-  if (!client) return null;
-  const foundation = loadFoundationState();
-  const productsTable = foundation.productsTable || 'products';
-
-  try {
-    const { data, error } = await withTimeout(
-      client
-        .from(productsTable)
-        .select('*')
-        .eq('slug', key)
-        .eq('is_active', true)
-        .order('updated_at', { ascending: false })
-        .order('created_at', { ascending: false }),
-      12000,
-    );
-    if (error) throw error;
-    const normalized = Array.isArray(data) ? data.map(normalizeSupabaseProductRow).filter(Boolean) : [];
-    return dedupeSupabaseProductsBySlug(normalized)[0] || null;
-  } catch (error) {
-    console.warn('Supabase-Detailprodukt konnte nicht frisch geladen werden.', error);
-    return null;
-  }
+  return supabaseManagedProductsCache.find((entry) => entry.slug === slug) || null;
 }
 
 function getDynamicDetailElements() {
@@ -665,15 +569,10 @@ function populateDynamicProductDetail(product) {
   }
 }
 
-async function openDynamicProductDetail(slug, originSection = 'scripts') {
-  const productSlug = String(slug || '').trim();
-  let product = getSupabaseManagedProductBySlug(productSlug);
-  if (!product) {
-    product = await fetchFreshSupabaseProductBySlug(productSlug);
-  }
+function openDynamicProductDetail(slug, originSection = 'scripts') {
+  const product = getSupabaseManagedProductBySlug(String(slug || '').trim());
   if (!product) return;
   if (!Object.keys(detailSections).length) cacheDomReferences();
-
   populateDynamicProductDetail(product);
   lastSectionBeforeDetail = originSection;
   const backButton = document.getElementById('backToDynamicProduct');
@@ -698,17 +597,6 @@ async function openDynamicProductDetail(slug, originSection = 'scripts') {
   activateNav(originSection === 'home' ? 'home' : originSection === 'free' ? 'free' : originSection === 'clothing' ? 'clothing' : 'scripts');
   syncVideoPlayback();
   window.scrollTo({ top: 0, behavior: 'smooth' });
-
-  const freshProduct = await fetchFreshSupabaseProductBySlug(productSlug);
-  if (freshProduct) {
-    supabaseManagedProductsCache = dedupeSupabaseProductsBySlug(
-      supabaseManagedProductsCache
-        .filter((entry) => entry.slug !== freshProduct.slug)
-        .concat(freshProduct),
-    );
-    hmStoreBridge.supabaseManagedProducts = supabaseManagedProductsCache.slice();
-    populateDynamicProductDetail(freshProduct);
-  }
 }
 
 function formatRelativeDate(value) {
@@ -2800,29 +2688,40 @@ function formatSupabasePriceLabel(value) {
 
 function normalizeSupabaseProductRow(row) {
   if (!row || !row.slug || !row.title) return null;
-  const storedDetail = getStoredProductDetail(row);
-  const plainFullDescription = storedDetail
-    ? String(storedDetail.detailIntro || '').trim()
-    : String(row.full_description || '').trim();
+
+  const storedDetail = decodeStoredProductDetail(row.full_description) || {};
+  const detailData = readProductDetailData(row);
+  const plainFullDescription = (
+    getDirectDetailValue(row, 'detail_intro')
+    || getDetailDataValue(detailData, 'detailIntro', 'detail_intro')
+    || normalizeDetailTextValue(storedDetail.detailIntro)
+    || normalizeDetailTextValue(row.full_description)
+  );
+
   return {
     ...row,
-    slug: String(row.slug).trim(),
-    title: String(row.title).trim(),
-    category: String(row.category || 'other').trim().toLowerCase(),
-    product_type: String(row.product_type || row.category || 'other').trim().toLowerCase(),
+    slug: normalizeDetailTextValue(row.slug),
+    title: normalizeDetailTextValue(row.title),
+    category: normalizeDetailTextValue(row.category || 'other').toLowerCase(),
+    product_type: normalizeDetailTextValue(row.product_type || row.category || 'other').toLowerCase(),
     price_eur: Number.isFinite(Number(row.price_eur)) ? Number(row.price_eur) : 0,
-    short_description: String(row.short_description || '').trim(),
-    full_description: String(row.full_description || '').trim(),
+    short_description: normalizeDetailTextValue(row.short_description),
+    full_description: normalizeDetailTextValue(row.full_description),
     full_description_text: plainFullDescription,
-    detail_config: storedDetail,
-    detail_data: storedDetail || {},
-    image_url: String(row.image_url || '').trim(),
-    tebex_package_id: String(row.tebex_package_id || '').trim(),
+    detail_data: detailData,
+    detail_config: {
+      ...storedDetail,
+      ...detailData,
+      ...buildDetailColumnsFromPayload(resolveProductDetailConfig(row)),
+    },
+    image_url: normalizeDetailTextValue(row.image_url),
+    tebex_package_id: normalizeDetailTextValue(row.tebex_package_id),
     is_active: row.is_active !== false,
     is_featured: row.is_featured === true,
     sort_order: Number.isFinite(Number(row.sort_order)) ? Number(row.sort_order) : 0,
   };
 }
+
 
 function getSupabaseProductPresentation(row) {
   const preset = supabaseProductPresentation[row.slug] || {};
@@ -3051,7 +2950,7 @@ function renderMergedGrid(snapshot, rows) {
 
 function renderSupabaseManagedProducts(products) {
   const snapshot = captureStorefrontUiSnapshot();
-  const activeProducts = dedupeSupabaseProductsBySlug(products).filter((row) => row.is_active);
+  const activeProducts = products.filter((row) => row.is_active);
 
   activeProducts.forEach(upsertCatalogProductFromSupabase);
   supabaseManagedProductsCache = activeProducts.slice();
@@ -3104,7 +3003,7 @@ async function loadSupabaseManagedProducts() {
     if (error) throw error;
 
     const normalizedProducts = Array.isArray(data)
-      ? dedupeSupabaseProductsBySlug(data.map(normalizeSupabaseProductRow).filter(Boolean))
+      ? data.map(normalizeSupabaseProductRow).filter(Boolean)
       : [];
 
     renderSupabaseManagedProducts(normalizedProducts);
@@ -4116,7 +4015,7 @@ function mergeAdminPortalProducts(supabaseRows = []) {
     merged.set(entry.slug, entry);
   });
 
-  dedupeSupabaseProductsBySlug(Array.isArray(supabaseRows) ? supabaseRows : []).forEach((row) => {
+  (Array.isArray(supabaseRows) ? supabaseRows : []).forEach((row) => {
     if (!row) return;
     merged.set(row.slug, {
       ...row,
@@ -4147,8 +4046,6 @@ function buildCatalogSyncPayloads() {
       price_eur: Number(entry.price_eur || 0) || 0,
       short_description: prepared.short_description,
       full_description: encodeStoredProductDetail(detailConfig),
-      detail_data: normalizeStoredProductDetail(detailConfig),
-      ...buildDetailColumnPayload(detailConfig),
       image_url: prepared.image_url,
       tebex_package_id: entry.tebex_package_id || '',
       is_active: entry.is_active !== false,
@@ -4520,7 +4417,7 @@ async function loadAdminPortalData(force = false) {
       client.from(foundation.productsTable || 'products').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: false })
         .then(({ data, error }) => {
           if (error) throw { scope: 'products', error };
-          const supabaseRows = Array.isArray(data) ? dedupeSupabaseProductsBySlug(data.map(normalizeSupabaseProductRow).filter(Boolean)) : [];
+          const supabaseRows = Array.isArray(data) ? data.map(normalizeSupabaseProductRow).filter(Boolean) : [];
           adminPortalState.products = mergeAdminPortalProducts(supabaseRows);
           renderAdminProducts();
           const supabaseCount = supabaseRows.length;
@@ -4592,36 +4489,40 @@ async function loadAdminPortalData(force = false) {
 
 async function collectAdminProductPayload() {
   const elements = getAdminPortalElements();
-  const title = String(elements.productTitle?.value || '').trim();
-  const slugInput = String(elements.productSlug?.value || '').trim();
+  const title = normalizeDetailTextValue(elements.productTitle?.value || '');
+  const slugInput = normalizeDetailTextValue(elements.productSlug?.value || '');
   const slug = slugifyProductValue(slugInput || title);
-  let imageUrl = String(elements.productImageUrl?.value || '').trim();
+  let imageUrl = normalizeDetailTextValue(elements.productImageUrl?.value || '');
   const uploadFile = elements.productImageFile?.files?.[0] || null;
   if (uploadFile) {
     imageUrl = await convertProductImageFileToDataUrl(uploadFile);
   }
+
   const draftProduct = {
     title,
     slug,
-    category: String(elements.productCategory?.value || 'clothing').trim(),
-    product_type: String(elements.productType?.value || 'clothing').trim(),
+    category: normalizeDetailTextValue(elements.productCategory?.value || 'clothing'),
+    product_type: normalizeDetailTextValue(elements.productType?.value || 'clothing'),
     price_eur: Number(elements.productPrice?.value || 0) || 0,
     image_url: imageUrl,
-    short_description: String(elements.productShort?.value || '').trim(),
+    short_description: normalizeDetailTextValue(elements.productShort?.value || ''),
   };
+
   const detailPayload = buildDetailPayloadFromAdminForm(elements, draftProduct);
-  const detailColumns = buildDetailColumnPayload(detailPayload);
+  const detailColumns = buildDetailColumnsFromPayload(detailPayload);
+  const detailData = buildDetailDataFromPayload(detailPayload);
+
   return {
     title,
     slug,
     category: draftProduct.category,
     product_type: draftProduct.product_type,
     price_eur: draftProduct.price_eur,
-    tebex_package_id: String(elements.productTebexId?.value || '').trim(),
+    tebex_package_id: normalizeDetailTextValue(elements.productTebexId?.value || ''),
     image_url: imageUrl,
     short_description: draftProduct.short_description,
     full_description: encodeStoredProductDetail(detailPayload),
-    detail_data: normalizeStoredProductDetail(detailPayload),
+    detail_data: detailData,
     ...detailColumns,
     sort_order: Number(elements.productSort?.value || 0) || 0,
     is_active: Boolean(elements.productActive?.checked),
@@ -4629,112 +4530,8 @@ async function collectAdminProductPayload() {
   };
 }
 
-function stripSchemaExtensionFieldsFromProductPayload(payload = {}) {
-  const fallbackPayload = { ...payload };
-  delete fallbackPayload.detail_data;
-  HM_PRODUCT_DETAIL_COLUMN_KEYS.forEach((key) => {
-    delete fallbackPayload[key];
-  });
-  return fallbackPayload;
-}
-
-function isMissingProductSchemaColumnError(error) {
-  const message = String(error?.message || '').toLowerCase();
-  const isColumnError = message.includes('column') || message.includes('schema cache') || message.includes('could not find');
-  if (!isColumnError) return false;
-  return message.includes('detail_data') || HM_PRODUCT_DETAIL_COLUMN_KEYS.some((key) => message.includes(key));
-}
-
-async function executeAdminProductSave(client, tableName, payload, selectedDbId, includeSchemaExtensionFields = true) {
-  const savePayload = includeSchemaExtensionFields ? payload : stripSchemaExtensionFieldsFromProductPayload(payload);
-  if (selectedDbId) {
-    return client.from(tableName).update(savePayload).eq('id', selectedDbId).select('*').single();
-  }
-
-  const lookup = await client
-    .from(tableName)
-    .select('*')
-    .eq('slug', savePayload.slug)
-    .order('updated_at', { ascending: false })
-    .order('created_at', { ascending: false });
-  if (lookup.error) return lookup;
-  const existingRows = Array.isArray(lookup.data) ? lookup.data.map(normalizeSupabaseProductRow).filter(Boolean) : [];
-  const bestExisting = dedupeSupabaseProductsBySlug(existingRows)[0] || null;
-  if (bestExisting?.id) {
-    return client.from(tableName).update(savePayload).eq('id', bestExisting.id).select('*').single();
-  }
-  return client.from(tableName).insert(savePayload).select('*').single();
-}
-
-
-function mergeSavedProductIntoAdminState(savedProduct = {}) {
-  if (!savedProduct.slug) return null;
-  const normalized = normalizeSupabaseProductRow(savedProduct);
-  if (!normalized) return null;
-
-  const adminEntry = {
-    ...normalized,
-    id: `db:${normalized.id || savedProduct.id || normalized.slug}`,
-    dbId: normalized.id || savedProduct.id || '',
-    sourceKind: 'supabase',
-    sourceLabel: 'Supabase',
-  };
-
-  adminPortalState.products = adminPortalState.products
-    .filter((entry) => entry.slug !== adminEntry.slug && entry.dbId !== adminEntry.dbId && entry.id !== adminEntry.id)
-    .concat(adminEntry)
-    .sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || String(a.title || '').localeCompare(String(b.title || '')));
-
-  adminPortalState.selectedProductId = adminEntry.id;
-  adminPortalState.selectedProductDbId = adminEntry.dbId;
-  adminPortalState.selectedProductSlug = adminEntry.slug;
-
-  const elements = getAdminPortalElements();
-  if (elements.productId) elements.productId.value = adminEntry.dbId || '';
-  if (elements.productSlug) elements.productSlug.value = adminEntry.slug || '';
-
-  renderAdminProducts();
-  if (elements.productQuickSelect) elements.productQuickSelect.value = adminEntry.id;
-  updateAdminProductControls();
-  updateAdminProductLivePreview();
-  return normalized;
-}
-
-function mergeSavedProductIntoStorefront(savedProduct = {}) {
-  const normalized = normalizeSupabaseProductRow(savedProduct);
-  if (!normalized) return null;
-
-  const merged = dedupeSupabaseProductsBySlug(
-    supabaseManagedProductsCache
-      .filter((entry) => entry.slug !== normalized.slug)
-      .concat(normalized),
-  )
-    .filter((entry) => entry.is_active)
-    .sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || String(a.title || '').localeCompare(String(b.title || '')));
-
-  supabaseManagedProductsCache = merged;
-  hmStoreBridge.supabaseManagedProducts = merged.slice();
-  supabaseProductsBooted = true;
-  renderSupabaseManagedProducts(merged);
-
-  if (detailSections.__dynamic__ && !detailSections.__dynamic__.classList.contains('hidden-section')) {
-    populateDynamicProductDetail(normalized);
-  }
-
-  return normalized;
-}
-
-function createOptimisticSavedProduct(payload = {}, data = {}) {
-  return {
-    ...(data || {}),
-    ...payload,
-    id: data?.id || adminPortalState.selectedProductDbId || payload.id || '',
-    created_at: data?.created_at || payload.created_at || new Date().toISOString(),
-    updated_at: data?.updated_at || new Date().toISOString(),
-  };
-}
-
-async function saveAdminProductToSupabase(options = {}) {
+async function handleAdminProductSave(event) {
+  event.preventDefault();
   const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
   const elements = getAdminPortalElements();
   if (!permissions.canEditProducts) {
@@ -4742,90 +4539,88 @@ async function saveAdminProductToSupabase(options = {}) {
   }
   const client = getSupabaseClient();
   if (!client) return setAdminMessage(elements.productsMessage, 'Supabase ist nicht verbunden.', 'error');
-
   const payload = await collectAdminProductPayload();
   if (!payload.title || !payload.slug) {
     return setAdminMessage(elements.productsMessage, 'Titel und Slug sind Pflicht.', 'error');
   }
   if (elements.productSlug) elements.productSlug.value = payload.slug;
 
-  const button = options.button || elements.productSaveButton;
-  const idleText = options.idleText || button?.textContent || 'Speichern';
-  const loadingText = options.loadingText || 'Speichere ...';
-  if (button) {
-    button.disabled = true;
-    button.textContent = loadingText;
-  }
+  const tableName = loadFoundationState().productsTable || 'products';
+  const disableButtons = [elements.productSaveButton, elements.productSyncButton].filter(Boolean);
+  disableButtons.forEach((button) => { button.disabled = true; });
+  if (elements.productSaveButton) elements.productSaveButton.textContent = 'Speichere ...';
+  if (elements.productSyncButton) elements.productSyncButton.textContent = 'Speichere Formular ...';
 
   try {
-    const tableName = loadFoundationState().productsTable || 'products';
-    let result = await executeAdminProductSave(client, tableName, payload, adminPortalState.selectedProductDbId, true);
-    let savedWithoutSchemaColumns = false;
+    let data;
+    let error;
 
-    if (result.error && isMissingProductSchemaColumnError(result.error)) {
-      result = await executeAdminProductSave(client, tableName, payload, adminPortalState.selectedProductDbId, false);
-      savedWithoutSchemaColumns = true;
+    if (adminPortalState.selectedProductDbId) {
+      ({ data, error } = await client.from(tableName).update(payload).eq('id', adminPortalState.selectedProductDbId).select('*').single());
+    } else {
+      const { data: existingRows, error: lookupError } = await client
+        .from(tableName)
+        .select('id, updated_at, created_at')
+        .eq('slug', payload.slug)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+      if (lookupError) throw lookupError;
+
+      const existingId = Array.isArray(existingRows) && existingRows[0]?.id ? existingRows[0].id : '';
+      if (existingId) {
+        ({ data, error } = await client.from(tableName).update(payload).eq('id', existingId).select('*').single());
+      } else {
+        ({ data, error } = await client.from(tableName).insert(payload).select('*').single());
+      }
     }
 
-    if (result.error) throw result.error;
+    if (error) throw error;
 
-    // Das Formular bleibt nach dem Senden die Wahrheit.
-    // Supabase kann direkt nach Schema-Änderungen kurz alte/gekürzte Rückgaben liefern.
-    // Deshalb wird die Antwort immer mit dem vollständigen Formular-Payload gemerged.
-    const optimisticProduct = createOptimisticSavedProduct(payload, result.data || {});
-    const normalizedSavedProduct = mergeSavedProductIntoAdminState(optimisticProduct);
-    mergeSavedProductIntoStorefront(optimisticProduct);
+    const savedRow = normalizeSupabaseProductRow(data) || { ...payload, id: data?.id || '', dbId: data?.id || '', sourceKind: 'supabase', sourceLabel: 'Supabase' };
+    setAdminMessage(elements.productsMessage, `${payload.title} wurde vollständig in Supabase gespeichert.`, 'success');
 
-    const hiddenHint = payload.is_active ? '' : ' Das Produkt ist gespeichert, aber aktuell verborgen/inaktiv.';
-    const detailHint = savedWithoutSchemaColumns
-      ? ' Hinweis: Supabase hat die neuen Detailspalten noch nicht im Schema-Cache. Die Detaildaten wurden zusätzlich im Fallback gespeichert. Bitte die SQL-Datei prüfen und danach einmal neu laden.'
-      : '';
-    setAdminMessage(elements.productsMessage, `${payload.title} wurde in Supabase gespeichert.${hiddenHint}${detailHint}`, savedWithoutSchemaColumns ? 'warn' : 'success');
+    adminPortalState.initialized = false;
+    await loadAdminPortalData(true);
 
-    if (normalizedSavedProduct?.id) {
-      adminPortalState.initialized = false;
-    }
+    const savedProduct = adminPortalState.products.find((entry) => String(entry.dbId || '').trim() === String(data?.id || '').trim())
+      || adminPortalState.products.find((entry) => String(entry.slug || '').trim() === payload.slug)
+      || {
+        ...savedRow,
+        id: data?.id ? `db:${data.id}` : `db:${payload.slug}`,
+        dbId: data?.id || '',
+        sourceKind: 'supabase',
+        sourceLabel: 'Supabase',
+      };
+
+    hydrateAdminProductForm(savedProduct);
+
+    supabaseProductsBooted = false;
+    await loadSupabaseManagedProducts();
   } catch (error) {
     setAdminMessage(elements.productsMessage, `Speichern fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'error');
   } finally {
-    if (button) {
-      button.disabled = false;
-      button.textContent = idleText;
-    }
+    disableButtons.forEach((button) => { button.disabled = false; });
+    if (elements.productSaveButton) elements.productSaveButton.textContent = 'Speichern';
+    if (elements.productSyncButton) elements.productSyncButton.textContent = 'Formular → Supabase';
   }
-}
-
-async function handleAdminProductSave(event) {
-  event.preventDefault();
-  await saveAdminProductToSupabase({
-    button: getAdminPortalElements().productSaveButton,
-    idleText: 'Speichern',
-    loadingText: 'Speichere ...',
-  });
 }
 
 async function handleAdminProductDelete() {
   const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
   const elements = getAdminPortalElements();
   if (!permissions.canDeleteProducts || !adminPortalState.selectedProductDbId) {
-    return setAdminMessage(elements.productsMessage, 'Löschen ist für deine Rolle oder ohne gespeichertes Supabase-Produkt nicht erlaubt.', 'error');
+    return setAdminMessage(elements.productsMessage, 'Löschen ist für deine Rolle oder ohne Auswahl nicht erlaubt.', 'error');
   }
   const target = getAdminProductByKey(adminPortalState.selectedProductId);
   if (!target) return;
-
-  const expected = String(target.slug || target.title || '').trim();
-  const typed = window.prompt(`Produkt endgültig löschen?\n\nDas entfernt "${target.title}" komplett aus Supabase.\nZum Bestätigen bitte exakt den Slug eingeben:\n${expected}`);
-  if (typed === null) return;
-  if (String(typed).trim() !== expected) {
-    return setAdminMessage(elements.productsMessage, 'Löschen abgebrochen: Bestätigung passte nicht zum Slug.', 'warn');
-  }
-
+  if (!window.confirm(`Produkt "${target.title}" wirklich löschen?`)) return;
   const client = getSupabaseClient();
-  if (!client) return setAdminMessage(elements.productsMessage, 'Supabase ist nicht verbunden.', 'error');
+  if (!client) return;
   try {
     const { error } = await client.from(loadFoundationState().productsTable || 'products').delete().eq('id', adminPortalState.selectedProductDbId);
     if (error) throw error;
-    setAdminMessage(elements.productsMessage, `${target.title} wurde endgültig aus Supabase gelöscht.`, 'success');
+    setAdminMessage(elements.productsMessage, `${target.title} wurde gelöscht.`, 'success');
     resetAdminProductForm(true);
     adminPortalState.initialized = false;
     await loadAdminPortalData(true);
@@ -4837,12 +4632,27 @@ async function handleAdminProductDelete() {
 }
 
 async function handleAdminCatalogSync() {
+  const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
   const elements = getAdminPortalElements();
-  await saveAdminProductToSupabase({
-    button: elements.productSyncButton,
-    idleText: 'Senden zu Supabase',
-    loadingText: 'Speichere ...',
-  });
+  if (!permissions.canEditProducts) {
+    return setAdminMessage(elements.productsMessage, 'Deine Rolle darf Produkte nicht bearbeiten.', 'error');
+  }
+
+  if (!elements.productForm) {
+    return setAdminMessage(elements.productsMessage, 'Produktformular wurde nicht gefunden.', 'error');
+  }
+
+  const title = normalizeDetailTextValue(elements.productTitle?.value || '');
+  const slug = slugifyProductValue(elements.productSlug?.value || title);
+  if (!title || !slug) {
+    return setAdminMessage(elements.productsMessage, 'Bitte zuerst ein Produkt auswählen oder Titel und Slug ausfüllen.', 'error');
+  }
+
+  if (typeof elements.productForm.requestSubmit === 'function') {
+    elements.productForm.requestSubmit();
+  } else {
+    elements.productForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  }
 }
 
 async function handleAdminRoleSave(profileId = adminPortalState.selectedUserId) {
@@ -5249,7 +5059,7 @@ document.addEventListener('click', async (e) => {
           : dynamicDetailBtn.closest('#scriptsSection')
             ? 'scripts'
             : 'scripts';
-    await openDynamicProductDetail(dynamicDetailBtn.dataset.openDynamicDetail, originSection);
+    openDynamicProductDetail(dynamicDetailBtn.dataset.openDynamicDetail, originSection);
     return;
   }
 
