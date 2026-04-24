@@ -4515,13 +4515,12 @@ async function handleAdminProductSave(event) {
     return setAdminMessage(elements.productsMessage, 'Titel und Slug sind Pflicht.', 'error');
   }
   if (elements.productSlug) elements.productSlug.value = payload.slug;
-  const activeButton = event?.submitter instanceof HTMLButtonElement
-    ? event.submitter
-    : event?.currentTarget instanceof HTMLButtonElement
-      ? event.currentTarget
-      : elements.productSaveButton instanceof HTMLButtonElement
-        ? elements.productSaveButton
-        : null;
+  const submitter = event?.submitter || null;
+  const activeButton = submitter instanceof HTMLButtonElement
+    ? submitter
+    : elements.productSaveButton instanceof HTMLButtonElement
+      ? elements.productSaveButton
+      : null;
   const oldButtonText = activeButton?.textContent || '';
   if (activeButton) {
     activeButton.disabled = true;
@@ -4593,15 +4592,9 @@ async function handleAdminProductDelete() {
 
 async function handleAdminCatalogSync() {
   const elements = getAdminPortalElements();
-  const syncButton = elements.productSyncButton instanceof HTMLButtonElement
-    ? elements.productSyncButton
-    : elements.productSaveButton instanceof HTMLButtonElement
-      ? elements.productSaveButton
-      : null;
   return handleAdminProductSave({
     preventDefault() {},
-    currentTarget: syncButton,
-    submitter: syncButton,
+    submitter: elements.productSaveButton instanceof HTMLButtonElement ? elements.productSaveButton : null,
   });
 }
 
