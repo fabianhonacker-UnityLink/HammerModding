@@ -2699,12 +2699,20 @@ function normalizeSupabaseProductRow(row) {
 }
 
 function getSupabaseProductPresentation(row) {
-  const preset = supabaseProductPresentation[row.slug] || {};
-  const firstWord = row.title.split(/\s+/).filter(Boolean)[0] || 'Produkt';
+  const firstWord = String(row.title || '').split(/\s+/).filter(Boolean)[0] || 'Produkt';
+  const fallbackHint = row.category === 'scripts'
+    ? 'Script'
+    : row.category === 'free_scripts'
+      ? 'Kostenlos'
+      : row.product_type === 'clothing'
+        ? 'Kleidungs-Pack'
+        : 'Produkt';
+
   return {
-    badge: preset.badge || firstWord,
-    image: row.image_url || preset.image || 'assets/clothing.webp',
-    priceHint: preset.priceHint || (row.product_type === 'clothing' ? 'Kleidungs-Pack' : 'Produkt'),
+    badge: firstWord,
+    image: row.image_url || 'assets/content.png',
+    priceHint: getValueOrEmpty(row.detail_price_hint) || fallbackHint,
+    short: row.short_description || row.full_description_text || 'Live aus Supabase geladen.',
   };
 }
 
@@ -2807,37 +2815,15 @@ function captureClothingUiSnapshot() {
 }
 
 function buildDynamicProductActionMarkup(row) {
-  const catalogItem = getCatalogItem(row.slug) || storeCatalog[row.slug];
   const actionLabel = row.category === 'scripts' || row.category === 'free_scripts' ? 'Jetzt ansehen' : 'Produkt ansehen';
 
-  if (hasDynamicProductDetail(row)) {
-    return `<a class="card-link" data-open-dynamic-detail="${escapeHtml(row.slug)}" href="#">${escapeHtml(actionLabel)}</a>`;
-  }
-
-  if (detailSections[row.slug]) {
-    return `<a class="card-link" data-open-script="${escapeHtml(row.slug)}" href="#">${escapeHtml(actionLabel)}</a>`;
-  }
-
-  return `
-    <button
-      class="card-link"
-      data-cart-add="true"
-      data-product-id="${escapeHtml(catalogItem?.id || row.slug)}"
-      data-product-name="${escapeHtml(row.title)}"
-      data-product-price="${escapeHtml(formatSupabasePriceValue(row.price_eur))}"
-      data-product-price-label="${escapeHtml(formatSupabasePriceLabel(row.price_eur))}"
-      data-product-slug="${escapeHtml(row.slug)}"
-      data-product-type="${escapeHtml(catalogItem?.type || 'clothing')}"
-      type="button"
-    >In den Warenkorb</button>
-  `;
+  // Ab V11: Shop-Karten öffnen immer die dynamische Detailseite aus Supabase.
+  // Dadurch werden keine alten, fest im HTML eingebauten Produktseiten mehr als Wahrheit benutzt.
+  return `<a class="card-link" data-open-dynamic-detail="${escapeHtml(row.slug)}" href="#">${escapeHtml(actionLabel)}</a>`;
 }
 
 function getSupabaseProductPresentation(row) {
-  const baseMap = captureBaseProductPresentationMap();
-  const base = baseMap[row.slug] || {};
-  const preset = supabaseProductPresentation[row.slug] || {};
-  const firstWord = row.title.split(/\s+/).filter(Boolean)[0] || 'Produkt';
+  const firstWord = String(row.title || '').split(/\s+/).filter(Boolean)[0] || 'Produkt';
   const fallbackHint = row.category === 'scripts'
     ? 'Script'
     : row.category === 'free_scripts'
@@ -2847,10 +2833,10 @@ function getSupabaseProductPresentation(row) {
         : 'Produkt';
 
   return {
-    badge: preset.badge || base.badge || firstWord,
-    image: row.image_url || preset.image || base.image || 'assets/content.png',
-    priceHint: preset.priceHint || base.priceHint || fallbackHint,
-    short: row.short_description || row.full_description_text || base.short || 'Live aus Supabase geladen.',
+    badge: firstWord,
+    image: row.image_url || 'assets/content.png',
+    priceHint: getValueOrEmpty(row.detail_price_hint) || fallbackHint,
+    short: row.short_description || row.full_description_text || 'Live aus Supabase geladen.',
   };
 }
 
@@ -2899,11 +2885,8 @@ function buildDynamicGridCardHtml(row) {
 
 function renderMergedTrack(snapshot, rows) {
   if (!snapshot) return;
-  const merged = new Map(snapshot.liveCards);
-  rows.forEach((row) => {
-    merged.set(row.slug, buildDynamicHomeCardHtml(row));
-  });
-  const markup = [...merged.values(), ...snapshot.previewCards].join('');
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const markup = safeRows.map(buildDynamicHomeCardHtml).join('');
   const groups = Array.from(document.querySelectorAll(`${snapshot.trackSelector} .slider-group`));
   groups.forEach((group) => {
     group.innerHTML = markup;
@@ -2912,37 +2895,35 @@ function renderMergedTrack(snapshot, rows) {
 
 function renderMergedGrid(snapshot, rows) {
   if (!snapshot) return 0;
-  const merged = new Map(snapshot.liveCards);
-  rows.forEach((row) => {
-    merged.set(row.slug, buildDynamicGridCardHtml(row));
-  });
+  const safeRows = Array.isArray(rows) ? rows : [];
   const grid = document.querySelector(snapshot.gridSelector);
   if (grid) {
-    grid.innerHTML = [...merged.values(), ...snapshot.previewCards].join('');
+    grid.innerHTML = safeRows.map(buildDynamicGridCardHtml).join('');
   }
-  return merged.size;
+  return safeRows.length;
 }
 
 function renderSupabaseManagedProducts(products) {
   const snapshot = captureStorefrontUiSnapshot();
-  const activeProducts = products.filter((row) => row.is_active);
+  const activeProducts = (Array.isArray(products) ? products : []).filter((row) => row && row.is_active);
 
   activeProducts.forEach(upsertCatalogProductFromSupabase);
   supabaseManagedProductsCache = activeProducts.slice();
   hmStoreBridge.supabaseManagedProducts = supabaseManagedProductsCache.slice();
 
-  if (!activeProducts.length) return;
-
   const scripts = activeProducts.filter((row) => row.category === 'scripts');
   const freeScripts = activeProducts.filter((row) => row.category === 'free_scripts');
   const clothing = activeProducts.filter((row) => row.category === 'clothing');
 
+  // Ab V11: Produktbereiche werden komplett aus Supabase gerendert.
+  // Die hart im HTML liegenden Beispielprodukte bleiben nur als versteckte Code-Basis bestehen,
+  // werden aber nicht mehr in den sichtbaren Produktlisten zusammengemischt.
   renderMergedTrack(snapshot.homeScripts, scripts);
   renderMergedTrack(snapshot.homeClothing, clothing);
 
-  const scriptsCount = renderMergedGrid(snapshot.scriptsGrid, scripts) || snapshot.scriptsGrid.liveCards.size;
-  const freeCount = renderMergedGrid(snapshot.freeGrid, freeScripts) || snapshot.freeGrid.liveCards.size;
-  const clothingCount = renderMergedGrid(snapshot.clothingGrid, clothing) || snapshot.clothingGrid.liveCards.size;
+  const scriptsCount = renderMergedGrid(snapshot.scriptsGrid, scripts);
+  const freeCount = renderMergedGrid(snapshot.freeGrid, freeScripts);
+  const clothingCount = renderMergedGrid(snapshot.clothingGrid, clothing);
 
   setStoreStatCount('Scripte', scriptsCount);
   setStoreStatCount('Free Scripts', freeCount);
@@ -2959,7 +2940,10 @@ async function loadSupabaseManagedProducts() {
   supabaseProductsBooted = true;
 
   const client = getSupabaseClient();
-  if (!client) return [];
+  if (!client) {
+    renderSupabaseManagedProducts([]);
+    return [];
+  }
 
   const foundation = loadFoundationState();
   const productsTable = foundation.productsTable || 'products';
@@ -2984,7 +2968,8 @@ async function loadSupabaseManagedProducts() {
     renderSupabaseManagedProducts(normalizedProducts);
     return normalizedProducts;
   } catch (error) {
-    console.warn('Supabase-Produkte konnten nicht geladen werden. Fallback bleibt aktiv.', error);
+    console.warn('Supabase-Produkte konnten nicht geladen werden. Produktlisten bleiben leer, damit keine Website-Basisprodukte angezeigt werden.', error);
+    renderSupabaseManagedProducts([]);
     return [];
   }
 }
@@ -3985,23 +3970,16 @@ function buildCatalogAdminProductEntries() {
 }
 
 function mergeAdminPortalProducts(supabaseRows = []) {
-  const merged = new Map();
-  buildCatalogAdminProductEntries().forEach((entry) => {
-    merged.set(entry.slug, entry);
-  });
-
-  (Array.isArray(supabaseRows) ? supabaseRows : []).forEach((row) => {
-    if (!row) return;
-    merged.set(row.slug, {
+  return (Array.isArray(supabaseRows) ? supabaseRows : [])
+    .filter(Boolean)
+    .map((row) => ({
       ...row,
       id: `db:${row.id}`,
       dbId: row.id,
       sourceKind: 'supabase',
       sourceLabel: 'Supabase',
-    });
-  });
-
-  return [...merged.values()].sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || String(a.title || '').localeCompare(String(b.title || '')));
+    }))
+    .sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || String(a.title || '').localeCompare(String(b.title || '')));
 }
 
 function buildCatalogSyncPayloads() {
@@ -4100,7 +4078,6 @@ function updateAdminPortalAccess() {
 
 function resetAdminProductForm(keepMessage = false) {
   const elements = getAdminPortalElements();
-  if (elements.productSyncButton) elements.productSyncButton.textContent = 'Formular → Supabase';
   if (!elements.productForm) return;
   elements.productForm.reset();
   if (elements.productId) elements.productId.value = '';
@@ -4217,7 +4194,12 @@ function updateAdminProductControls() {
     field.disabled = !editable;
   });
   if (elements.productSaveButton) elements.productSaveButton.disabled = !editable;
-  if (elements.productDeleteButton) elements.productDeleteButton.disabled = !deletable;
+  if (elements.productDeleteButton) {
+    elements.productDeleteButton.disabled = !deletable;
+    elements.productDeleteButton.title = deletable
+      ? 'Dieses Supabase-Produkt endgültig löschen.'
+      : 'Nur bereits gespeicherte Supabase-Produkte können gelöscht werden.';
+  }
   if (elements.previewModeCard) elements.previewModeCard.disabled = false;
   if (elements.previewModeDetail) elements.previewModeDetail.disabled = false;
 }
@@ -4225,19 +4207,21 @@ function updateAdminProductControls() {
 function renderAdminProducts() {
   const elements = getAdminPortalElements();
   if (!elements.productsList) return;
+  const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
   const products = [...adminPortalState.products].sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || String(a.title || '').localeCompare(String(b.title || '')));
   if (elements.productQuickSelect) {
     const options = ['<option value="">Produkt auswählen ...</option>']
-      .concat(products.map((product) => `<option value="${escapeHtml(product.id)}"${adminPortalState.selectedProductId === product.id ? ' selected' : ''}>${escapeHtml(product.title || 'Produkt')} · ${escapeHtml(product.sourceLabel || 'Quelle')}</option>`));
+      .concat(products.map((product) => `<option value="${escapeHtml(product.id)}"${adminPortalState.selectedProductId === product.id ? ' selected' : ''}>${escapeHtml(product.title || 'Produkt')} · Supabase</option>`));
     elements.productQuickSelect.innerHTML = options.join('');
   }
   if (!products.length) {
-    elements.productsList.innerHTML = '<div class="admin-record-empty">Noch keine Produkte geladen. Sobald Supabase liefert, erscheinen sie hier.</div>';
+    elements.productsList.innerHTML = '<div class="admin-record-empty">Noch keine Produkte in Supabase vorhanden.</div>';
     return;
   }
   elements.productsList.innerHTML = products.map((product) => {
     const roleType = mapRoleLabel(product.product_type || product.category || 'Produkt');
     const priceLabel = formatSupabasePriceLabel(product.price_eur || 0);
+    const canDeleteThis = Boolean(permissions.canDeleteProducts && product.dbId);
     return `
       <article class="admin-record-card admin-product-card${adminPortalState.selectedProductId === product.id ? ' is-selected' : ''}" data-product-id="${escapeHtml(product.id)}">
         <div class="admin-record-head">
@@ -4245,13 +4229,16 @@ function renderAdminProducts() {
             <strong>${escapeHtml(product.title || 'Produkt')}</strong>
             <small>${escapeHtml(product.slug || 'ohne-slug')}</small>
           </div>
-          <button class="cta secondary compact-cta" data-admin-product-edit="${escapeHtml(product.id)}" type="button">Bearbeiten</button>
+          <div class="admin-record-actions">
+            <button class="cta secondary compact-cta" data-admin-product-edit="${escapeHtml(product.id)}" type="button">Bearbeiten</button>
+            ${canDeleteThis ? `<button class="cta secondary compact-cta" data-admin-product-delete="${escapeHtml(product.id)}" type="button">Löschen</button>` : ''}
+          </div>
         </div>
         <div class="admin-record-copy">${escapeHtml(getAdminProductPreviewCopy(product) || 'Keine Beschreibung hinterlegt.')}</div>
         <div class="admin-record-meta">
           <span class="admin-record-pill">${escapeHtml(priceLabel)}</span>
           <span class="admin-record-pill">${escapeHtml(roleType)}</span>
-          <span class="admin-record-pill ${product.sourceKind === 'catalog' ? 'is-source-catalog' : 'is-source-supabase'}">${escapeHtml(product.sourceLabel || 'Supabase')}</span>
+          <span class="admin-record-pill is-source-supabase">Supabase</span>
           <span class="admin-record-pill">${product.is_active ? 'Aktiv' : 'Inaktiv'}</span>
           <span class="admin-record-pill">Sortierung ${escapeHtml(String(product.sort_order || 0))}</span>
         </div>
@@ -4515,79 +4502,91 @@ async function handleAdminProductSave(event) {
     return setAdminMessage(elements.productsMessage, 'Titel und Slug sind Pflicht.', 'error');
   }
   if (elements.productSlug) elements.productSlug.value = payload.slug;
-  const submitter = event?.submitter || null;
-  const activeButton = submitter instanceof HTMLButtonElement
-    ? submitter
-    : elements.productSaveButton instanceof HTMLButtonElement
-      ? elements.productSaveButton
-      : null;
-  const oldButtonText = activeButton?.textContent || '';
-  if (activeButton) {
-    activeButton.disabled = true;
-    activeButton.textContent = 'Speichere ...';
-  }
+
+  const activeButton = elements.productSaveButton instanceof HTMLButtonElement ? elements.productSaveButton : null;
+  if (activeButton) activeButton.disabled = true;
+
   try {
     const tableName = loadFoundationState().productsTable || 'products';
-    let query;
-    if (adminPortalState.selectedProductDbId) {
-      query = client.from(tableName).update(payload).eq('id', adminPortalState.selectedProductDbId).select('*').single();
-    } else {
-      // Bei neuem Produkt zuerst per Slug upserten, damit keine doppelten Datensätze entstehen.
-      query = client.from(tableName).upsert(payload, { onConflict: 'slug' }).select('*').single();
-    }
+    const query = adminPortalState.selectedProductDbId
+      ? client.from(tableName).update(payload).eq('id', adminPortalState.selectedProductDbId).select('*').single()
+      : client.from(tableName).upsert(payload, { onConflict: 'slug' }).select('*').single();
+
     const { data, error } = await query;
     if (error) throw error;
 
     const savedProduct = normalizeSupabaseProductRow(data);
-    setAdminMessage(elements.productsMessage, `${payload.title} wurde vollständig in Supabase gespeichert.`, 'success');
+    const productEntry = {
+      ...savedProduct,
+      id: `db:${data.id}`,
+      dbId: data.id,
+      sourceKind: 'supabase',
+      sourceLabel: 'Supabase',
+    };
 
-    adminPortalState.selectedProductDbId = data?.id || adminPortalState.selectedProductDbId || '';
-    adminPortalState.selectedProductSlug = payload.slug;
-    if (elements.productId) elements.productId.value = adminPortalState.selectedProductDbId;
+    setAdminMessage(elements.productsMessage, `${payload.title} wurde in Supabase gespeichert.`, 'success');
 
-    adminPortalState.initialized = false;
+    adminPortalState.selectedProductId = productEntry.id;
+    adminPortalState.selectedProductDbId = productEntry.dbId;
+    adminPortalState.selectedProductSlug = productEntry.slug;
+    if (elements.productId) elements.productId.value = productEntry.dbId;
+
+    const existingIndex = adminPortalState.products.findIndex((entry) => entry.dbId === productEntry.dbId || entry.slug === productEntry.slug);
+    if (existingIndex >= 0) {
+      adminPortalState.products.splice(existingIndex, 1, productEntry);
+    } else {
+      adminPortalState.products.push(productEntry);
+    }
+
+    renderAdminProducts();
+    hydrateAdminProductForm(productEntry);
     supabaseProductsBooted = false;
-    await loadAdminPortalData(true);
     await loadSupabaseManagedProducts();
-
-    const refreshed = getAdminProductByKey(`db:${data?.id}`)
-      || adminPortalState.products.find((entry) => entry.slug === payload.slug && entry.sourceKind === 'supabase')
-      || savedProduct;
-    if (refreshed) hydrateAdminProductForm(refreshed);
     updateAdminProductLivePreview();
   } catch (error) {
     setAdminMessage(elements.productsMessage, `Speichern fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'error');
   } finally {
-    if (activeButton) {
-      activeButton.disabled = false;
-      activeButton.textContent = oldButtonText || 'Speichern';
-    }
+    if (activeButton) activeButton.disabled = false;
+  }
+}
+
+async function deleteAdminProductByKey(productKey = adminPortalState.selectedProductId) {
+  const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
+  const elements = getAdminPortalElements();
+  const target = getAdminProductByKey(productKey);
+  if (!permissions.canDeleteProducts || !target?.dbId) {
+    return setAdminMessage(elements.productsMessage, 'Löschen ist für deine Rolle oder ohne Supabase-Auswahl nicht erlaubt.', 'error');
+  }
+
+  const confirmation = window.prompt(
+    `Produkt "${target.title}" endgültig aus Supabase löschen?\n\nZur Bestätigung bitte den Slug eingeben:\n${target.slug}`,
+    '',
+  );
+  if (confirmation === null) return;
+  if (String(confirmation).trim() !== String(target.slug || '').trim()) {
+    return setAdminMessage(elements.productsMessage, 'Löschen abgebrochen: Slug-Bestätigung stimmt nicht.', 'error');
+  }
+
+  const client = getSupabaseClient();
+  if (!client) return setAdminMessage(elements.productsMessage, 'Supabase ist nicht verbunden.', 'error');
+
+  try {
+    const { error } = await client.from(loadFoundationState().productsTable || 'products').delete().eq('id', target.dbId);
+    if (error) throw error;
+
+    adminPortalState.products = adminPortalState.products.filter((entry) => entry.dbId !== target.dbId);
+    setAdminMessage(elements.productsMessage, `${target.title} wurde aus Supabase gelöscht.`, 'success');
+    resetAdminProductForm(true);
+    renderAdminProducts();
+    supabaseProductsBooted = false;
+    await loadSupabaseManagedProducts();
+  } catch (error) {
+    setAdminMessage(elements.productsMessage, `Löschen fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'error');
   }
 }
 
 async function handleAdminProductDelete() {
-  const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
-  const elements = getAdminPortalElements();
-  if (!permissions.canDeleteProducts || !adminPortalState.selectedProductDbId) {
-    return setAdminMessage(elements.productsMessage, 'Löschen ist für deine Rolle oder ohne Auswahl nicht erlaubt.', 'error');
-  }
-  const target = getAdminProductByKey(adminPortalState.selectedProductId);
-  if (!target) return;
-  if (!window.confirm(`Produkt "${target.title}" wirklich löschen?`)) return;
-  const client = getSupabaseClient();
-  if (!client) return;
-  try {
-    const { error } = await client.from(loadFoundationState().productsTable || 'products').delete().eq('id', adminPortalState.selectedProductDbId);
-    if (error) throw error;
-    setAdminMessage(elements.productsMessage, `${target.title} wurde gelöscht.`, 'success');
-    resetAdminProductForm(true);
-    adminPortalState.initialized = false;
-    await loadAdminPortalData(true);
-    supabaseProductsBooted = false;
-    loadSupabaseManagedProducts();
-  } catch (error) {
-    setAdminMessage(elements.productsMessage, `Löschen fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'error');
-  }
+  return deleteAdminProductByKey(adminPortalState.selectedProductId);
 }
 
 async function handleAdminCatalogSync() {
@@ -4684,6 +4683,19 @@ function setupAdminPortal() {
     if (product) hydrateAdminProductForm(product);
   });
 
+  elements.productsList?.addEventListener('click', async (event) => {
+    const editButton = event.target?.closest?.('[data-admin-product-edit]');
+    const deleteButton = event.target?.closest?.('[data-admin-product-delete]');
+    if (editButton) {
+      const product = getAdminProductByKey(editButton.dataset.adminProductEdit || '');
+      if (product) hydrateAdminProductForm(product);
+      return;
+    }
+    if (deleteButton) {
+      await deleteAdminProductByKey(deleteButton.dataset.adminProductDelete || '');
+    }
+  });
+
   elements.userQuickSelect?.addEventListener('change', () => {
     adminPortalState.selectedUserId = String(elements.userQuickSelect?.value || '').trim();
     hydrateAdminUserEditor(getAdminProfileById(adminPortalState.selectedUserId));
@@ -4691,10 +4703,6 @@ function setupAdminPortal() {
 
   elements.userRoleSaveButton?.addEventListener('click', () => {
     handleAdminRoleSave(adminPortalState.selectedUserId);
-  });
-
-  elements.productSyncButton?.addEventListener('click', async () => {
-    await handleAdminCatalogSync();
   });
 
   elements.productImageFile?.addEventListener('change', () => {
