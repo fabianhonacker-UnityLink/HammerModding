@@ -286,82 +286,6 @@ function getValueOrEmpty(value) {
   return String(value ?? '').trim();
 }
 
-
-function readAdminFieldValue(fieldOrId, fallbackId = '') {
-  let field = null;
-  if (fieldOrId && typeof fieldOrId === 'object' && 'value' in fieldOrId) {
-    field = fieldOrId;
-  }
-  if (!field && typeof fieldOrId === 'string') {
-    field = document.getElementById(fieldOrId);
-  }
-  if (!field && fallbackId) {
-    field = document.getElementById(fallbackId);
-  }
-  return getValueOrEmpty(field?.value);
-}
-
-function getAdminDetailFieldSnapshot(elements = getAdminPortalElements()) {
-  const quickFacts = [1, 2, 3, 4].map((index) => ({
-    label: readAdminFieldValue(elements[`detailQuick${index}Label`], `adminDetailQuick${index}Label`),
-    value: readAdminFieldValue(elements[`detailQuick${index}Value`], `adminDetailQuick${index}Value`),
-  }));
-
-  return {
-    detailTitle: readAdminFieldValue(elements.detailTitle, 'adminDetailTitle'),
-    detailHeadline: readAdminFieldValue(elements.detailHeadline, 'adminDetailHeadline'),
-    detailIntro: readAdminFieldValue(elements.productFull, 'adminProductFull'),
-    detailPriceHint: readAdminFieldValue(elements.detailPriceHint, 'adminDetailPriceHint'),
-    detailFeatureIntro: readAdminFieldValue(elements.detailFeatureIntro, 'adminDetailFeatureIntro'),
-    detailPart01: readAdminFieldValue(elements.detailPart01, 'adminDetailPart01'),
-    detailPart02: readAdminFieldValue(elements.detailPart02, 'adminDetailPart02'),
-    detailPart03: readAdminFieldValue(elements.detailPart03, 'adminDetailPart03'),
-    detailEinsatz: readAdminFieldValue(elements.detailEinsatz, 'adminDetailEinsatz'),
-    detailLook: readAdminFieldValue(elements.detailLook, 'adminDetailLook'),
-    detailNutzen: readAdminFieldValue(elements.detailNutzen, 'adminDetailNutzen'),
-    detailSideImageUrl: readAdminFieldValue(elements.detailSideImageUrl, 'adminDetailSideImageUrl'),
-    quickFacts,
-  };
-}
-
-function pickAdminDetailColumnPayload(payload = {}) {
-  const keys = [
-    'detail_data',
-    'detail_title',
-    'detail_headline',
-    'detail_intro',
-    'detail_price_hint',
-    'detail_side_image_url',
-    'detail_feature_intro',
-    'detail_part_01',
-    'detail_part_02',
-    'detail_part_03',
-    'detail_einsatz',
-    'detail_look',
-    'detail_nutzen',
-    'detail_quick_01_label',
-    'detail_quick_01_value',
-    'detail_quick_02_label',
-    'detail_quick_02_value',
-    'detail_quick_03_label',
-    'detail_quick_03_value',
-    'detail_quick_04_label',
-    'detail_quick_04_value',
-  ];
-  return keys.reduce((acc, key) => {
-    if (Object.prototype.hasOwnProperty.call(payload, key)) acc[key] = payload[key];
-    return acc;
-  }, {});
-}
-
-function countFilledAdminDetailColumns(payload = {}) {
-  const detailPayload = pickAdminDetailColumnPayload(payload);
-  return Object.entries(detailPayload).filter(([key, value]) => {
-    if (key === 'detail_data') return false;
-    return getValueOrEmpty(value);
-  }).length;
-}
-
 function mapDetailPayloadToSupabaseColumns(detail = {}) {
   const facts = Array.isArray(detail.quickFacts) ? detail.quickFacts : [];
   const factAt = (index) => facts[index] || { label: '', value: '' };
@@ -494,21 +418,25 @@ function resolveProductDetailConfig(product = {}) {
 }
 
 function buildDetailPayloadFromAdminForm(elements, product = {}) {
-  const snapshot = getAdminDetailFieldSnapshot(elements);
+  const quickFacts = [1, 2, 3, 4].map((index) => ({
+    label: getValueOrEmpty(elements[`detailQuick${index}Label`]?.value),
+    value: getValueOrEmpty(elements[`detailQuick${index}Value`]?.value),
+  }));
+
   return {
-    detailTitle: snapshot.detailTitle || getValueOrEmpty(product.title),
-    detailHeadline: snapshot.detailHeadline || getValueOrEmpty(product.short_description) || getValueOrEmpty(product.title),
-    detailIntro: snapshot.detailIntro,
-    detailPriceHint: snapshot.detailPriceHint,
-    detailFeatureIntro: snapshot.detailFeatureIntro,
-    detailPart01: snapshot.detailPart01,
-    detailPart02: snapshot.detailPart02,
-    detailPart03: snapshot.detailPart03,
-    detailEinsatz: snapshot.detailEinsatz,
-    detailLook: snapshot.detailLook,
-    detailNutzen: snapshot.detailNutzen,
-    detailSideImageUrl: snapshot.detailSideImageUrl,
-    quickFacts: snapshot.quickFacts,
+    detailTitle: getValueOrEmpty(elements.detailTitle?.value) || getValueOrEmpty(product.title),
+    detailHeadline: getValueOrEmpty(elements.detailHeadline?.value) || getValueOrEmpty(product.short_description) || getValueOrEmpty(product.title),
+    detailIntro: getValueOrEmpty(elements.productFull?.value),
+    detailPriceHint: getValueOrEmpty(elements.detailPriceHint?.value),
+    detailFeatureIntro: getValueOrEmpty(elements.detailFeatureIntro?.value),
+    detailPart01: getValueOrEmpty(elements.detailPart01?.value),
+    detailPart02: getValueOrEmpty(elements.detailPart02?.value),
+    detailPart03: getValueOrEmpty(elements.detailPart03?.value),
+    detailEinsatz: getValueOrEmpty(elements.detailEinsatz?.value),
+    detailLook: getValueOrEmpty(elements.detailLook?.value),
+    detailNutzen: getValueOrEmpty(elements.detailNutzen?.value),
+    detailSideImageUrl: getValueOrEmpty(elements.detailSideImageUrl?.value),
+    quickFacts,
   };
 }
 
@@ -4537,46 +4465,40 @@ async function loadAdminPortalData(force = false) {
 
 async function collectAdminProductPayload() {
   const elements = getAdminPortalElements();
-  const title = readAdminFieldValue(elements.productTitle, 'adminProductTitle');
-  const slugInput = readAdminFieldValue(elements.productSlug, 'adminProductSlug');
+  const title = String(elements.productTitle?.value || '').trim();
+  const slugInput = String(elements.productSlug?.value || '').trim();
   const slug = slugifyProductValue(slugInput || title);
-  let imageUrl = readAdminFieldValue(elements.productImageUrl, 'adminProductImageUrl');
-  const uploadFile = elements.productImageFile?.files?.[0] || document.getElementById('adminProductImageFile')?.files?.[0] || null;
+  let imageUrl = String(elements.productImageUrl?.value || '').trim();
+  const uploadFile = elements.productImageFile?.files?.[0] || null;
   if (uploadFile) {
     imageUrl = await convertProductImageFileToDataUrl(uploadFile);
   }
-
   const draftProduct = {
     title,
     slug,
-    category: readAdminFieldValue(elements.productCategory, 'adminProductCategory') || 'clothing',
-    product_type: readAdminFieldValue(elements.productType, 'adminProductType') || 'clothing',
-    price_eur: Number(readAdminFieldValue(elements.productPrice, 'adminProductPrice') || 0) || 0,
+    category: String(elements.productCategory?.value || 'clothing').trim(),
+    product_type: String(elements.productType?.value || 'clothing').trim(),
+    price_eur: Number(elements.productPrice?.value || 0) || 0,
     image_url: imageUrl,
-    short_description: readAdminFieldValue(elements.productShort, 'adminProductShort'),
+    short_description: String(elements.productShort?.value || '').trim(),
   };
-
   const detailPayload = buildDetailPayloadFromAdminForm(elements, draftProduct);
   const detailColumns = mapDetailPayloadToSupabaseColumns(detailPayload);
-  const payload = {
+  return {
     title,
     slug,
     category: draftProduct.category,
     product_type: draftProduct.product_type,
     price_eur: draftProduct.price_eur,
-    tebex_package_id: readAdminFieldValue(elements.productTebexId, 'adminProductTebexId'),
+    tebex_package_id: String(elements.productTebexId?.value || '').trim(),
     image_url: imageUrl,
     short_description: draftProduct.short_description,
     full_description: encodeStoredProductDetail(detailPayload),
     ...detailColumns,
-    sort_order: Number(readAdminFieldValue(elements.productSort, 'adminProductSort') || 0) || 0,
-    is_active: Boolean(elements.productActive?.checked ?? document.getElementById('adminProductActive')?.checked),
-    is_featured: Boolean(elements.productFeatured?.checked ?? document.getElementById('adminProductFeatured')?.checked),
+    sort_order: Number(elements.productSort?.value || 0) || 0,
+    is_active: Boolean(elements.productActive?.checked),
+    is_featured: Boolean(elements.productFeatured?.checked),
   };
-
-  window.hmDebugLastAdminProductPayload = payload;
-  console.info('[HammerModding Admin] Produkt-Payload an Supabase:', payload);
-  return payload;
 }
 
 async function handleAdminProductSave(event) {
@@ -4593,76 +4515,48 @@ async function handleAdminProductSave(event) {
     return setAdminMessage(elements.productsMessage, 'Titel und Slug sind Pflicht.', 'error');
   }
   if (elements.productSlug) elements.productSlug.value = payload.slug;
-
-  const activeButton = event?.currentTarget || elements.productSaveButton;
+  const activeButton = event?.submitter instanceof HTMLButtonElement
+    ? event.submitter
+    : event?.currentTarget instanceof HTMLButtonElement
+      ? event.currentTarget
+      : elements.productSaveButton instanceof HTMLButtonElement
+        ? elements.productSaveButton
+        : null;
   const oldButtonText = activeButton?.textContent || '';
   if (activeButton) {
     activeButton.disabled = true;
     activeButton.textContent = 'Speichere ...';
   }
-
   try {
     const tableName = loadFoundationState().productsTable || 'products';
-    let savedData = null;
     let query;
-
     if (adminPortalState.selectedProductDbId) {
       query = client.from(tableName).update(payload).eq('id', adminPortalState.selectedProductDbId).select('*').single();
     } else {
+      // Bei neuem Produkt zuerst per Slug upserten, damit keine doppelten Datensätze entstehen.
       query = client.from(tableName).upsert(payload, { onConflict: 'slug' }).select('*').single();
     }
-
     const { data, error } = await query;
     if (error) throw error;
-    savedData = data || {};
 
-    const targetId = savedData?.id || adminPortalState.selectedProductDbId || '';
-    if (targetId) {
-      const detailColumnPayload = {
-        short_description: payload.short_description,
-        full_description: payload.full_description,
-        image_url: payload.image_url,
-        ...pickAdminDetailColumnPayload(payload),
-      };
-      const { data: detailData, error: detailError } = await client
-        .from(tableName)
-        .update(detailColumnPayload)
-        .eq('id', targetId)
-        .select('*')
-        .single();
-      if (detailError) throw detailError;
-      savedData = detailData || { ...savedData, ...detailColumnPayload };
-    }
+    const savedProduct = normalizeSupabaseProductRow(data);
+    setAdminMessage(elements.productsMessage, `${payload.title} wurde vollständig in Supabase gespeichert.`, 'success');
 
-    const forcedSavedRow = { ...savedData, ...payload, id: savedData?.id || targetId };
-    const savedProduct = normalizeSupabaseProductRow(forcedSavedRow);
-    const filledDetailCount = countFilledAdminDetailColumns(payload);
-    setAdminMessage(elements.productsMessage, `${payload.title} wurde in Supabase gespeichert (${filledDetailCount} Detailfelder übertragen).`, 'success');
-
-    adminPortalState.selectedProductDbId = forcedSavedRow.id || adminPortalState.selectedProductDbId || '';
+    adminPortalState.selectedProductDbId = data?.id || adminPortalState.selectedProductDbId || '';
     adminPortalState.selectedProductSlug = payload.slug;
     if (elements.productId) elements.productId.value = adminPortalState.selectedProductDbId;
 
-    if (savedProduct) {
-      const prepared = {
-        ...savedProduct,
-        id: `db:${forcedSavedRow.id}`,
-        dbId: forcedSavedRow.id,
-        sourceKind: 'supabase',
-        sourceLabel: 'Supabase',
-      };
-      const withoutCurrent = adminPortalState.products.filter((entry) => entry.dbId !== prepared.dbId && entry.slug !== prepared.slug);
-      adminPortalState.products = [prepared, ...withoutCurrent];
-      adminPortalState.selectedProductId = prepared.id;
-      renderAdminProducts();
-      hydrateAdminProductForm(prepared);
-    }
-
+    adminPortalState.initialized = false;
     supabaseProductsBooted = false;
+    await loadAdminPortalData(true);
     await loadSupabaseManagedProducts();
+
+    const refreshed = getAdminProductByKey(`db:${data?.id}`)
+      || adminPortalState.products.find((entry) => entry.slug === payload.slug && entry.sourceKind === 'supabase')
+      || savedProduct;
+    if (refreshed) hydrateAdminProductForm(refreshed);
     updateAdminProductLivePreview();
   } catch (error) {
-    console.error('[HammerModding Admin] Speichern fehlgeschlagen:', error, window.hmDebugLastAdminProductPayload);
     setAdminMessage(elements.productsMessage, `Speichern fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'error');
   } finally {
     if (activeButton) {
@@ -4699,9 +4593,15 @@ async function handleAdminProductDelete() {
 
 async function handleAdminCatalogSync() {
   const elements = getAdminPortalElements();
+  const syncButton = elements.productSyncButton instanceof HTMLButtonElement
+    ? elements.productSyncButton
+    : elements.productSaveButton instanceof HTMLButtonElement
+      ? elements.productSaveButton
+      : null;
   return handleAdminProductSave({
     preventDefault() {},
-    currentTarget: elements.productSyncButton || elements.productSaveButton,
+    currentTarget: syncButton,
+    submitter: syncButton,
   });
 }
 
