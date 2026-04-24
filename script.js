@@ -174,7 +174,28 @@ const adminPortalState = {
 
 const adminRoleOptions = ['administrator', 'inhaberin', 'manager', 'marketing', 'supporter', 'kunde'];
 
-
+const ADMIN_PREVIEW_PLACEHOLDER = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#09090b"/>
+      <stop offset="100%" stop-color="#18131a"/>
+    </linearGradient>
+    <linearGradient id="line" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="rgba(255,82,82,0.95)"/>
+      <stop offset="100%" stop-color="rgba(255,82,82,0.08)"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" rx="36" fill="url(#bg)"/>
+  <rect x="42" y="42" width="1116" height="716" rx="30" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+  <path d="M102 130h996" stroke="url(#line)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M102 670h996" stroke="url(#line)" stroke-width="6" stroke-linecap="round" opacity="0.45"/>
+  <circle cx="600" cy="340" r="118" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+  <path d="M542 370l50-54 45 42 74-76" fill="none" stroke="rgba(255,82,82,0.95)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="600" y="535" text-anchor="middle" fill="rgba(255,255,255,0.94)" font-family="Arial, sans-serif" font-size="54" font-weight="700">Bildvorschau</text>
+  <text x="600" y="585" text-anchor="middle" fill="rgba(255,255,255,0.42)" font-family="Arial, sans-serif" font-size="24">URL oder Upload wird hier live angezeigt</text>
+</svg>
+`)}`;
 
 const HM_PRODUCT_DETAIL_PREFIX = '__HM_DETAIL__';
 
@@ -3728,6 +3749,18 @@ function getAdminPreviewDraftProduct() {
   return product;
 }
 
+
+function setAdminPreviewImage(element, src, alt = 'Vorschau') {
+  if (!element) return;
+  const nextSrc = String(src || '').trim() || ADMIN_PREVIEW_PLACEHOLDER;
+  element.onerror = () => {
+    element.onerror = null;
+    element.src = ADMIN_PREVIEW_PLACEHOLDER;
+  };
+  element.src = nextSrc;
+  element.alt = alt;
+}
+
 function setAdminPreviewMode(mode = 'detail') {
   const elements = getAdminPortalElements();
   adminPortalState.previewMode = mode === 'card' ? 'card' : 'detail';
@@ -3743,8 +3776,8 @@ function updateAdminProductLivePreview() {
   const draft = getAdminPreviewDraftProduct();
   const detail = resolveProductDetailConfig(draft);
   const presentation = getSupabaseProductPresentation(draft);
-  const mainImage = String(draft.image_url || presentation.image || 'assets/content.png').trim() || 'assets/content.png';
-  const sideImage = String(elements.detailSideImageUrl?.value || detail.detailSideImageUrl || mainImage).trim() || mainImage;
+  const mainImage = String(draft.image_url || presentation.image || '').trim() || ADMIN_PREVIEW_PLACEHOLDER;
+  const sideImage = String(elements.detailSideImageUrl?.value || detail.detailSideImageUrl || '').trim() || mainImage || ADMIN_PREVIEW_PLACEHOLDER;
   const defaultFacts = getDefaultQuickFacts(draft);
   const quickFacts = Array.from({ length: 4 }, (_, index) => {
     const current = detail.quickFacts[index] || {};
@@ -3766,10 +3799,7 @@ function updateAdminProductLivePreview() {
   const badgeLabel = presentation.badge || (draft.category === 'scripts' ? 'Script' : draft.category === 'free_scripts' ? 'Free Script' : 'Kleidung');
 
   if (elements.previewCardBadge) elements.previewCardBadge.textContent = badgeLabel;
-  if (elements.previewCardImage) {
-    elements.previewCardImage.src = mainImage;
-    elements.previewCardImage.alt = `${draft.title} Kartenansicht`;
-  }
+  setAdminPreviewImage(elements.previewCardImage, mainImage, `${draft.title} Kartenansicht`);
   if (elements.previewCardTitle) elements.previewCardTitle.textContent = draft.title;
   if (elements.previewCardText) elements.previewCardText.textContent = draft.short_description || 'Kurzer Teaser für Karten und Listen.';
   if (elements.previewCardPrice) elements.previewCardPrice.textContent = formatSupabasePriceLabel(draft.price_eur || 0);
@@ -3784,10 +3814,7 @@ function updateAdminProductLivePreview() {
   if (elements.previewDetailIntro) elements.previewDetailIntro.textContent = detail.detailIntro || 'Text unter der großen Überschrift auf der Detailseite.';
   if (elements.previewDetailPrice) elements.previewDetailPrice.textContent = formatSupabasePriceLabel(draft.price_eur || 0);
   if (elements.previewDetailPriceHint) elements.previewDetailPriceHint.textContent = detail.detailPriceHint || getProductTypeLabel(draft.product_type, draft.category);
-  if (elements.previewDetailMainImage) {
-    elements.previewDetailMainImage.src = mainImage;
-    elements.previewDetailMainImage.alt = `${draft.title} Detailansicht`;
-  }
+  setAdminPreviewImage(elements.previewDetailMainImage, mainImage, `${draft.title} Detailansicht`);
   if (elements.previewDetailFeatureIntro) elements.previewDetailFeatureIntro.textContent = detail.detailFeatureIntro || 'Kurzer Einleitungstext für den Enthalten-Bereich.';
   if (elements.previewDetailFeaturesGrid) {
     elements.previewDetailFeaturesGrid.innerHTML = featureItems.map((entry) => `
@@ -3805,10 +3832,7 @@ function updateAdminProductLivePreview() {
       </div>
     `).join('');
   }
-  if (elements.previewDetailSideImage) {
-    elements.previewDetailSideImage.src = sideImage;
-    elements.previewDetailSideImage.alt = `${draft.title} Seitenbild`;
-  }
+  setAdminPreviewImage(elements.previewDetailSideImage, sideImage, `${draft.title} Seitenbild`);
   setAdminPreviewMode(adminPortalState.previewMode || 'detail');
 }
 
