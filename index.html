@@ -1698,7 +1698,9 @@ type="button"
               <small id="adminProductFormHint">Neu</small>
             </div>
             <input id="adminProductId" type="hidden"/>
-            <div class="foundation-form-grid">
+            <div class="admin-product-builder">
+            <div class="admin-product-fields">
+              <div class="foundation-form-grid">
               <label class="foundation-field">
                 <span>Titel</span>
                 <input class="hm-input" id="adminProductTitle" placeholder="z. B. Berlin Straßen-Crew" required type="text"/>
@@ -1871,7 +1873,85 @@ type="button"
               <button class="cta secondary compact-cta" id="adminProductDeleteButton" type="button">Löschen</button>
               <button class="cta primary compact-cta" id="adminProductSaveButton" type="submit">Speichern</button>
             </div>
-          </form>
+            </div>
+
+            <aside class="admin-live-preview-shell glass-soft" id="adminLivePreviewShell">
+              <div class="admin-live-preview-head">
+                <div>
+                  <strong>Live-Vorschau</strong>
+                  <small>Siehst sofort, wo Texte, Bilder und Detailfelder später landen.</small>
+                </div>
+                <div class="admin-preview-mode-switch" role="tablist" aria-label="Vorschau umschalten">
+                  <button class="admin-preview-mode" id="adminPreviewModeCard" type="button">Produktkarte</button>
+                  <button class="admin-preview-mode is-active" id="adminPreviewModeDetail" type="button">Detailseite</button>
+                </div>
+              </div>
+              <div class="admin-live-preview-body">
+                <div class="admin-preview-stage hidden-section" id="adminPreviewCardStage">
+                  <article class="admin-preview-product-card">
+                    <div class="admin-preview-card-badge" id="adminPreviewCardBadge">Kleidung</div>
+                    <div class="admin-preview-card-media">
+                      <img alt="Produktkarten Vorschau" id="adminPreviewCardImage" src="assets/content.png" />
+                    </div>
+                    <div class="admin-preview-card-copy">
+                      <h4 id="adminPreviewCardTitle">Produktname</h4>
+                      <p id="adminPreviewCardText">Kurze Beschreibung für Karten und Listen.</p>
+                      <div class="admin-preview-price-row">
+                        <strong id="adminPreviewCardPrice">0,00 €</strong>
+                        <small id="adminPreviewCardPriceHint">Kleidungs-Pack</small>
+                      </div>
+                    </div>
+                    <div class="admin-preview-card-action" id="adminPreviewCardAction">Produkt ansehen</div>
+                  </article>
+                </div>
+
+                <div class="admin-preview-stage" id="adminPreviewDetailStage">
+                  <div class="admin-preview-detail-shell">
+                    <div class="admin-preview-detail-topbar">
+                      <button class="admin-preview-back" type="button">← Zurück</button>
+                      <div class="admin-preview-detail-tag" id="adminPreviewDetailTag">Kleidungs-Detailseite · Produkt</div>
+                    </div>
+                    <div class="admin-preview-detail-hero">
+                      <div class="admin-preview-detail-copy">
+                        <div class="admin-preview-eyebrow" id="adminPreviewDetailEyebrow">Hammer Modding · Produkt</div>
+                        <h4 id="adminPreviewDetailHeading">PRODUKT<br><span>DETAILSEITE</span></h4>
+                        <p id="adminPreviewDetailIntro">Hier siehst du live, wie dein eingegebener Detailtext später aussieht.</p>
+                        <div class="admin-preview-price-row">
+                          <strong id="adminPreviewDetailPrice">0,00 €</strong>
+                          <small id="adminPreviewDetailPriceHint">Produkt</small>
+                        </div>
+                        <div class="admin-preview-detail-action">In den Warenkorb</div>
+                      </div>
+                      <div class="admin-preview-detail-media">
+                        <img alt="Detailbild Vorschau" id="adminPreviewDetailMainImage" src="assets/content.png" />
+                      </div>
+                    </div>
+                    <div class="admin-preview-detail-grid">
+                      <article class="admin-preview-panel">
+                        <div class="admin-preview-panel-head">
+                          <span></span>
+                          <strong>Enthalten</strong>
+                        </div>
+                        <div class="admin-preview-feature-intro" id="adminPreviewDetailFeatureIntro">Kurzer Einleitungstext für den Enthalten-Bereich.</div>
+                        <div class="admin-preview-feature-grid" id="adminPreviewDetailFeaturesGrid"></div>
+                      </article>
+                      <article class="admin-preview-panel">
+                        <div class="admin-preview-panel-head">
+                          <span></span>
+                          <strong>Auf einen Blick</strong>
+                        </div>
+                        <div class="admin-preview-facts-grid" id="adminPreviewDetailFacts"></div>
+                        <div class="admin-preview-side-media">
+                          <img alt="Kleines Detailbild Vorschau" id="adminPreviewDetailSideImage" src="assets/content.png" />
+                        </div>
+                      </article>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </form>
         </div>
       </article>
 

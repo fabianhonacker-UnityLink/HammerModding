@@ -167,6 +167,9 @@ const adminPortalState = {
   selectedProductDbId: '',
   selectedProductSlug: '',
   selectedUserId: '',
+  previewMode: 'detail',
+  previewImageObjectUrl: '',
+  previewImageObjectKey: '',
 };
 
 const adminRoleOptions = ['administrator', 'inhaberin', 'manager', 'marketing', 'supporter', 'kunde'];
@@ -3637,10 +3640,176 @@ function getAdminPortalElements() {
     productResetButton: document.getElementById('adminProductResetButton'),
     productDeleteButton: document.getElementById('adminProductDeleteButton'),
     productSaveButton: document.getElementById('adminProductSaveButton'),
+    previewModeCard: document.getElementById('adminPreviewModeCard'),
+    previewModeDetail: document.getElementById('adminPreviewModeDetail'),
+    previewCardStage: document.getElementById('adminPreviewCardStage'),
+    previewDetailStage: document.getElementById('adminPreviewDetailStage'),
+    previewCardBadge: document.getElementById('adminPreviewCardBadge'),
+    previewCardImage: document.getElementById('adminPreviewCardImage'),
+    previewCardTitle: document.getElementById('adminPreviewCardTitle'),
+    previewCardText: document.getElementById('adminPreviewCardText'),
+    previewCardPrice: document.getElementById('adminPreviewCardPrice'),
+    previewCardPriceHint: document.getElementById('adminPreviewCardPriceHint'),
+    previewCardAction: document.getElementById('adminPreviewCardAction'),
+    previewDetailTag: document.getElementById('adminPreviewDetailTag'),
+    previewDetailEyebrow: document.getElementById('adminPreviewDetailEyebrow'),
+    previewDetailHeading: document.getElementById('adminPreviewDetailHeading'),
+    previewDetailIntro: document.getElementById('adminPreviewDetailIntro'),
+    previewDetailPrice: document.getElementById('adminPreviewDetailPrice'),
+    previewDetailPriceHint: document.getElementById('adminPreviewDetailPriceHint'),
+    previewDetailMainImage: document.getElementById('adminPreviewDetailMainImage'),
+    previewDetailFeatureIntro: document.getElementById('adminPreviewDetailFeatureIntro'),
+    previewDetailFeaturesGrid: document.getElementById('adminPreviewDetailFeaturesGrid'),
+    previewDetailFacts: document.getElementById('adminPreviewDetailFacts'),
+    previewDetailSideImage: document.getElementById('adminPreviewDetailSideImage'),
     productsRoleHint: document.getElementById('adminProductsRoleHint'),
     usersRoleHint: document.getElementById('adminUsersRoleHint'),
     supportRoleHint: document.getElementById('adminSupportRoleHint'),
   };
+}
+
+function clearAdminPreviewImageObjectUrl() {
+  if (adminPortalState.previewImageObjectUrl) {
+    try {
+      URL.revokeObjectURL(adminPortalState.previewImageObjectUrl);
+    } catch (error) {
+      // ignore
+    }
+  }
+  adminPortalState.previewImageObjectUrl = '';
+  adminPortalState.previewImageObjectKey = '';
+}
+
+function getAdminPreviewUploadedImageUrl(elements) {
+  const file = elements.productImageFile?.files?.[0] || null;
+  if (!file) {
+    clearAdminPreviewImageObjectUrl();
+    return '';
+  }
+  const key = `${file.name}:${file.size}:${file.lastModified}`;
+  if (adminPortalState.previewImageObjectKey !== key) {
+    clearAdminPreviewImageObjectUrl();
+    adminPortalState.previewImageObjectUrl = URL.createObjectURL(file);
+    adminPortalState.previewImageObjectKey = key;
+  }
+  return adminPortalState.previewImageObjectUrl;
+}
+
+function getAdminPreviewResolvedMainImage(elements) {
+  const directUrl = String(elements.productImageUrl?.value || '').trim();
+  if (directUrl) return directUrl;
+  return getAdminPreviewUploadedImageUrl(elements) || 'assets/content.png';
+}
+
+function getAdminPreviewDraftProduct() {
+  const elements = getAdminPortalElements();
+  const title = String(elements.productTitle?.value || '').trim() || 'Produktname';
+  const slug = String(elements.productSlug?.value || '').trim() || slugifyProductValue(title || 'produktname') || 'produktname';
+  const category = String(elements.productCategory?.value || 'clothing').trim();
+  const productType = String(elements.productType?.value || category || 'clothing').trim();
+  const shortDescription = String(elements.productShort?.value || '').trim();
+  const priceValue = Number(elements.productPrice?.value || 0);
+  const product = {
+    title,
+    slug,
+    category,
+    product_type: productType,
+    short_description: shortDescription,
+    price_eur: Number.isFinite(priceValue) ? priceValue : 0,
+    image_url: getAdminPreviewResolvedMainImage(elements),
+    tebex_package_id: String(elements.productTebexId?.value || '').trim(),
+    is_active: elements.productActive?.checked !== false,
+    is_featured: elements.productFeatured?.checked === true,
+    sort_order: Number(elements.productSort?.value || 0) || 0,
+  };
+  const detailPayload = buildDetailPayloadFromAdminForm(elements, product);
+  product.full_description = encodeStoredProductDetail(detailPayload);
+  product.full_description_text = detailPayload.detailIntro || '';
+  return product;
+}
+
+function setAdminPreviewMode(mode = 'detail') {
+  const elements = getAdminPortalElements();
+  adminPortalState.previewMode = mode === 'card' ? 'card' : 'detail';
+  elements.previewModeCard?.classList.toggle('is-active', adminPortalState.previewMode === 'card');
+  elements.previewModeDetail?.classList.toggle('is-active', adminPortalState.previewMode === 'detail');
+  if (elements.previewCardStage) setVisible(elements.previewCardStage, adminPortalState.previewMode === 'card');
+  if (elements.previewDetailStage) setVisible(elements.previewDetailStage, adminPortalState.previewMode === 'detail');
+}
+
+function updateAdminProductLivePreview() {
+  const elements = getAdminPortalElements();
+  if (!elements.previewCardStage || !elements.previewDetailStage) return;
+  const draft = getAdminPreviewDraftProduct();
+  const detail = resolveProductDetailConfig(draft);
+  const presentation = getSupabaseProductPresentation(draft);
+  const mainImage = String(draft.image_url || presentation.image || 'assets/content.png').trim() || 'assets/content.png';
+  const sideImage = String(elements.detailSideImageUrl?.value || detail.detailSideImageUrl || mainImage).trim() || mainImage;
+  const defaultFacts = getDefaultQuickFacts(draft);
+  const quickFacts = Array.from({ length: 4 }, (_, index) => {
+    const current = detail.quickFacts[index] || {};
+    const fallback = defaultFacts[index] || {};
+    return {
+      label: String(current.label || fallback.label || `Info ${index + 1}`).trim(),
+      value: String(current.value || fallback.value || 'Noch nicht befüllt.').trim(),
+    };
+  });
+  const featureItems = [
+    { label: 'Teil 01', value: detail.detailPart01 || 'Noch nicht befüllt.' },
+    { label: 'Teil 02', value: detail.detailPart02 || 'Noch nicht befüllt.' },
+    { label: 'Teil 03', value: detail.detailPart03 || 'Noch nicht befüllt.' },
+    { label: 'Einsatz', value: detail.detailEinsatz || 'Noch nicht befüllt.' },
+    { label: 'Look', value: detail.detailLook || 'Noch nicht befüllt.' },
+    { label: 'Nutzen', value: detail.detailNutzen || 'Noch nicht befüllt.' },
+  ];
+  const cardAction = draft.category === 'clothing' || hasDynamicProductDetail(draft) ? 'Produkt ansehen' : 'Jetzt ansehen';
+  const badgeLabel = presentation.badge || (draft.category === 'scripts' ? 'Script' : draft.category === 'free_scripts' ? 'Free Script' : 'Kleidung');
+
+  if (elements.previewCardBadge) elements.previewCardBadge.textContent = badgeLabel;
+  if (elements.previewCardImage) {
+    elements.previewCardImage.src = mainImage;
+    elements.previewCardImage.alt = `${draft.title} Kartenansicht`;
+  }
+  if (elements.previewCardTitle) elements.previewCardTitle.textContent = draft.title;
+  if (elements.previewCardText) elements.previewCardText.textContent = draft.short_description || 'Kurzer Teaser für Karten und Listen.';
+  if (elements.previewCardPrice) elements.previewCardPrice.textContent = formatSupabasePriceLabel(draft.price_eur || 0);
+  if (elements.previewCardPriceHint) elements.previewCardPriceHint.textContent = detail.detailPriceHint || getProductTypeLabel(draft.product_type, draft.category);
+  if (elements.previewCardAction) elements.previewCardAction.textContent = cardAction;
+
+  if (elements.previewDetailTag) elements.previewDetailTag.textContent = `${getDetailPageTagLabel(draft)} · ${draft.title}`;
+  if (elements.previewDetailEyebrow) elements.previewDetailEyebrow.textContent = `Hammer Modding · ${draft.title}`;
+  if (elements.previewDetailHeading) {
+    elements.previewDetailHeading.innerHTML = `${escapeHtml(detail.detailTitle || draft.title)}<br><span>${escapeHtml(detail.detailHeadline || draft.short_description || draft.title)}</span>`;
+  }
+  if (elements.previewDetailIntro) elements.previewDetailIntro.textContent = detail.detailIntro || 'Text unter der großen Überschrift auf der Detailseite.';
+  if (elements.previewDetailPrice) elements.previewDetailPrice.textContent = formatSupabasePriceLabel(draft.price_eur || 0);
+  if (elements.previewDetailPriceHint) elements.previewDetailPriceHint.textContent = detail.detailPriceHint || getProductTypeLabel(draft.product_type, draft.category);
+  if (elements.previewDetailMainImage) {
+    elements.previewDetailMainImage.src = mainImage;
+    elements.previewDetailMainImage.alt = `${draft.title} Detailansicht`;
+  }
+  if (elements.previewDetailFeatureIntro) elements.previewDetailFeatureIntro.textContent = detail.detailFeatureIntro || 'Kurzer Einleitungstext für den Enthalten-Bereich.';
+  if (elements.previewDetailFeaturesGrid) {
+    elements.previewDetailFeaturesGrid.innerHTML = featureItems.map((entry) => `
+      <article class="admin-preview-feature-item">
+        <div class="admin-preview-feature-badge">${escapeHtml(entry.label)}</div>
+        <p>${escapeHtml(entry.value)}</p>
+      </article>
+    `).join('');
+  }
+  if (elements.previewDetailFacts) {
+    elements.previewDetailFacts.innerHTML = quickFacts.map((entry) => `
+      <div class="admin-preview-fact-box">
+        <strong>${escapeHtml(entry.label)}</strong>
+        <span>${escapeHtml(entry.value)}</span>
+      </div>
+    `).join('');
+  }
+  if (elements.previewDetailSideImage) {
+    elements.previewDetailSideImage.src = sideImage;
+    elements.previewDetailSideImage.alt = `${draft.title} Seitenbild`;
+  }
+  setAdminPreviewMode(adminPortalState.previewMode || 'detail');
 }
 
 
@@ -3804,6 +3973,7 @@ function resetAdminProductForm(keepMessage = false) {
   if (elements.productActive) elements.productActive.checked = true;
   if (elements.productFeatured) elements.productFeatured.checked = false;
   if (elements.productImageFile) elements.productImageFile.value = '';
+  clearAdminPreviewImageObjectUrl();
   if (elements.productImageHint) elements.productImageHint.textContent = 'Du kannst eine URL eintragen oder direkt ein Bild hochladen. Ein Upload überschreibt die URL beim Speichern.';
   if (elements.productFormTitle) elements.productFormTitle.textContent = 'Produkt anlegen';
   if (elements.productFormHint) elements.productFormHint.textContent = 'Neu';
@@ -3814,7 +3984,9 @@ function resetAdminProductForm(keepMessage = false) {
   document.querySelectorAll('.admin-product-card').forEach((card) => card.classList.remove('is-selected'));
   if (!keepMessage) setAdminMessage(elements.productsMessage, '');
   updateAdminProductControls();
+  updateAdminProductLivePreview();
 }
+
 
 function hydrateAdminProductForm(product) {
   const elements = getAdminPortalElements();
@@ -3853,6 +4025,7 @@ function hydrateAdminProductForm(product) {
   if (elements.productActive) elements.productActive.checked = product.is_active !== false;
   if (elements.productFeatured) elements.productFeatured.checked = product.is_featured === true;
   if (elements.productImageFile) elements.productImageFile.value = '';
+  clearAdminPreviewImageObjectUrl();
   if (elements.productImageHint) {
     elements.productImageHint.textContent = product.sourceKind === 'catalog'
       ? 'Frontend-Produkt geladen. Du kannst es jetzt mit URL oder Upload in Supabase übernehmen.'
@@ -3862,7 +4035,9 @@ function hydrateAdminProductForm(product) {
   if (elements.productFormHint) elements.productFormHint.textContent = product.sourceKind === 'catalog' ? 'Website-Basis' : 'Bearbeiten';
   document.querySelectorAll('.admin-product-card').forEach((card) => card.classList.toggle('is-selected', card.dataset.productId === product.id));
   updateAdminProductControls();
+  updateAdminProductLivePreview();
 }
+
 
 function updateAdminProductControls() {
   const elements = getAdminPortalElements();
@@ -3908,6 +4083,8 @@ function updateAdminProductControls() {
   });
   if (elements.productSaveButton) elements.productSaveButton.disabled = !editable;
   if (elements.productDeleteButton) elements.productDeleteButton.disabled = !deletable;
+  if (elements.previewModeCard) elements.previewModeCard.disabled = false;
+  if (elements.previewModeDetail) elements.previewModeDetail.disabled = false;
 }
 
 function renderAdminProducts() {
@@ -4399,7 +4576,22 @@ function setupAdminPortal() {
         ? `${file.name} ausgewählt. Der Upload überschreibt die Bild-URL beim Speichern.`
         : 'Du kannst eine URL eintragen oder direkt ein Bild hochladen. Ein Upload überschreibt die URL beim Speichern.';
     }
+    updateAdminProductLivePreview();
   });
+
+  elements.productForm?.addEventListener('input', (event) => {
+    if (!(event.target instanceof Element)) return;
+    if (!event.target.closest('.foundation-form-grid')) return;
+    updateAdminProductLivePreview();
+  });
+  elements.productForm?.addEventListener('change', (event) => {
+    if (!(event.target instanceof Element)) return;
+    if (!event.target.closest('.foundation-form-grid')) return;
+    updateAdminProductLivePreview();
+  });
+
+  elements.previewModeCard?.addEventListener('click', () => setAdminPreviewMode('card'));
+  elements.previewModeDetail?.addEventListener('click', () => setAdminPreviewMode('detail'));
 
   document.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target.closest('[data-admin-product-edit], [data-admin-support-save]') : null;
@@ -4419,6 +4611,8 @@ function setupAdminPortal() {
 
   updateAdminPortalAccess();
   resetAdminProductForm(true);
+  setAdminPreviewMode(adminPortalState.previewMode || 'detail');
+  updateAdminProductLivePreview();
   renderAdminProducts();
   renderAdminUsers();
   renderAdminSupport();
