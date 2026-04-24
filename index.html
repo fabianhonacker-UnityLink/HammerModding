@@ -1673,24 +1673,28 @@ type="button"
         </div>
         <p class="foundation-note auth-message" id="adminProductsMessage"></p>
         <div class="admin-products-grid">
-          <div class="admin-list-shell">
-            <div class="admin-list-head admin-list-head-stack">
-              <div>
-                <strong>Vorhandene Produkte</strong>
-                <small>Komprimierte Übersicht mit Schnellauswahl</small>
+          <div class="admin-products-left-column">
+            <div class="admin-list-shell">
+              <div class="admin-list-head admin-list-head-stack">
+                <div>
+                  <strong>Vorhandene Produkte</strong>
+                  <small>Komprimierte Übersicht mit Schnellauswahl</small>
+                </div>
+                <div class="admin-head-actions">
+                  <button class="cta secondary compact-cta" id="adminProductSyncCatalogButton" type="button">Website-Produkte syncen</button>
+                  <button class="cta secondary compact-cta" id="adminProductRefreshButton" type="button">Neu laden</button>
+                </div>
               </div>
-              <div class="admin-head-actions">
-                <button class="cta secondary compact-cta" id="adminProductSyncCatalogButton" type="button">Website-Produkte syncen</button>
-                <button class="cta secondary compact-cta" id="adminProductRefreshButton" type="button">Neu laden</button>
-              </div>
+              <label class="admin-quick-select-wrap">
+                <span>Schnellauswahl</span>
+                <select class="hm-select admin-quick-select" id="adminProductQuickSelect">
+                  <option value="">Produkt auswählen ...</option>
+                </select>
+              </label>
+              <div class="admin-record-list admin-record-list-products" id="adminProductsList"></div>
             </div>
-            <label class="admin-quick-select-wrap">
-              <span>Schnellauswahl</span>
-              <select class="hm-select admin-quick-select" id="adminProductQuickSelect">
-                <option value="">Produkt auswählen ...</option>
-              </select>
-            </label>
-            <div class="admin-record-list admin-record-list-products" id="adminProductsList"></div>
+
+            
           </div>
           <form class="foundation-form-shell admin-form-shell" id="adminProductForm">
             <div class="foundation-form-head">

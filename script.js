@@ -4603,14 +4603,10 @@ function setupAdminPortal() {
     updateAdminProductLivePreview();
   });
 
-  elements.productForm?.addEventListener('input', (event) => {
-    if (!(event.target instanceof Element)) return;
-    if (!event.target.closest('.foundation-form-grid')) return;
+  elements.productForm?.addEventListener('input', () => {
     updateAdminProductLivePreview();
   });
-  elements.productForm?.addEventListener('change', (event) => {
-    if (!(event.target instanceof Element)) return;
-    if (!event.target.closest('.foundation-form-grid')) return;
+  elements.productForm?.addEventListener('change', () => {
     updateAdminProductLivePreview();
   });
 
