@@ -1238,6 +1238,51 @@ type="button"
 </article>
 </div>
 </section>
+
+<section class="section script-detail hidden-section" id="dynamicProductDetailSection">
+  <div class="detail-topbar">
+    <button class="back-link" data-back="1" id="backToDynamicProduct">← Zurück</button>
+    <div class="detail-tag" id="dynamicDetailTag">Produkt-Detailseite</div>
+  </div>
+  <div class="script-detail-hero glass-soft">
+    <div class="script-detail-copy">
+      <div class="eyebrow" id="dynamicDetailEyebrow">Hammer Modding · Produkt</div>
+      <h2 id="dynamicDetailHeading">PRODUKT<br/><span>DETAILSEITE</span></h2>
+      <p id="dynamicDetailIntro">Hier erscheinen automatisch die Detaildaten des ausgewählten Produkts.</p>
+      <div class="detail-price-row">
+        <strong id="dynamicDetailPrice">0,00 €</strong>
+        <span id="dynamicDetailPriceHint">Produkt</span>
+      </div>
+      <div class="hero-actions">
+        <button class="cta primary detail-cart-button" data-cart-add="true" data-product-id="" data-product-name="" data-product-price="0.00" data-product-price-label="0,00 €" data-product-slug="" data-product-type="product" id="dynamicDetailCartButton" type="button">In den Warenkorb</button>
+      </div>
+    </div>
+    <div class="script-detail-media image-media">
+      <img alt="Produktbild" class="detail-video detail-image contain-image" decoding="async" fetchpriority="low" id="dynamicDetailMainImage" loading="lazy" src="assets/content.png"/>
+    </div>
+  </div>
+  <div class="detail-grid">
+    <article class="detail-card glass-soft feature-panel">
+      <div class="section-head script-head feature-head">
+        <span></span>
+        <h3>Enthalten</h3>
+      </div>
+      <div class="feature-intro" id="dynamicDetailFeatureIntro">Hier werden automatisch die gepflegten Detailkarten angezeigt.</div>
+      <div class="feature-sales-grid" id="dynamicDetailFeaturesGrid"></div>
+    </article>
+    <article class="detail-card glass-soft">
+      <div class="section-head script-head">
+        <span></span>
+        <h3>Auf einen Blick</h3>
+      </div>
+      <div class="detail-facts" id="dynamicDetailFacts"></div>
+      <div class="detail-thumb-wrap">
+        <img alt="Produkt Detailbild" class="detail-thumb contain-thumb" decoding="async" fetchpriority="low" id="dynamicDetailSideImage" loading="lazy" src="assets/content.png"/>
+      </div>
+    </article>
+  </div>
+</section>
+
 <section class="section clothing-only hidden-section" id="clothingSection">
 <div class="clothing-hero glass-soft">
 <div class="clothing-hero-copy">
@@ -1702,10 +1747,113 @@ type="button"
                 <span>Kurzbeschreibung</span>
                 <textarea class="hm-textarea compact-textarea" id="adminProductShort" placeholder="Kurzer Teaser für Karten und Listen."></textarea>
               </label>
-              <label class="foundation-field field-span-2">
-                <span>Beschreibung</span>
-                <textarea class="hm-textarea compact-textarea" id="adminProductFull" placeholder="Längere Beschreibung für Verwaltung und spätere Detailseiten."></textarea>
+
+              <div class="admin-form-section field-span-2">
+                <div class="admin-form-section-head">
+                  <strong>Detailseite · Kopfbereich</strong>
+                  <small>Damit jede neue Produktseite automatisch wie deine Beispiel-Detailseite aufgebaut wird.</small>
+                </div>
+              </div>
+
+              <label class="foundation-field">
+                <span>Detailtitel</span>
+                <input class="hm-input" id="adminDetailTitle" placeholder="SERVERTEAM-UNIFORM" type="text"/>
               </label>
+              <label class="foundation-field">
+                <span>Große Überschrift</span>
+                <input class="hm-input" id="adminDetailHeadline" placeholder="KLAR, PROFESSIONELL &amp; SAUBER IM AUFTRITT" type="text"/>
+              </label>
+              <label class="foundation-field field-span-2">
+                <span>Beschreibungstext unter dem Titel</span>
+                <textarea class="hm-textarea compact-textarea" id="adminProductFull" placeholder="Text unter der großen Überschrift auf der Detailseite."></textarea>
+              </label>
+              <label class="foundation-field">
+                <span>Preis-Zusatz</span>
+                <input class="hm-input" id="adminDetailPriceHint" placeholder="UNIFORM-PACK" type="text"/>
+              </label>
+              <label class="foundation-field">
+                <span>Kleines Seitenbild unten rechts</span>
+                <input class="hm-input" id="adminDetailSideImageUrl" placeholder="Optional zweites Detailbild oder gleiche URL wie oben." type="text"/>
+              </label>
+
+              <div class="admin-form-section field-span-2">
+                <div class="admin-form-section-head">
+                  <strong>Enthalten</strong>
+                  <small>Die Struktur ist fest vorgegeben. Du füllst nur die Inhalte aus.</small>
+                </div>
+              </div>
+
+              <label class="foundation-field field-span-2">
+                <span>Einleitung für „Enthalten“</span>
+                <textarea class="hm-textarea compact-textarea" id="adminDetailFeatureIntro" placeholder="Kurzer Text oberhalb der Karten im Bereich Enthalten."></textarea>
+              </label>
+              <label class="foundation-field">
+                <span>Teil 01</span>
+                <input class="hm-input" id="adminDetailPart01" placeholder="Hose für Männer &amp; Frauen" type="text"/>
+              </label>
+              <label class="foundation-field">
+                <span>Teil 02</span>
+                <input class="hm-input" id="adminDetailPart02" placeholder="Kurzarmhemd für Männer &amp; Frauen" type="text"/>
+              </label>
+              <label class="foundation-field">
+                <span>Teil 03</span>
+                <input class="hm-input" id="adminDetailPart03" placeholder="Langarmhemd für Männer &amp; Frauen" type="text"/>
+              </label>
+              <label class="foundation-field">
+                <span>Einsatz</span>
+                <input class="hm-input" id="adminDetailEinsatz" placeholder="Perfekt für Serverteams, Support und Moderation" type="text"/>
+              </label>
+              <label class="foundation-field">
+                <span>Look</span>
+                <input class="hm-input" id="adminDetailLook" placeholder="Modernes Staff-Outfit mit professionellem Look" type="text"/>
+              </label>
+              <label class="foundation-field">
+                <span>Nutzen</span>
+                <input class="hm-input" id="adminDetailNutzen" placeholder="Einheitliches Erscheinungsbild für erkennbare Team-Rollen" type="text"/>
+              </label>
+
+              <div class="admin-form-section field-span-2">
+                <div class="admin-form-section-head">
+                  <strong>Auf einen Blick</strong>
+                  <small>Vier frei befüllbare Boxen. Du definierst jeweils Titel und Inhalt selbst.</small>
+                </div>
+              </div>
+
+              <div class="admin-facts-grid field-span-2">
+                <label class="foundation-field">
+                  <span>Box 01 · Titel</span>
+                  <input class="hm-input" id="adminDetailQuick1Label" placeholder="Preis" type="text"/>
+                </label>
+                <label class="foundation-field">
+                  <span>Box 01 · Inhalt</span>
+                  <input class="hm-input" id="adminDetailQuick1Value" placeholder="12,00 €" type="text"/>
+                </label>
+                <label class="foundation-field">
+                  <span>Box 02 · Titel</span>
+                  <input class="hm-input" id="adminDetailQuick2Label" placeholder="Bereich" type="text"/>
+                </label>
+                <label class="foundation-field">
+                  <span>Box 02 · Inhalt</span>
+                  <input class="hm-input" id="adminDetailQuick2Value" placeholder="Admin / Support / Serverteam" type="text"/>
+                </label>
+                <label class="foundation-field">
+                  <span>Box 03 · Titel</span>
+                  <input class="hm-input" id="adminDetailQuick3Label" placeholder="Für" type="text"/>
+                </label>
+                <label class="foundation-field">
+                  <span>Box 03 · Inhalt</span>
+                  <input class="hm-input" id="adminDetailQuick3Value" placeholder="Männer &amp; Frauen" type="text"/>
+                </label>
+                <label class="foundation-field">
+                  <span>Box 04 · Titel</span>
+                  <input class="hm-input" id="adminDetailQuick4Label" placeholder="Besonderheit" type="text"/>
+                </label>
+                <label class="foundation-field">
+                  <span>Box 04 · Inhalt</span>
+                  <input class="hm-input" id="adminDetailQuick4Value" placeholder="Kurze Ärmel" type="text"/>
+                </label>
+              </div>
+
               <label class="foundation-field">
                 <span>Sortierung</span>
                 <input class="hm-input" id="adminProductSort" min="0" step="1" type="number" value="0"/>

@@ -43,6 +43,7 @@ function cacheDomReferences() {
     'berlin-strassen-crew': document.getElementById('berlinStrassenCrewDetailSection'),
     'tuner-v2': document.getElementById('tunerV2DetailSection'),
     'weed-outfit': document.getElementById('weedOutfitDetailSection'),
+    __dynamic__: document.getElementById('dynamicProductDetailSection'),
   };
   searchInput = document.getElementById('searchInput');
   searchables = Array.from(document.querySelectorAll('.searchable'));
@@ -171,6 +172,285 @@ const adminPortalState = {
 const adminRoleOptions = ['administrator', 'inhaberin', 'manager', 'marketing', 'supporter', 'kunde'];
 
 
+
+const HM_PRODUCT_DETAIL_PREFIX = '__HM_DETAIL__';
+
+function getProductTypeLabel(type, category = '') {
+  const normalizedType = getNormalizedRole(type);
+  const normalizedCategory = getNormalizedRole(category);
+  if (normalizedType === 'clothing' || normalizedCategory === 'clothing') return 'Kleidungs-Pack';
+  if (normalizedType === 'script' || normalizedCategory === 'scripts') return 'Script';
+  if (normalizedType === 'free_script' || normalizedCategory === 'free_scripts') return 'Free Script';
+  if (normalizedType === 'preview') return 'Preview';
+  return 'Produkt';
+}
+
+function getDetailPageTagLabel(product = {}) {
+  const normalizedCategory = getNormalizedRole(product.category);
+  if (normalizedCategory === 'clothing') return 'Kleidungs-Detailseite';
+  if (normalizedCategory === 'scripts') return 'Script-Detailseite';
+  if (normalizedCategory === 'free_scripts') return 'Free-Script-Detailseite';
+  return 'Produkt-Detailseite';
+}
+
+function getDefaultQuickFacts(product = {}) {
+  const normalizedCategory = getNormalizedRole(product.category);
+  const typeLabel = getProductTypeLabel(product.product_type, product.category);
+  const priceLabel = formatSupabasePriceLabel(product.price_eur || 0);
+  const facts = [
+    { label: 'Preis', value: priceLabel },
+    {
+      label: 'Bereich',
+      value: normalizedCategory === 'clothing'
+        ? 'Outfit / Kleidung'
+        : normalizedCategory === 'scripts'
+          ? 'Script / System'
+          : normalizedCategory === 'free_scripts'
+            ? 'Kostenlos / Script'
+            : typeLabel,
+    },
+    {
+      label: 'Für',
+      value: normalizedCategory === 'clothing' ? 'Männer & Frauen' : 'FiveM / Server',
+    },
+  ];
+  return facts.filter((entry) => entry.label && entry.value).slice(0, 4);
+}
+
+function decodeStoredProductDetail(rawValue) {
+  const raw = String(rawValue || '').trim();
+  if (!raw || !raw.startsWith(HM_PRODUCT_DETAIL_PREFIX)) return null;
+  try {
+    const parsed = JSON.parse(raw.slice(HM_PRODUCT_DETAIL_PREFIX.length));
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function encodeStoredProductDetail(detail = {}) {
+  const payload = {
+    version: 1,
+    detailTitle: String(detail.detailTitle || '').trim(),
+    detailHeadline: String(detail.detailHeadline || '').trim(),
+    detailIntro: String(detail.detailIntro || '').trim(),
+    detailPriceHint: String(detail.detailPriceHint || '').trim(),
+    detailFeatureIntro: String(detail.detailFeatureIntro || '').trim(),
+    detailPart01: String(detail.detailPart01 || '').trim(),
+    detailPart02: String(detail.detailPart02 || '').trim(),
+    detailPart03: String(detail.detailPart03 || '').trim(),
+    detailEinsatz: String(detail.detailEinsatz || '').trim(),
+    detailLook: String(detail.detailLook || '').trim(),
+    detailNutzen: String(detail.detailNutzen || '').trim(),
+    detailSideImageUrl: String(detail.detailSideImageUrl || '').trim(),
+    quickFacts: Array.isArray(detail.quickFacts)
+      ? detail.quickFacts
+          .map((entry) => ({
+            label: String(entry?.label || '').trim(),
+            value: String(entry?.value || '').trim(),
+          }))
+          .filter((entry) => entry.label || entry.value)
+          .slice(0, 4)
+      : [],
+  };
+  return `${HM_PRODUCT_DETAIL_PREFIX}${JSON.stringify(payload)}`;
+}
+
+function resolveProductDetailConfig(product = {}) {
+  const stored = decodeStoredProductDetail(product.full_description);
+  const plainIntro = stored ? String(stored.detailIntro || '').trim() : String(product.full_description || '').trim();
+  const fallbackTitle = String(product.title || '').trim();
+  const fallbackHeadline = String(product.short_description || '').trim() || fallbackTitle;
+  const fallbackPriceHint = getProductTypeLabel(product.product_type, product.category);
+  const fallbackImage = String(product.image_url || '').trim() || 'assets/content.png';
+  const quickFacts = (stored?.quickFacts || []).map((entry) => ({
+    label: String(entry?.label || '').trim(),
+    value: String(entry?.value || '').trim(),
+  })).filter((entry) => entry.label || entry.value);
+
+  return {
+    detailTitle: String(stored?.detailTitle || fallbackTitle).trim(),
+    detailHeadline: String(stored?.detailHeadline || fallbackHeadline).trim(),
+    detailIntro: plainIntro || String(product.short_description || '').trim(),
+    detailPriceHint: String(stored?.detailPriceHint || fallbackPriceHint).trim(),
+    detailFeatureIntro: String(stored?.detailFeatureIntro || product.short_description || '').trim(),
+    detailPart01: String(stored?.detailPart01 || '').trim(),
+    detailPart02: String(stored?.detailPart02 || '').trim(),
+    detailPart03: String(stored?.detailPart03 || '').trim(),
+    detailEinsatz: String(stored?.detailEinsatz || '').trim(),
+    detailLook: String(stored?.detailLook || '').trim(),
+    detailNutzen: String(stored?.detailNutzen || '').trim(),
+    detailSideImageUrl: String(stored?.detailSideImageUrl || fallbackImage).trim(),
+    quickFacts: quickFacts.length ? quickFacts : getDefaultQuickFacts(product),
+  };
+}
+
+function buildDetailPayloadFromAdminForm(elements, product = {}) {
+  const quickFacts = [1, 2, 3, 4].map((index) => ({
+    label: String(elements[`detailQuick${index}Label`]?.value || '').trim(),
+    value: String(elements[`detailQuick${index}Value`]?.value || '').trim(),
+  })).filter((entry) => entry.label || entry.value);
+
+  return {
+    detailTitle: String(elements.detailTitle?.value || product.title || '').trim(),
+    detailHeadline: String(elements.detailHeadline?.value || product.short_description || product.title || '').trim(),
+    detailIntro: String(elements.productFull?.value || '').trim(),
+    detailPriceHint: String(elements.detailPriceHint?.value || '').trim(),
+    detailFeatureIntro: String(elements.detailFeatureIntro?.value || '').trim(),
+    detailPart01: String(elements.detailPart01?.value || '').trim(),
+    detailPart02: String(elements.detailPart02?.value || '').trim(),
+    detailPart03: String(elements.detailPart03?.value || '').trim(),
+    detailEinsatz: String(elements.detailEinsatz?.value || '').trim(),
+    detailLook: String(elements.detailLook?.value || '').trim(),
+    detailNutzen: String(elements.detailNutzen?.value || '').trim(),
+    detailSideImageUrl: String(elements.detailSideImageUrl?.value || '').trim(),
+    quickFacts,
+  };
+}
+
+function hasDynamicProductDetail(product = {}) {
+  if (!product || !product.slug) return false;
+  const config = resolveProductDetailConfig(product);
+  return Boolean(
+    config.detailTitle
+    || config.detailHeadline
+    || config.detailIntro
+    || config.detailFeatureIntro
+    || config.detailPart01
+    || config.detailPart02
+    || config.detailPart03
+    || config.detailEinsatz
+    || config.detailLook
+    || config.detailNutzen
+    || config.quickFacts.length
+  );
+}
+
+function getAdminProductPreviewCopy(product = {}) {
+  const config = resolveProductDetailConfig(product);
+  return String(product.short_description || config.detailIntro || '').trim();
+}
+
+function getSupabaseManagedProductBySlug(slug) {
+  return supabaseManagedProductsCache.find((entry) => entry.slug === slug) || null;
+}
+
+function getDynamicDetailElements() {
+  return {
+    section: detailSections.__dynamic__ || document.getElementById('dynamicProductDetailSection'),
+    tag: document.getElementById('dynamicDetailTag'),
+    eyebrow: document.getElementById('dynamicDetailEyebrow'),
+    heading: document.getElementById('dynamicDetailHeading'),
+    intro: document.getElementById('dynamicDetailIntro'),
+    price: document.getElementById('dynamicDetailPrice'),
+    priceHint: document.getElementById('dynamicDetailPriceHint'),
+    mainImage: document.getElementById('dynamicDetailMainImage'),
+    sideImage: document.getElementById('dynamicDetailSideImage'),
+    featureIntro: document.getElementById('dynamicDetailFeatureIntro'),
+    featuresGrid: document.getElementById('dynamicDetailFeaturesGrid'),
+    facts: document.getElementById('dynamicDetailFacts'),
+    cartButton: document.getElementById('dynamicDetailCartButton'),
+  };
+}
+
+function populateDynamicProductDetail(product) {
+  const elements = getDynamicDetailElements();
+  if (!product || !elements.section) return;
+  const config = resolveProductDetailConfig(product);
+  const mainImage = String(product.image_url || '').trim() || 'assets/content.png';
+  const sideImage = String(config.detailSideImageUrl || mainImage).trim() || mainImage;
+  const headingMain = escapeHtml(config.detailTitle || product.title || 'PRODUKT');
+  const headingSub = escapeHtml(config.detailHeadline || product.short_description || product.title || 'DETAILSEITE');
+
+  if (elements.tag) elements.tag.textContent = `${getDetailPageTagLabel(product)} · ${product.title || 'Produkt'}`;
+  if (elements.eyebrow) elements.eyebrow.textContent = `Hammer Modding · ${product.title || 'Produkt'}`;
+  if (elements.heading) elements.heading.innerHTML = `${headingMain}<br><span>${headingSub}</span>`;
+  if (elements.intro) elements.intro.textContent = config.detailIntro || 'Für dieses Produkt wurde noch kein Detailtext gepflegt.';
+  if (elements.price) elements.price.textContent = formatSupabasePriceLabel(product.price_eur || 0);
+  if (elements.priceHint) elements.priceHint.textContent = config.detailPriceHint || getProductTypeLabel(product.product_type, product.category);
+
+  if (elements.mainImage) {
+    elements.mainImage.src = mainImage;
+    elements.mainImage.alt = `${product.title || 'Produkt'} Vorschau`;
+  }
+  if (elements.sideImage) {
+    elements.sideImage.src = sideImage;
+    elements.sideImage.alt = `${product.title || 'Produkt'} Detailbild`;
+  }
+  if (elements.featureIntro) {
+    elements.featureIntro.textContent = config.detailFeatureIntro || 'Hier erscheinen automatisch die gepflegten Produktdetails.';
+  }
+
+  if (elements.featuresGrid) {
+    const featureItems = [
+      { label: 'Teil 01', value: config.detailPart01 },
+      { label: 'Teil 02', value: config.detailPart02 },
+      { label: 'Teil 03', value: config.detailPart03 },
+      { label: 'Einsatz', value: config.detailEinsatz },
+      { label: 'Look', value: config.detailLook },
+      { label: 'Nutzen', value: config.detailNutzen },
+    ].filter((entry) => entry.value);
+
+    elements.featuresGrid.innerHTML = (featureItems.length ? featureItems : [
+      { label: 'Hinweis', value: 'Für dieses Produkt wurden noch keine Detailkarten gepflegt.' },
+    ]).map((entry) => `
+      <article class="feature-sale-item">
+        <div class="feature-sale-badge">${escapeHtml(entry.label)}</div>
+        <p>${escapeHtml(entry.value)}</p>
+      </article>
+    `).join('');
+  }
+
+  if (elements.facts) {
+    const facts = (config.quickFacts.length ? config.quickFacts : getDefaultQuickFacts(product)).slice(0, 4);
+    elements.facts.innerHTML = facts.map((entry) => `
+      <div class="fact-box">
+        <strong>${escapeHtml(entry.label || 'Info')}</strong>
+        <span>${escapeHtml(entry.value || '—')}</span>
+      </div>
+    `).join('');
+  }
+
+  if (elements.cartButton) {
+    const catalogItem = getCatalogItem(product.slug) || storeCatalog[product.slug] || {};
+    elements.cartButton.dataset.productId = catalogItem.id || product.slug;
+    elements.cartButton.dataset.productName = product.title || '';
+    elements.cartButton.dataset.productPrice = formatSupabasePriceValue(product.price_eur || 0);
+    elements.cartButton.dataset.productPriceLabel = formatSupabasePriceLabel(product.price_eur || 0);
+    elements.cartButton.dataset.productSlug = product.slug || '';
+    elements.cartButton.dataset.productType = catalogItem.type || (product.category === 'clothing' ? 'clothing' : 'paid-script');
+  }
+}
+
+function openDynamicProductDetail(slug, originSection = 'scripts') {
+  const product = getSupabaseManagedProductBySlug(String(slug || '').trim());
+  if (!product) return;
+  if (!Object.keys(detailSections).length) cacheDomReferences();
+  populateDynamicProductDetail(product);
+  lastSectionBeforeDetail = originSection;
+  const backButton = document.getElementById('backToDynamicProduct');
+  if (backButton) {
+    backButton.textContent = originSection === 'clothing'
+      ? '← Zurück zur Kleidung'
+      : originSection === 'free'
+        ? '← Zurück zu Free Scripts'
+        : originSection === 'home'
+          ? '← Zurück zur Startseite'
+          : '← Zurück zu Scripten';
+  }
+  homeSections.forEach((el) => (el.style.display = 'none'));
+  setVisible(scriptsSection, false);
+  setVisible(clothingSection, false);
+  setVisible(freeSection, false);
+  setVisible(accountSection, false);
+  setVisible(systemSection, false);
+  setVisible(contactSection, false);
+  hideAllDetails();
+  setVisible(detailSections.__dynamic__, true);
+  activateNav(originSection === 'home' ? 'home' : originSection === 'free' ? 'free' : originSection === 'clothing' ? 'clothing' : 'scripts');
+  syncVideoPlayback();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
 function formatRelativeDate(value) {
   if (!value) return '-';
@@ -2261,6 +2541,10 @@ function formatSupabasePriceLabel(value) {
 
 function normalizeSupabaseProductRow(row) {
   if (!row || !row.slug || !row.title) return null;
+  const storedDetail = decodeStoredProductDetail(row.full_description);
+  const plainFullDescription = storedDetail
+    ? String(storedDetail.detailIntro || '').trim()
+    : String(row.full_description || '').trim();
   return {
     ...row,
     slug: String(row.slug).trim(),
@@ -2270,6 +2554,8 @@ function normalizeSupabaseProductRow(row) {
     price_eur: Number.isFinite(Number(row.price_eur)) ? Number(row.price_eur) : 0,
     short_description: String(row.short_description || '').trim(),
     full_description: String(row.full_description || '').trim(),
+    full_description_text: plainFullDescription,
+    detail_config: storedDetail,
     image_url: String(row.image_url || '').trim(),
     tebex_package_id: String(row.tebex_package_id || '').trim(),
     is_active: row.is_active !== false,
@@ -2388,10 +2674,13 @@ function captureClothingUiSnapshot() {
 
 function buildDynamicProductActionMarkup(row) {
   const catalogItem = getCatalogItem(row.slug) || storeCatalog[row.slug];
-  const hasDetail = Boolean(detailSections[row.slug]);
   const actionLabel = row.category === 'scripts' || row.category === 'free_scripts' ? 'Jetzt ansehen' : 'Produkt ansehen';
 
-  if (hasDetail) {
+  if (hasDynamicProductDetail(row)) {
+    return `<a class="card-link" data-open-dynamic-detail="${escapeHtml(row.slug)}" href="#">${escapeHtml(actionLabel)}</a>`;
+  }
+
+  if (detailSections[row.slug]) {
     return `<a class="card-link" data-open-script="${escapeHtml(row.slug)}" href="#">${escapeHtml(actionLabel)}</a>`;
   }
 
@@ -2427,7 +2716,7 @@ function getSupabaseProductPresentation(row) {
     badge: preset.badge || base.badge || firstWord,
     image: row.image_url || preset.image || base.image || 'assets/content.png',
     priceHint: preset.priceHint || base.priceHint || fallbackHint,
-    short: row.short_description || row.full_description || base.short || 'Live aus Supabase geladen.',
+    short: row.short_description || row.full_description_text || base.short || 'Live aus Supabase geladen.',
   };
 }
 
@@ -2545,7 +2834,7 @@ async function loadSupabaseManagedProducts() {
     const { data, error } = await withTimeout(
       client
         .from(productsTable)
-        .select('title, slug, category, product_type, price_eur, short_description, full_description, image_url, tebex_package_id, is_active, is_featured, sort_order, created_at')
+        .select('*')
         .eq('is_active', true)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false }),
@@ -3322,7 +3611,26 @@ function getAdminPortalElements() {
     productImageFile: document.getElementById('adminProductImageFile'),
     productImageHint: document.getElementById('adminProductImageHint'),
     productShort: document.getElementById('adminProductShort'),
+    detailTitle: document.getElementById('adminDetailTitle'),
+    detailHeadline: document.getElementById('adminDetailHeadline'),
     productFull: document.getElementById('adminProductFull'),
+    detailPriceHint: document.getElementById('adminDetailPriceHint'),
+    detailSideImageUrl: document.getElementById('adminDetailSideImageUrl'),
+    detailFeatureIntro: document.getElementById('adminDetailFeatureIntro'),
+    detailPart01: document.getElementById('adminDetailPart01'),
+    detailPart02: document.getElementById('adminDetailPart02'),
+    detailPart03: document.getElementById('adminDetailPart03'),
+    detailEinsatz: document.getElementById('adminDetailEinsatz'),
+    detailLook: document.getElementById('adminDetailLook'),
+    detailNutzen: document.getElementById('adminDetailNutzen'),
+    detailQuick1Label: document.getElementById('adminDetailQuick1Label'),
+    detailQuick1Value: document.getElementById('adminDetailQuick1Value'),
+    detailQuick2Label: document.getElementById('adminDetailQuick2Label'),
+    detailQuick2Value: document.getElementById('adminDetailQuick2Value'),
+    detailQuick3Label: document.getElementById('adminDetailQuick3Label'),
+    detailQuick3Value: document.getElementById('adminDetailQuick3Value'),
+    detailQuick4Label: document.getElementById('adminDetailQuick4Label'),
+    detailQuick4Value: document.getElementById('adminDetailQuick4Value'),
     productSort: document.getElementById('adminProductSort'),
     productActive: document.getElementById('adminProductActive'),
     productFeatured: document.getElementById('adminProductFeatured'),
@@ -3395,20 +3703,28 @@ function mergeAdminPortalProducts(supabaseRows = []) {
 
 function buildCatalogSyncPayloads() {
   const base = captureBaseProductPresentationMap();
-  return buildCatalogAdminProductEntries().map((entry) => ({
-    title: entry.title,
-    slug: entry.slug,
-    category: entry.category,
-    product_type: entry.product_type,
-    price_eur: Number(entry.price_eur || 0) || 0,
-    short_description: base[entry.slug]?.short || entry.short_description || '',
-    full_description: base[entry.slug]?.short || entry.full_description || '',
-    image_url: base[entry.slug]?.image || entry.image_url || '',
-    tebex_package_id: entry.tebex_package_id || '',
-    is_active: entry.is_active !== false,
-    is_featured: entry.is_featured === true,
-    sort_order: Number(entry.sort_order || 0) || 0,
-  }));
+  return buildCatalogAdminProductEntries().map((entry) => {
+    const prepared = {
+      ...entry,
+      short_description: base[entry.slug]?.short || entry.short_description || '',
+      image_url: base[entry.slug]?.image || entry.image_url || '',
+    };
+    const detailConfig = resolveProductDetailConfig(prepared);
+    return {
+      title: entry.title,
+      slug: entry.slug,
+      category: entry.category,
+      product_type: entry.product_type,
+      price_eur: Number(entry.price_eur || 0) || 0,
+      short_description: prepared.short_description,
+      full_description: encodeStoredProductDetail(detailConfig),
+      image_url: prepared.image_url,
+      tebex_package_id: entry.tebex_package_id || '',
+      is_active: entry.is_active !== false,
+      is_featured: entry.is_featured === true,
+      sort_order: Number(entry.sort_order || 0) || 0,
+    };
+  });
 }
 
 function getAdminProfileById(profileId) {
@@ -3503,6 +3819,7 @@ function resetAdminProductForm(keepMessage = false) {
 function hydrateAdminProductForm(product) {
   const elements = getAdminPortalElements();
   if (!product) return resetAdminProductForm(true);
+  const detailConfig = resolveProductDetailConfig(product);
   adminPortalState.selectedProductId = product.id || '';
   adminPortalState.selectedProductDbId = product.dbId || '';
   adminPortalState.selectedProductSlug = product.slug || '';
@@ -3513,9 +3830,25 @@ function hydrateAdminProductForm(product) {
   if (elements.productType) elements.productType.value = product.product_type || 'clothing';
   if (elements.productPrice) elements.productPrice.value = Number(product.price_eur || 0).toFixed(2);
   if (elements.productTebexId) elements.productTebexId.value = product.tebex_package_id || '';
-  if (elements.productImageUrl) elements.productImageUrl.value = product.image_url || '';
+  if (elements.productImageUrl) elements.productImageUrl.value = product.image_url || getSupabaseProductPresentation(product).image || '';
   if (elements.productShort) elements.productShort.value = product.short_description || '';
-  if (elements.productFull) elements.productFull.value = product.full_description || '';
+  if (elements.detailTitle) elements.detailTitle.value = detailConfig.detailTitle || '';
+  if (elements.detailHeadline) elements.detailHeadline.value = detailConfig.detailHeadline || '';
+  if (elements.productFull) elements.productFull.value = detailConfig.detailIntro || product.full_description_text || '';
+  if (elements.detailPriceHint) elements.detailPriceHint.value = detailConfig.detailPriceHint || '';
+  if (elements.detailSideImageUrl) elements.detailSideImageUrl.value = detailConfig.detailSideImageUrl || product.image_url || getSupabaseProductPresentation(product).image || '';
+  if (elements.detailFeatureIntro) elements.detailFeatureIntro.value = detailConfig.detailFeatureIntro || '';
+  if (elements.detailPart01) elements.detailPart01.value = detailConfig.detailPart01 || '';
+  if (elements.detailPart02) elements.detailPart02.value = detailConfig.detailPart02 || '';
+  if (elements.detailPart03) elements.detailPart03.value = detailConfig.detailPart03 || '';
+  if (elements.detailEinsatz) elements.detailEinsatz.value = detailConfig.detailEinsatz || '';
+  if (elements.detailLook) elements.detailLook.value = detailConfig.detailLook || '';
+  if (elements.detailNutzen) elements.detailNutzen.value = detailConfig.detailNutzen || '';
+  [1, 2, 3, 4].forEach((index) => {
+    const fact = detailConfig.quickFacts[index - 1] || { label: '', value: '' };
+    if (elements[`detailQuick${index}Label`]) elements[`detailQuick${index}Label`].value = fact.label || '';
+    if (elements[`detailQuick${index}Value`]) elements[`detailQuick${index}Value`].value = fact.value || '';
+  });
   if (elements.productSort) elements.productSort.value = String(product.sort_order || 0);
   if (elements.productActive) elements.productActive.checked = product.is_active !== false;
   if (elements.productFeatured) elements.productFeatured.checked = product.is_featured === true;
@@ -3546,7 +3879,26 @@ function updateAdminProductControls() {
     elements.productImageUrl,
     elements.productImageFile,
     elements.productShort,
+    elements.detailTitle,
+    elements.detailHeadline,
     elements.productFull,
+    elements.detailPriceHint,
+    elements.detailSideImageUrl,
+    elements.detailFeatureIntro,
+    elements.detailPart01,
+    elements.detailPart02,
+    elements.detailPart03,
+    elements.detailEinsatz,
+    elements.detailLook,
+    elements.detailNutzen,
+    elements.detailQuick1Label,
+    elements.detailQuick1Value,
+    elements.detailQuick2Label,
+    elements.detailQuick2Value,
+    elements.detailQuick3Label,
+    elements.detailQuick3Value,
+    elements.detailQuick4Label,
+    elements.detailQuick4Value,
     elements.productSort,
     elements.productActive,
     elements.productFeatured,
@@ -3583,7 +3935,7 @@ function renderAdminProducts() {
           </div>
           <button class="cta secondary compact-cta" data-admin-product-edit="${escapeHtml(product.id)}" type="button">Bearbeiten</button>
         </div>
-        <div class="admin-record-copy">${escapeHtml(product.short_description || product.full_description || 'Keine Beschreibung hinterlegt.')}</div>
+        <div class="admin-record-copy">${escapeHtml(getAdminProductPreviewCopy(product) || 'Keine Beschreibung hinterlegt.')}</div>
         <div class="admin-record-meta">
           <span class="admin-record-pill">${escapeHtml(priceLabel)}</span>
           <span class="admin-record-pill">${escapeHtml(roleType)}</span>
@@ -3809,16 +4161,26 @@ async function collectAdminProductPayload() {
   if (uploadFile) {
     imageUrl = await convertProductImageFileToDataUrl(uploadFile);
   }
-  return {
+  const draftProduct = {
     title,
     slug,
     category: String(elements.productCategory?.value || 'clothing').trim(),
     product_type: String(elements.productType?.value || 'clothing').trim(),
     price_eur: Number(elements.productPrice?.value || 0) || 0,
-    tebex_package_id: String(elements.productTebexId?.value || '').trim(),
     image_url: imageUrl,
     short_description: String(elements.productShort?.value || '').trim(),
-    full_description: String(elements.productFull?.value || '').trim(),
+  };
+  const detailPayload = buildDetailPayloadFromAdminForm(elements, draftProduct);
+  return {
+    title,
+    slug,
+    category: draftProduct.category,
+    product_type: draftProduct.product_type,
+    price_eur: draftProduct.price_eur,
+    tebex_package_id: String(elements.productTebexId?.value || '').trim(),
+    image_url: imageUrl,
+    short_description: draftProduct.short_description,
+    full_description: encodeStoredProductDetail(detailPayload),
     sort_order: Number(elements.productSort?.value || 0) || 0,
     is_active: Boolean(elements.productActive?.checked),
     is_featured: Boolean(elements.productFeatured?.checked),
@@ -4307,6 +4669,22 @@ document.addEventListener('click', async (e) => {
   const overlay = eventTarget.closest('#requestModalOverlay');
   if (overlay && eventTarget === overlay) {
     closeRequestModal();
+    return;
+  }
+
+  const dynamicDetailBtn = eventTarget.closest('[data-open-dynamic-detail]');
+  if (dynamicDetailBtn) {
+    e.preventDefault();
+    const originSection = dynamicDetailBtn.closest('#freeSection')
+      ? 'free'
+      : dynamicDetailBtn.closest('#clothingSection')
+        ? 'clothing'
+        : dynamicDetailBtn.closest('.section-home')
+          ? 'home'
+          : dynamicDetailBtn.closest('#scriptsSection')
+            ? 'scripts'
+            : 'scripts';
+    openDynamicProductDetail(dynamicDetailBtn.dataset.openDynamicDetail, originSection);
     return;
   }
 
