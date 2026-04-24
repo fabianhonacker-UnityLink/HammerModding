@@ -241,34 +241,24 @@ function getDefaultQuickFacts(product = {}) {
   return facts.filter((entry) => entry.label && entry.value).slice(0, 4);
 }
 
-function decodeStoredProductDetail(rawValue) {
-  const raw = String(rawValue || '').trim();
-  if (!raw || !raw.startsWith(HM_PRODUCT_DETAIL_PREFIX)) return null;
-  try {
-    const parsed = JSON.parse(raw.slice(HM_PRODUCT_DETAIL_PREFIX.length));
-    return parsed && typeof parsed === 'object' ? parsed : null;
-  } catch (error) {
-    return null;
-  }
-}
-
-function encodeStoredProductDetail(detail = {}) {
-  const payload = {
+function normalizeStoredProductDetail(detail = {}) {
+  const source = detail && typeof detail === 'object' ? detail : {};
+  return {
     version: 1,
-    detailTitle: String(detail.detailTitle || '').trim(),
-    detailHeadline: String(detail.detailHeadline || '').trim(),
-    detailIntro: String(detail.detailIntro || '').trim(),
-    detailPriceHint: String(detail.detailPriceHint || '').trim(),
-    detailFeatureIntro: String(detail.detailFeatureIntro || '').trim(),
-    detailPart01: String(detail.detailPart01 || '').trim(),
-    detailPart02: String(detail.detailPart02 || '').trim(),
-    detailPart03: String(detail.detailPart03 || '').trim(),
-    detailEinsatz: String(detail.detailEinsatz || '').trim(),
-    detailLook: String(detail.detailLook || '').trim(),
-    detailNutzen: String(detail.detailNutzen || '').trim(),
-    detailSideImageUrl: String(detail.detailSideImageUrl || '').trim(),
-    quickFacts: Array.isArray(detail.quickFacts)
-      ? detail.quickFacts
+    detailTitle: String(source.detailTitle || '').trim(),
+    detailHeadline: String(source.detailHeadline || '').trim(),
+    detailIntro: String(source.detailIntro || '').trim(),
+    detailPriceHint: String(source.detailPriceHint || '').trim(),
+    detailFeatureIntro: String(source.detailFeatureIntro || '').trim(),
+    detailPart01: String(source.detailPart01 || '').trim(),
+    detailPart02: String(source.detailPart02 || '').trim(),
+    detailPart03: String(source.detailPart03 || '').trim(),
+    detailEinsatz: String(source.detailEinsatz || '').trim(),
+    detailLook: String(source.detailLook || '').trim(),
+    detailNutzen: String(source.detailNutzen || '').trim(),
+    detailSideImageUrl: String(source.detailSideImageUrl || '').trim(),
+    quickFacts: Array.isArray(source.quickFacts)
+      ? source.quickFacts
           .map((entry) => ({
             label: String(entry?.label || '').trim(),
             value: String(entry?.value || '').trim(),
@@ -277,11 +267,63 @@ function encodeStoredProductDetail(detail = {}) {
           .slice(0, 4)
       : [],
   };
-  return `${HM_PRODUCT_DETAIL_PREFIX}${JSON.stringify(payload)}`;
 }
 
+function hasMeaningfulProductDetail(detail = {}) {
+  return Boolean(
+    detail.detailTitle
+    || detail.detailHeadline
+    || detail.detailIntro
+    || detail.detailPriceHint
+    || detail.detailFeatureIntro
+    || detail.detailPart01
+    || detail.detailPart02
+    || detail.detailPart03
+    || detail.detailEinsatz
+    || detail.detailLook
+    || detail.detailNutzen
+    || detail.detailSideImageUrl
+    || (Array.isArray(detail.quickFacts) && detail.quickFacts.length)
+  );
+}
+
+function decodeStoredProductDetail(rawValue) {
+  if (!rawValue) return null;
+  if (typeof rawValue === 'object') {
+    const normalized = normalizeStoredProductDetail(rawValue);
+    return hasMeaningfulProductDetail(normalized) ? normalized : null;
+  }
+
+  const raw = String(rawValue || '').trim();
+  if (!raw) return null;
+
+  const jsonText = raw.startsWith(HM_PRODUCT_DETAIL_PREFIX)
+    ? raw.slice(HM_PRODUCT_DETAIL_PREFIX.length)
+    : raw.startsWith('{')
+      ? raw
+      : '';
+  if (!jsonText) return null;
+
+  try {
+    const parsed = JSON.parse(jsonText);
+    const normalized = normalizeStoredProductDetail(parsed);
+    return hasMeaningfulProductDetail(normalized) ? normalized : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function encodeStoredProductDetail(detail = {}) {
+  return `${HM_PRODUCT_DETAIL_PREFIX}${JSON.stringify(normalizeStoredProductDetail(detail))}`;
+}
+
+function getStoredProductDetail(product = {}) {
+  return decodeStoredProductDetail(product.detail_data)
+    || decodeStoredProductDetail(product.detail_config)
+    || decodeStoredProductDetail(product.full_description);
+}
 function resolveProductDetailConfig(product = {}) {
-  const stored = decodeStoredProductDetail(product.full_description);
+  const stored = getStoredProductDetail(product);
   const plainIntro = stored ? String(stored.detailIntro || '').trim() : String(product.full_description || '').trim();
   const fallbackTitle = String(product.title || '').trim();
   const fallbackHeadline = String(product.short_description || '').trim() || fallbackTitle;
@@ -2565,7 +2607,7 @@ function formatSupabasePriceLabel(value) {
 
 function normalizeSupabaseProductRow(row) {
   if (!row || !row.slug || !row.title) return null;
-  const storedDetail = decodeStoredProductDetail(row.full_description);
+  const storedDetail = getStoredProductDetail(row);
   const plainFullDescription = storedDetail
     ? String(storedDetail.detailIntro || '').trim()
     : String(row.full_description || '').trim();
@@ -2580,6 +2622,7 @@ function normalizeSupabaseProductRow(row) {
     full_description: String(row.full_description || '').trim(),
     full_description_text: plainFullDescription,
     detail_config: storedDetail,
+    detail_data: storedDetail || {},
     image_url: String(row.image_url || '').trim(),
     tebex_package_id: String(row.tebex_package_id || '').trim(),
     is_active: row.is_active !== false,
@@ -3911,6 +3954,7 @@ function buildCatalogSyncPayloads() {
       price_eur: Number(entry.price_eur || 0) || 0,
       short_description: prepared.short_description,
       full_description: encodeStoredProductDetail(detailConfig),
+      detail_data: normalizeStoredProductDetail(detailConfig),
       image_url: prepared.image_url,
       tebex_package_id: entry.tebex_package_id || '',
       is_active: entry.is_active !== false,
@@ -4382,14 +4426,38 @@ async function collectAdminProductPayload() {
     image_url: imageUrl,
     short_description: draftProduct.short_description,
     full_description: encodeStoredProductDetail(detailPayload),
+    detail_data: normalizeStoredProductDetail(detailPayload),
     sort_order: Number(elements.productSort?.value || 0) || 0,
     is_active: Boolean(elements.productActive?.checked),
     is_featured: Boolean(elements.productFeatured?.checked),
   };
 }
 
-async function handleAdminProductSave(event) {
-  event.preventDefault();
+function stripDetailDataFromProductPayload(payload = {}) {
+  const { detail_data: _detailData, ...fallbackPayload } = payload;
+  return fallbackPayload;
+}
+
+function isMissingDetailDataColumnError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('detail_data') && (message.includes('column') || message.includes('schema cache') || message.includes('could not find'));
+}
+
+async function executeAdminProductSave(client, tableName, payload, selectedDbId, includeDetailData = true) {
+  const savePayload = includeDetailData ? payload : stripDetailDataFromProductPayload(payload);
+  if (selectedDbId) {
+    return client.from(tableName).update(savePayload).eq('id', selectedDbId).select('*').single();
+  }
+
+  const lookup = await client.from(tableName).select('id').eq('slug', savePayload.slug).limit(1).maybeSingle();
+  if (lookup.error) return lookup;
+  if (lookup.data?.id) {
+    return client.from(tableName).update(savePayload).eq('id', lookup.data.id).select('*').single();
+  }
+  return client.from(tableName).insert(savePayload).select('*').single();
+}
+
+async function saveAdminProductToSupabase(options = {}) {
   const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
   const elements = getAdminPortalElements();
   if (!permissions.canEditProducts) {
@@ -4397,25 +4465,38 @@ async function handleAdminProductSave(event) {
   }
   const client = getSupabaseClient();
   if (!client) return setAdminMessage(elements.productsMessage, 'Supabase ist nicht verbunden.', 'error');
+
   const payload = await collectAdminProductPayload();
   if (!payload.title || !payload.slug) {
     return setAdminMessage(elements.productsMessage, 'Titel und Slug sind Pflicht.', 'error');
   }
   if (elements.productSlug) elements.productSlug.value = payload.slug;
-  if (elements.productSaveButton) {
-    elements.productSaveButton.disabled = true;
-    elements.productSaveButton.textContent = 'Speichere ...';
+
+  const button = options.button || elements.productSaveButton;
+  const idleText = options.idleText || button?.textContent || 'Speichern';
+  const loadingText = options.loadingText || 'Speichere ...';
+  if (button) {
+    button.disabled = true;
+    button.textContent = loadingText;
   }
+
   try {
-    let query;
-    if (adminPortalState.selectedProductDbId) {
-      query = client.from(loadFoundationState().productsTable || 'products').update(payload).eq('id', adminPortalState.selectedProductDbId).select('*').single();
-    } else {
-      query = client.from(loadFoundationState().productsTable || 'products').insert(payload).select('*').single();
+    const tableName = loadFoundationState().productsTable || 'products';
+    let result = await executeAdminProductSave(client, tableName, payload, adminPortalState.selectedProductDbId, true);
+    let savedWithoutDetailDataColumn = false;
+
+    if (result.error && isMissingDetailDataColumnError(result.error)) {
+      result = await executeAdminProductSave(client, tableName, payload, adminPortalState.selectedProductDbId, false);
+      savedWithoutDetailDataColumn = true;
     }
-    const { data, error } = await query;
-    if (error) throw error;
-    setAdminMessage(elements.productsMessage, `${payload.title} wurde gespeichert.`, 'success');
+
+    if (result.error) throw result.error;
+    const data = result.data;
+    const hiddenHint = payload.is_active ? '' : ' Das Produkt ist gespeichert, aber aktuell verborgen/inaktiv.';
+    const detailHint = savedWithoutDetailDataColumn
+      ? ' Hinweis: Die neue detail_data-Spalte fehlt noch, deshalb wurden die Detaildaten zusätzlich im alten full_description-Fallback gespeichert.'
+      : '';
+    setAdminMessage(elements.productsMessage, `${payload.title} wurde in Supabase gespeichert.${hiddenHint}${detailHint}`, savedWithoutDetailDataColumn ? 'warn' : 'success');
     resetAdminProductForm(true);
     adminPortalState.initialized = false;
     await loadAdminPortalData(true);
@@ -4426,28 +4507,44 @@ async function handleAdminProductSave(event) {
   } catch (error) {
     setAdminMessage(elements.productsMessage, `Speichern fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'error');
   } finally {
-    if (elements.productSaveButton) {
-      elements.productSaveButton.disabled = false;
-      elements.productSaveButton.textContent = 'Speichern';
+    if (button) {
+      button.disabled = false;
+      button.textContent = idleText;
     }
   }
+}
+
+async function handleAdminProductSave(event) {
+  event.preventDefault();
+  await saveAdminProductToSupabase({
+    button: getAdminPortalElements().productSaveButton,
+    idleText: 'Speichern',
+    loadingText: 'Speichere ...',
+  });
 }
 
 async function handleAdminProductDelete() {
   const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
   const elements = getAdminPortalElements();
   if (!permissions.canDeleteProducts || !adminPortalState.selectedProductDbId) {
-    return setAdminMessage(elements.productsMessage, 'Löschen ist für deine Rolle oder ohne Auswahl nicht erlaubt.', 'error');
+    return setAdminMessage(elements.productsMessage, 'Löschen ist für deine Rolle oder ohne gespeichertes Supabase-Produkt nicht erlaubt.', 'error');
   }
   const target = getAdminProductByKey(adminPortalState.selectedProductId);
   if (!target) return;
-  if (!window.confirm(`Produkt "${target.title}" wirklich löschen?`)) return;
+
+  const expected = String(target.slug || target.title || '').trim();
+  const typed = window.prompt(`Produkt endgültig löschen?\n\nDas entfernt "${target.title}" komplett aus Supabase.\nZum Bestätigen bitte exakt den Slug eingeben:\n${expected}`);
+  if (typed === null) return;
+  if (String(typed).trim() !== expected) {
+    return setAdminMessage(elements.productsMessage, 'Löschen abgebrochen: Bestätigung passte nicht zum Slug.', 'warn');
+  }
+
   const client = getSupabaseClient();
-  if (!client) return;
+  if (!client) return setAdminMessage(elements.productsMessage, 'Supabase ist nicht verbunden.', 'error');
   try {
     const { error } = await client.from(loadFoundationState().productsTable || 'products').delete().eq('id', adminPortalState.selectedProductDbId);
     if (error) throw error;
-    setAdminMessage(elements.productsMessage, `${target.title} wurde gelöscht.`, 'success');
+    setAdminMessage(elements.productsMessage, `${target.title} wurde endgültig aus Supabase gelöscht.`, 'success');
     resetAdminProductForm(true);
     adminPortalState.initialized = false;
     await loadAdminPortalData(true);
@@ -4459,39 +4556,12 @@ async function handleAdminProductDelete() {
 }
 
 async function handleAdminCatalogSync() {
-  const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
   const elements = getAdminPortalElements();
-  if (!permissions.canEditProducts) {
-    return setAdminMessage(elements.productsMessage, 'Deine Rolle darf Website-Produkte nicht nach Supabase übernehmen.', 'error');
-  }
-  const client = getSupabaseClient();
-  if (!client) return setAdminMessage(elements.productsMessage, 'Supabase ist nicht verbunden.', 'error');
-  const payloads = buildCatalogSyncPayloads();
-  if (!payloads.length) return setAdminMessage(elements.productsMessage, 'Keine Website-Produkte zum Sync gefunden.', 'error');
-
-  if (elements.productSyncButton) {
-    elements.productSyncButton.disabled = true;
-    elements.productSyncButton.textContent = 'Synchronisiere ...';
-  }
-
-  try {
-    const { error } = await client.from(loadFoundationState().productsTable || 'products').upsert(payloads, { onConflict: 'slug' });
-    if (error) throw error;
-    adminPortalState.initialized = false;
-    supabaseProductsBooted = false;
-    await loadAdminPortalData(true);
-    await loadSupabaseManagedProducts();
-    const supabaseCount = adminPortalState.products.filter((entry) => entry.sourceKind === 'supabase').length;
-    const websiteCount = Math.max(0, adminPortalState.products.length - supabaseCount);
-    setAdminMessage(elements.productsMessage, `${payloads.length} Website-Produkte synchronisiert. Jetzt in Supabase: ${supabaseCount}. Website-Basis verbleibend: ${websiteCount}.`, 'success');
-  } catch (error) {
-    setAdminMessage(elements.productsMessage, `Sync fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'error');
-  } finally {
-    if (elements.productSyncButton) {
-      elements.productSyncButton.disabled = false;
-      elements.productSyncButton.textContent = 'Website-Produkte syncen';
-    }
-  }
+  await saveAdminProductToSupabase({
+    button: elements.productSyncButton,
+    idleText: 'Formular → Supabase',
+    loadingText: 'Speichere ...',
+  });
 }
 
 async function handleAdminRoleSave(profileId = adminPortalState.selectedUserId) {
