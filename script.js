@@ -4546,6 +4546,72 @@ async function executeAdminProductSave(client, tableName, payload, selectedDbId,
   return client.from(tableName).insert(savePayload).select('*').single();
 }
 
+
+function mergeSavedProductIntoAdminState(savedProduct = {}) {
+  if (!savedProduct.slug) return null;
+  const normalized = normalizeSupabaseProductRow(savedProduct);
+  if (!normalized) return null;
+
+  const adminEntry = {
+    ...normalized,
+    id: `db:${normalized.id || savedProduct.id || normalized.slug}`,
+    dbId: normalized.id || savedProduct.id || '',
+    sourceKind: 'supabase',
+    sourceLabel: 'Supabase',
+  };
+
+  adminPortalState.products = adminPortalState.products
+    .filter((entry) => entry.slug !== adminEntry.slug && entry.dbId !== adminEntry.dbId && entry.id !== adminEntry.id)
+    .concat(adminEntry)
+    .sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || String(a.title || '').localeCompare(String(b.title || '')));
+
+  adminPortalState.selectedProductId = adminEntry.id;
+  adminPortalState.selectedProductDbId = adminEntry.dbId;
+  adminPortalState.selectedProductSlug = adminEntry.slug;
+
+  const elements = getAdminPortalElements();
+  if (elements.productId) elements.productId.value = adminEntry.dbId || '';
+  if (elements.productSlug) elements.productSlug.value = adminEntry.slug || '';
+
+  renderAdminProducts();
+  if (elements.productQuickSelect) elements.productQuickSelect.value = adminEntry.id;
+  updateAdminProductControls();
+  updateAdminProductLivePreview();
+  return normalized;
+}
+
+function mergeSavedProductIntoStorefront(savedProduct = {}) {
+  const normalized = normalizeSupabaseProductRow(savedProduct);
+  if (!normalized) return null;
+
+  const merged = supabaseManagedProductsCache
+    .filter((entry) => entry.slug !== normalized.slug)
+    .concat(normalized)
+    .filter((entry) => entry.is_active)
+    .sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || String(a.title || '').localeCompare(String(b.title || '')));
+
+  supabaseManagedProductsCache = merged;
+  hmStoreBridge.supabaseManagedProducts = merged.slice();
+  supabaseProductsBooted = true;
+  renderSupabaseManagedProducts(merged);
+
+  if (detailSections.__dynamic__ && !detailSections.__dynamic__.classList.contains('hidden-section')) {
+    populateDynamicProductDetail(normalized);
+  }
+
+  return normalized;
+}
+
+function createOptimisticSavedProduct(payload = {}, data = {}) {
+  return {
+    ...(data || {}),
+    ...payload,
+    id: data?.id || adminPortalState.selectedProductDbId || payload.id || '',
+    created_at: data?.created_at || payload.created_at || new Date().toISOString(),
+    updated_at: data?.updated_at || new Date().toISOString(),
+  };
+}
+
 async function saveAdminProductToSupabase(options = {}) {
   const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
   const elements = getAdminPortalElements();
@@ -4580,18 +4646,22 @@ async function saveAdminProductToSupabase(options = {}) {
     }
 
     if (result.error) throw result.error;
-    const data = result.data;
+
+    // Das Formular bleibt nach dem Senden die Wahrheit.
+    // Supabase kann direkt nach Schema-Änderungen kurz alte/gekürzte Rückgaben liefern.
+    // Deshalb wird die Antwort immer mit dem vollständigen Formular-Payload gemerged.
+    const optimisticProduct = createOptimisticSavedProduct(payload, result.data || {});
+    const normalizedSavedProduct = mergeSavedProductIntoAdminState(optimisticProduct);
+    mergeSavedProductIntoStorefront(optimisticProduct);
+
     const hiddenHint = payload.is_active ? '' : ' Das Produkt ist gespeichert, aber aktuell verborgen/inaktiv.';
     const detailHint = savedWithoutSchemaColumns
-      ? ' Hinweis: Die neuen Detailspalten fehlen noch. Bitte die SQL-Datei für das Produkt-Schema ausführen, damit alle Detailfelder einzeln gespeichert werden.'
+      ? ' Hinweis: Supabase hat die neuen Detailspalten noch nicht im Schema-Cache. Die Detaildaten wurden zusätzlich im Fallback gespeichert. Bitte die SQL-Datei prüfen und danach einmal neu laden.'
       : '';
     setAdminMessage(elements.productsMessage, `${payload.title} wurde in Supabase gespeichert.${hiddenHint}${detailHint}`, savedWithoutSchemaColumns ? 'warn' : 'success');
-    resetAdminProductForm(true);
-    adminPortalState.initialized = false;
-    await loadAdminPortalData(true);
-    if (data?.slug) {
-      supabaseProductsBooted = false;
-      loadSupabaseManagedProducts();
+
+    if (normalizedSavedProduct?.id) {
+      adminPortalState.initialized = false;
     }
   } catch (error) {
     setAdminMessage(elements.productsMessage, `Speichern fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'error');
@@ -4648,7 +4718,7 @@ async function handleAdminCatalogSync() {
   const elements = getAdminPortalElements();
   await saveAdminProductToSupabase({
     button: elements.productSyncButton,
-    idleText: 'Formular → Supabase',
+    idleText: 'Senden zu Supabase',
     loadingText: 'Speichere ...',
   });
 }
