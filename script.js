@@ -266,29 +266,32 @@ function getDefaultQuickFacts(product = {}) {
 
 function normalizeStoredProductDetail(detail = {}) {
   const source = detail && typeof detail === 'object' ? detail : {};
+  const quickFactsSource = Array.isArray(source.quickFacts)
+    ? source.quickFacts
+    : Array.isArray(source.quick_facts)
+      ? source.quick_facts
+      : [];
   return {
     version: 1,
-    detailTitle: String(source.detailTitle || '').trim(),
-    detailHeadline: String(source.detailHeadline || '').trim(),
-    detailIntro: String(source.detailIntro || '').trim(),
-    detailPriceHint: String(source.detailPriceHint || '').trim(),
-    detailFeatureIntro: String(source.detailFeatureIntro || '').trim(),
-    detailPart01: String(source.detailPart01 || '').trim(),
-    detailPart02: String(source.detailPart02 || '').trim(),
-    detailPart03: String(source.detailPart03 || '').trim(),
-    detailEinsatz: String(source.detailEinsatz || '').trim(),
-    detailLook: String(source.detailLook || '').trim(),
-    detailNutzen: String(source.detailNutzen || '').trim(),
-    detailSideImageUrl: String(source.detailSideImageUrl || '').trim(),
-    quickFacts: Array.isArray(source.quickFacts)
-      ? source.quickFacts
-          .map((entry) => ({
-            label: String(entry?.label || '').trim(),
-            value: String(entry?.value || '').trim(),
-          }))
-          .filter((entry) => entry.label || entry.value)
-          .slice(0, 4)
-      : [],
+    detailTitle: String(source.detailTitle || source.detail_title || '').trim(),
+    detailHeadline: String(source.detailHeadline || source.detail_headline || '').trim(),
+    detailIntro: String(source.detailIntro || source.detail_intro || '').trim(),
+    detailPriceHint: String(source.detailPriceHint || source.detail_price_hint || '').trim(),
+    detailFeatureIntro: String(source.detailFeatureIntro || source.detail_feature_intro || '').trim(),
+    detailPart01: String(source.detailPart01 || source.detail_part_01 || '').trim(),
+    detailPart02: String(source.detailPart02 || source.detail_part_02 || '').trim(),
+    detailPart03: String(source.detailPart03 || source.detail_part_03 || '').trim(),
+    detailEinsatz: String(source.detailEinsatz || source.detail_einsatz || '').trim(),
+    detailLook: String(source.detailLook || source.detail_look || '').trim(),
+    detailNutzen: String(source.detailNutzen || source.detail_nutzen || '').trim(),
+    detailSideImageUrl: String(source.detailSideImageUrl || source.detail_side_image_url || '').trim(),
+    quickFacts: quickFactsSource
+      .map((entry) => ({
+        label: String(entry?.label || '').trim(),
+        value: String(entry?.value || '').trim(),
+      }))
+      .filter((entry) => entry.label || entry.value)
+      .slice(0, 4),
   };
 }
 
@@ -477,8 +480,102 @@ function getAdminProductPreviewCopy(product = {}) {
   return String(product.short_description || config.detailIntro || '').trim();
 }
 
+function getProductDetailScore(product = {}) {
+  const detail = getStoredProductDetail(product) || {};
+  const values = [
+    detail.detailTitle,
+    detail.detailHeadline,
+    detail.detailIntro,
+    detail.detailPriceHint,
+    detail.detailFeatureIntro,
+    detail.detailPart01,
+    detail.detailPart02,
+    detail.detailPart03,
+    detail.detailEinsatz,
+    detail.detailLook,
+    detail.detailNutzen,
+    detail.detailSideImageUrl,
+    product.short_description,
+    product.image_url,
+  ];
+  const fieldScore = values.reduce((score, value) => score + (String(value || '').trim() ? 1 : 0), 0);
+  const quickFactScore = Array.isArray(detail.quickFacts)
+    ? detail.quickFacts.reduce((score, entry) => score + (entry.label || entry.value ? 1 : 0), 0)
+    : 0;
+  return fieldScore + quickFactScore;
+}
+
+function getProductTimestampScore(product = {}) {
+  const updated = Date.parse(product.updated_at || '') || 0;
+  const created = Date.parse(product.created_at || '') || 0;
+  return Math.max(updated, created);
+}
+
+function chooseBetterSupabaseProduct(current, candidate) {
+  if (!current) return candidate || null;
+  if (!candidate) return current;
+
+  const candidateDetailScore = getProductDetailScore(candidate);
+  const currentDetailScore = getProductDetailScore(current);
+  if (candidateDetailScore !== currentDetailScore) {
+    return candidateDetailScore > currentDetailScore ? candidate : current;
+  }
+
+  if ((candidate.is_active !== false) !== (current.is_active !== false)) {
+    return candidate.is_active !== false ? candidate : current;
+  }
+
+  const candidateTime = getProductTimestampScore(candidate);
+  const currentTime = getProductTimestampScore(current);
+  if (candidateTime !== currentTime) return candidateTime > currentTime ? candidate : current;
+
+  return candidate;
+}
+
+function dedupeSupabaseProductsBySlug(products = []) {
+  const map = new Map();
+  (Array.isArray(products) ? products : []).forEach((product) => {
+    if (!product || !product.slug) return;
+    const key = String(product.slug || '').trim();
+    if (!key) return;
+    map.set(key, chooseBetterSupabaseProduct(map.get(key), product));
+  });
+  return [...map.values()].sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || String(a.title || '').localeCompare(String(b.title || '')));
+}
+
 function getSupabaseManagedProductBySlug(slug) {
-  return supabaseManagedProductsCache.find((entry) => entry.slug === slug) || null;
+  const key = String(slug || '').trim();
+  if (!key) return null;
+  const candidates = supabaseManagedProductsCache.filter((entry) => entry.slug === key);
+  return candidates.reduce((best, entry) => chooseBetterSupabaseProduct(best, entry), null);
+}
+
+async function fetchFreshSupabaseProductBySlug(slug) {
+  const key = String(slug || '').trim();
+  if (!key) return null;
+  const client = getSupabaseClient();
+  if (!client) return null;
+  const foundation = loadFoundationState();
+  const productsTable = foundation.productsTable || 'products';
+
+  try {
+    const { data, error } = await withTimeout(
+      client
+        .from(productsTable)
+        .select('*')
+        .eq('slug', key)
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false })
+        .order('created_at', { ascending: false }),
+      12000,
+    );
+    if (error) throw error;
+    const normalized = Array.isArray(data) ? data.map(normalizeSupabaseProductRow).filter(Boolean) : [];
+    return dedupeSupabaseProductsBySlug(normalized)[0] || null;
+  } catch (error) {
+    console.warn('Supabase-Detailprodukt konnte nicht frisch geladen werden.', error);
+    return null;
+  }
 }
 
 function getDynamicDetailElements() {
@@ -568,10 +665,15 @@ function populateDynamicProductDetail(product) {
   }
 }
 
-function openDynamicProductDetail(slug, originSection = 'scripts') {
-  const product = getSupabaseManagedProductBySlug(String(slug || '').trim());
+async function openDynamicProductDetail(slug, originSection = 'scripts') {
+  const productSlug = String(slug || '').trim();
+  let product = getSupabaseManagedProductBySlug(productSlug);
+  if (!product) {
+    product = await fetchFreshSupabaseProductBySlug(productSlug);
+  }
   if (!product) return;
   if (!Object.keys(detailSections).length) cacheDomReferences();
+
   populateDynamicProductDetail(product);
   lastSectionBeforeDetail = originSection;
   const backButton = document.getElementById('backToDynamicProduct');
@@ -596,6 +698,17 @@ function openDynamicProductDetail(slug, originSection = 'scripts') {
   activateNav(originSection === 'home' ? 'home' : originSection === 'free' ? 'free' : originSection === 'clothing' ? 'clothing' : 'scripts');
   syncVideoPlayback();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  const freshProduct = await fetchFreshSupabaseProductBySlug(productSlug);
+  if (freshProduct) {
+    supabaseManagedProductsCache = dedupeSupabaseProductsBySlug(
+      supabaseManagedProductsCache
+        .filter((entry) => entry.slug !== freshProduct.slug)
+        .concat(freshProduct),
+    );
+    hmStoreBridge.supabaseManagedProducts = supabaseManagedProductsCache.slice();
+    populateDynamicProductDetail(freshProduct);
+  }
 }
 
 function formatRelativeDate(value) {
@@ -2938,7 +3051,7 @@ function renderMergedGrid(snapshot, rows) {
 
 function renderSupabaseManagedProducts(products) {
   const snapshot = captureStorefrontUiSnapshot();
-  const activeProducts = products.filter((row) => row.is_active);
+  const activeProducts = dedupeSupabaseProductsBySlug(products).filter((row) => row.is_active);
 
   activeProducts.forEach(upsertCatalogProductFromSupabase);
   supabaseManagedProductsCache = activeProducts.slice();
@@ -2991,7 +3104,7 @@ async function loadSupabaseManagedProducts() {
     if (error) throw error;
 
     const normalizedProducts = Array.isArray(data)
-      ? data.map(normalizeSupabaseProductRow).filter(Boolean)
+      ? dedupeSupabaseProductsBySlug(data.map(normalizeSupabaseProductRow).filter(Boolean))
       : [];
 
     renderSupabaseManagedProducts(normalizedProducts);
@@ -4003,7 +4116,7 @@ function mergeAdminPortalProducts(supabaseRows = []) {
     merged.set(entry.slug, entry);
   });
 
-  (Array.isArray(supabaseRows) ? supabaseRows : []).forEach((row) => {
+  dedupeSupabaseProductsBySlug(Array.isArray(supabaseRows) ? supabaseRows : []).forEach((row) => {
     if (!row) return;
     merged.set(row.slug, {
       ...row,
@@ -4407,7 +4520,7 @@ async function loadAdminPortalData(force = false) {
       client.from(foundation.productsTable || 'products').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: false })
         .then(({ data, error }) => {
           if (error) throw { scope: 'products', error };
-          const supabaseRows = Array.isArray(data) ? data.map(normalizeSupabaseProductRow).filter(Boolean) : [];
+          const supabaseRows = Array.isArray(data) ? dedupeSupabaseProductsBySlug(data.map(normalizeSupabaseProductRow).filter(Boolean)) : [];
           adminPortalState.products = mergeAdminPortalProducts(supabaseRows);
           renderAdminProducts();
           const supabaseCount = supabaseRows.length;
@@ -4538,10 +4651,17 @@ async function executeAdminProductSave(client, tableName, payload, selectedDbId,
     return client.from(tableName).update(savePayload).eq('id', selectedDbId).select('*').single();
   }
 
-  const lookup = await client.from(tableName).select('id').eq('slug', savePayload.slug).limit(1).maybeSingle();
+  const lookup = await client
+    .from(tableName)
+    .select('*')
+    .eq('slug', savePayload.slug)
+    .order('updated_at', { ascending: false })
+    .order('created_at', { ascending: false });
   if (lookup.error) return lookup;
-  if (lookup.data?.id) {
-    return client.from(tableName).update(savePayload).eq('id', lookup.data.id).select('*').single();
+  const existingRows = Array.isArray(lookup.data) ? lookup.data.map(normalizeSupabaseProductRow).filter(Boolean) : [];
+  const bestExisting = dedupeSupabaseProductsBySlug(existingRows)[0] || null;
+  if (bestExisting?.id) {
+    return client.from(tableName).update(savePayload).eq('id', bestExisting.id).select('*').single();
   }
   return client.from(tableName).insert(savePayload).select('*').single();
 }
@@ -4584,9 +4704,11 @@ function mergeSavedProductIntoStorefront(savedProduct = {}) {
   const normalized = normalizeSupabaseProductRow(savedProduct);
   if (!normalized) return null;
 
-  const merged = supabaseManagedProductsCache
-    .filter((entry) => entry.slug !== normalized.slug)
-    .concat(normalized)
+  const merged = dedupeSupabaseProductsBySlug(
+    supabaseManagedProductsCache
+      .filter((entry) => entry.slug !== normalized.slug)
+      .concat(normalized),
+  )
     .filter((entry) => entry.is_active)
     .sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || String(a.title || '').localeCompare(String(b.title || '')));
 
@@ -5127,7 +5249,7 @@ document.addEventListener('click', async (e) => {
           : dynamicDetailBtn.closest('#scriptsSection')
             ? 'scripts'
             : 'scripts';
-    openDynamicProductDetail(dynamicDetailBtn.dataset.openDynamicDetail, originSection);
+    await openDynamicProductDetail(dynamicDetailBtn.dataset.openDynamicDetail, originSection);
     return;
   }
 
