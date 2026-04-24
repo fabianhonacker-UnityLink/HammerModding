@@ -280,188 +280,164 @@ function encodeStoredProductDetail(detail = {}) {
   return `${HM_PRODUCT_DETAIL_PREFIX}${JSON.stringify(payload)}`;
 }
 
+
+
+function getValueOrEmpty(value) {
+  return String(value ?? '').trim();
+}
+
+function mapDetailPayloadToSupabaseColumns(detail = {}) {
+  const facts = Array.isArray(detail.quickFacts) ? detail.quickFacts : [];
+  const factAt = (index) => facts[index] || { label: '', value: '' };
+  return {
+    detail_data: {
+      version: 1,
+      detailTitle: getValueOrEmpty(detail.detailTitle),
+      detailHeadline: getValueOrEmpty(detail.detailHeadline),
+      detailIntro: getValueOrEmpty(detail.detailIntro),
+      detailPriceHint: getValueOrEmpty(detail.detailPriceHint),
+      detailFeatureIntro: getValueOrEmpty(detail.detailFeatureIntro),
+      detailPart01: getValueOrEmpty(detail.detailPart01),
+      detailPart02: getValueOrEmpty(detail.detailPart02),
+      detailPart03: getValueOrEmpty(detail.detailPart03),
+      detailEinsatz: getValueOrEmpty(detail.detailEinsatz),
+      detailLook: getValueOrEmpty(detail.detailLook),
+      detailNutzen: getValueOrEmpty(detail.detailNutzen),
+      detailSideImageUrl: getValueOrEmpty(detail.detailSideImageUrl),
+      quickFacts: [0, 1, 2, 3].map((index) => ({
+        label: getValueOrEmpty(factAt(index).label),
+        value: getValueOrEmpty(factAt(index).value),
+      })),
+    },
+    detail_title: getValueOrEmpty(detail.detailTitle),
+    detail_headline: getValueOrEmpty(detail.detailHeadline),
+    detail_intro: getValueOrEmpty(detail.detailIntro),
+    detail_price_hint: getValueOrEmpty(detail.detailPriceHint),
+    detail_side_image_url: getValueOrEmpty(detail.detailSideImageUrl),
+    detail_feature_intro: getValueOrEmpty(detail.detailFeatureIntro),
+    detail_part_01: getValueOrEmpty(detail.detailPart01),
+    detail_part_02: getValueOrEmpty(detail.detailPart02),
+    detail_part_03: getValueOrEmpty(detail.detailPart03),
+    detail_einsatz: getValueOrEmpty(detail.detailEinsatz),
+    detail_look: getValueOrEmpty(detail.detailLook),
+    detail_nutzen: getValueOrEmpty(detail.detailNutzen),
+    detail_quick_01_label: getValueOrEmpty(factAt(0).label),
+    detail_quick_01_value: getValueOrEmpty(factAt(0).value),
+    detail_quick_02_label: getValueOrEmpty(factAt(1).label),
+    detail_quick_02_value: getValueOrEmpty(factAt(1).value),
+    detail_quick_03_label: getValueOrEmpty(factAt(2).label),
+    detail_quick_03_value: getValueOrEmpty(factAt(2).value),
+    detail_quick_04_label: getValueOrEmpty(factAt(3).label),
+    detail_quick_04_value: getValueOrEmpty(factAt(3).value),
+  };
+}
+
+function readDetailConfigFromSupabaseColumns(product = {}) {
+  const fromColumns = {
+    detailTitle: getValueOrEmpty(product.detail_title),
+    detailHeadline: getValueOrEmpty(product.detail_headline),
+    detailIntro: getValueOrEmpty(product.detail_intro),
+    detailPriceHint: getValueOrEmpty(product.detail_price_hint),
+    detailFeatureIntro: getValueOrEmpty(product.detail_feature_intro),
+    detailPart01: getValueOrEmpty(product.detail_part_01),
+    detailPart02: getValueOrEmpty(product.detail_part_02),
+    detailPart03: getValueOrEmpty(product.detail_part_03),
+    detailEinsatz: getValueOrEmpty(product.detail_einsatz),
+    detailLook: getValueOrEmpty(product.detail_look),
+    detailNutzen: getValueOrEmpty(product.detail_nutzen),
+    detailSideImageUrl: getValueOrEmpty(product.detail_side_image_url),
+    quickFacts: [1, 2, 3, 4].map((index) => ({
+      label: getValueOrEmpty(product[`detail_quick_0${index}_label`]),
+      value: getValueOrEmpty(product[`detail_quick_0${index}_value`]),
+    })).filter((entry) => entry.label || entry.value),
+  };
+
+  const hasColumnData = Object.entries(fromColumns).some(([key, value]) => {
+    if (key === 'quickFacts') return Array.isArray(value) && value.length > 0;
+    return Boolean(value);
+  });
+
+  if (hasColumnData) return fromColumns;
+
+  const rawJson = product.detail_data;
+  if (rawJson && typeof rawJson === 'object') {
+    const facts = Array.isArray(rawJson.quickFacts) ? rawJson.quickFacts : [];
+    return {
+      detailTitle: getValueOrEmpty(rawJson.detailTitle),
+      detailHeadline: getValueOrEmpty(rawJson.detailHeadline),
+      detailIntro: getValueOrEmpty(rawJson.detailIntro),
+      detailPriceHint: getValueOrEmpty(rawJson.detailPriceHint),
+      detailFeatureIntro: getValueOrEmpty(rawJson.detailFeatureIntro),
+      detailPart01: getValueOrEmpty(rawJson.detailPart01),
+      detailPart02: getValueOrEmpty(rawJson.detailPart02),
+      detailPart03: getValueOrEmpty(rawJson.detailPart03),
+      detailEinsatz: getValueOrEmpty(rawJson.detailEinsatz),
+      detailLook: getValueOrEmpty(rawJson.detailLook),
+      detailNutzen: getValueOrEmpty(rawJson.detailNutzen),
+      detailSideImageUrl: getValueOrEmpty(rawJson.detailSideImageUrl),
+      quickFacts: facts.map((entry) => ({
+        label: getValueOrEmpty(entry?.label),
+        value: getValueOrEmpty(entry?.value),
+      })).filter((entry) => entry.label || entry.value).slice(0, 4),
+    };
+  }
+
+  return null;
+}
+
 function resolveProductDetailConfig(product = {}) {
-  const columnDetail = getDetailConfigFromRowColumns(product);
+  const columnDetail = readDetailConfigFromSupabaseColumns(product);
   const stored = decodeStoredProductDetail(product.full_description);
-  const activeDetail = columnDetail || stored || {};
-  const plainIntro = columnDetail?.detailIntro
-    || stored?.detailIntro
-    || (stored ? '' : String(product.full_description || '').trim());
-  const fallbackTitle = String(product.title || '').trim();
-  const fallbackHeadline = String(product.short_description || '').trim() || fallbackTitle;
+  const fallbackTitle = getValueOrEmpty(product.title);
+  const fallbackHeadline = getValueOrEmpty(product.short_description) || fallbackTitle;
   const fallbackPriceHint = getProductTypeLabel(product.product_type, product.category);
-  const fallbackImage = String(product.image_url || '').trim() || 'assets/content.png';
-  const quickFacts = (activeDetail.quickFacts || []).map((entry) => ({
-    label: String(entry?.label || '').trim(),
-    value: String(entry?.value || '').trim(),
-  })).filter((entry) => entry.label || entry.value);
-
-  return {
-    detailTitle: String(activeDetail.detailTitle || fallbackTitle).trim(),
-    detailHeadline: String(activeDetail.detailHeadline || fallbackHeadline).trim(),
-    detailIntro: String(plainIntro || product.short_description || '').trim(),
-    detailPriceHint: String(activeDetail.detailPriceHint || fallbackPriceHint).trim(),
-    detailFeatureIntro: String(activeDetail.detailFeatureIntro || product.short_description || '').trim(),
-    detailPart01: String(activeDetail.detailPart01 || '').trim(),
-    detailPart02: String(activeDetail.detailPart02 || '').trim(),
-    detailPart03: String(activeDetail.detailPart03 || '').trim(),
-    detailEinsatz: String(activeDetail.detailEinsatz || '').trim(),
-    detailLook: String(activeDetail.detailLook || '').trim(),
-    detailNutzen: String(activeDetail.detailNutzen || '').trim(),
-    detailSideImageUrl: String(activeDetail.detailSideImageUrl || fallbackImage).trim(),
-    quickFacts: quickFacts.length ? quickFacts : getDefaultQuickFacts(product),
-  };
-}
-function buildDetailPayloadFromAdminForm(elements, product = {}) {
-  const quickFacts = [1, 2, 3, 4].map((index) => ({
-    label: String(elements[`detailQuick${index}Label`]?.value || '').trim(),
-    value: String(elements[`detailQuick${index}Value`]?.value || '').trim(),
-  })).filter((entry) => entry.label || entry.value);
-
-  return {
-    detailTitle: String(elements.detailTitle?.value || product.title || '').trim(),
-    detailHeadline: String(elements.detailHeadline?.value || product.short_description || product.title || '').trim(),
-    detailIntro: String(elements.productFull?.value || '').trim(),
-    detailPriceHint: String(elements.detailPriceHint?.value || '').trim(),
-    detailFeatureIntro: String(elements.detailFeatureIntro?.value || '').trim(),
-    detailPart01: String(elements.detailPart01?.value || '').trim(),
-    detailPart02: String(elements.detailPart02?.value || '').trim(),
-    detailPart03: String(elements.detailPart03?.value || '').trim(),
-    detailEinsatz: String(elements.detailEinsatz?.value || '').trim(),
-    detailLook: String(elements.detailLook?.value || '').trim(),
-    detailNutzen: String(elements.detailNutzen?.value || '').trim(),
-    detailSideImageUrl: String(elements.detailSideImageUrl?.value || '').trim(),
-    quickFacts,
-  };
-}
-
-
-function buildDetailDataObject(detail = {}) {
-  const quickFacts = Array.isArray(detail.quickFacts)
-    ? detail.quickFacts
-        .map((entry) => ({
-          label: String(entry?.label || '').trim(),
-          value: String(entry?.value || '').trim(),
-        }))
+  const fallbackImage = getValueOrEmpty(product.image_url) || 'assets/content.png';
+  const source = columnDetail || stored || {};
+  const quickFacts = Array.isArray(source.quickFacts)
+    ? source.quickFacts
+        .map((entry) => ({ label: getValueOrEmpty(entry?.label), value: getValueOrEmpty(entry?.value) }))
         .filter((entry) => entry.label || entry.value)
         .slice(0, 4)
     : [];
 
   return {
-    version: 1,
-    detailTitle: String(detail.detailTitle || '').trim(),
-    detailHeadline: String(detail.detailHeadline || '').trim(),
-    detailIntro: String(detail.detailIntro || '').trim(),
-    detailPriceHint: String(detail.detailPriceHint || '').trim(),
-    detailFeatureIntro: String(detail.detailFeatureIntro || '').trim(),
-    detailPart01: String(detail.detailPart01 || '').trim(),
-    detailPart02: String(detail.detailPart02 || '').trim(),
-    detailPart03: String(detail.detailPart03 || '').trim(),
-    detailEinsatz: String(detail.detailEinsatz || '').trim(),
-    detailLook: String(detail.detailLook || '').trim(),
-    detailNutzen: String(detail.detailNutzen || '').trim(),
-    detailSideImageUrl: String(detail.detailSideImageUrl || '').trim(),
+    detailTitle: getValueOrEmpty(source.detailTitle) || fallbackTitle,
+    detailHeadline: getValueOrEmpty(source.detailHeadline) || fallbackHeadline,
+    detailIntro: getValueOrEmpty(source.detailIntro) || getValueOrEmpty(product.full_description_text) || getValueOrEmpty(product.short_description),
+    detailPriceHint: getValueOrEmpty(source.detailPriceHint) || fallbackPriceHint,
+    detailFeatureIntro: getValueOrEmpty(source.detailFeatureIntro) || getValueOrEmpty(product.short_description),
+    detailPart01: getValueOrEmpty(source.detailPart01),
+    detailPart02: getValueOrEmpty(source.detailPart02),
+    detailPart03: getValueOrEmpty(source.detailPart03),
+    detailEinsatz: getValueOrEmpty(source.detailEinsatz),
+    detailLook: getValueOrEmpty(source.detailLook),
+    detailNutzen: getValueOrEmpty(source.detailNutzen),
+    detailSideImageUrl: getValueOrEmpty(source.detailSideImageUrl) || fallbackImage,
+    quickFacts: quickFacts.length ? quickFacts : getDefaultQuickFacts(product),
+  };
+}
+
+function buildDetailPayloadFromAdminForm(elements, product = {}) {
+  const quickFacts = [1, 2, 3, 4].map((index) => ({
+    label: getValueOrEmpty(elements[`detailQuick${index}Label`]?.value),
+    value: getValueOrEmpty(elements[`detailQuick${index}Value`]?.value),
+  }));
+
+  return {
+    detailTitle: getValueOrEmpty(elements.detailTitle?.value) || getValueOrEmpty(product.title),
+    detailHeadline: getValueOrEmpty(elements.detailHeadline?.value) || getValueOrEmpty(product.short_description) || getValueOrEmpty(product.title),
+    detailIntro: getValueOrEmpty(elements.productFull?.value),
+    detailPriceHint: getValueOrEmpty(elements.detailPriceHint?.value),
+    detailFeatureIntro: getValueOrEmpty(elements.detailFeatureIntro?.value),
+    detailPart01: getValueOrEmpty(elements.detailPart01?.value),
+    detailPart02: getValueOrEmpty(elements.detailPart02?.value),
+    detailPart03: getValueOrEmpty(elements.detailPart03?.value),
+    detailEinsatz: getValueOrEmpty(elements.detailEinsatz?.value),
+    detailLook: getValueOrEmpty(elements.detailLook?.value),
+    detailNutzen: getValueOrEmpty(elements.detailNutzen?.value),
+    detailSideImageUrl: getValueOrEmpty(elements.detailSideImageUrl?.value),
     quickFacts,
   };
-}
-
-function buildDetailColumnPayload(detail = {}) {
-  const facts = Array.isArray(detail.quickFacts) ? detail.quickFacts : [];
-  const fact = (index) => facts[index - 1] || {};
-  return {
-    detail_data: buildDetailDataObject(detail),
-    detail_title: String(detail.detailTitle || '').trim(),
-    detail_headline: String(detail.detailHeadline || '').trim(),
-    detail_intro: String(detail.detailIntro || '').trim(),
-    detail_price_hint: String(detail.detailPriceHint || '').trim(),
-    detail_feature_intro: String(detail.detailFeatureIntro || '').trim(),
-    detail_part_01: String(detail.detailPart01 || '').trim(),
-    detail_part_02: String(detail.detailPart02 || '').trim(),
-    detail_part_03: String(detail.detailPart03 || '').trim(),
-    detail_einsatz: String(detail.detailEinsatz || '').trim(),
-    detail_look: String(detail.detailLook || '').trim(),
-    detail_nutzen: String(detail.detailNutzen || '').trim(),
-    detail_side_image_url: String(detail.detailSideImageUrl || '').trim(),
-    detail_quick_01_label: String(fact(1).label || '').trim(),
-    detail_quick_01_value: String(fact(1).value || '').trim(),
-    detail_quick_02_label: String(fact(2).label || '').trim(),
-    detail_quick_02_value: String(fact(2).value || '').trim(),
-    detail_quick_03_label: String(fact(3).label || '').trim(),
-    detail_quick_03_value: String(fact(3).value || '').trim(),
-    detail_quick_04_label: String(fact(4).label || '').trim(),
-    detail_quick_04_value: String(fact(4).value || '').trim(),
-  };
-}
-
-function getDetailConfigFromRowColumns(product = {}) {
-  const detailData = product.detail_data && typeof product.detail_data === 'object' ? product.detail_data : null;
-  const quickFactsFromColumns = [1, 2, 3, 4].map((index) => {
-    const padded = String(index).padStart(2, '0');
-    return {
-      label: String(product[`detail_quick_${padded}_label`] || '').trim(),
-      value: String(product[`detail_quick_${padded}_value`] || '').trim(),
-    };
-  }).filter((entry) => entry.label || entry.value);
-  const quickFactsFromData = Array.isArray(detailData?.quickFacts)
-    ? detailData.quickFacts.map((entry) => ({
-        label: String(entry?.label || '').trim(),
-        value: String(entry?.value || '').trim(),
-      })).filter((entry) => entry.label || entry.value)
-    : [];
-
-  const detail = {
-    detailTitle: String(product.detail_title || detailData?.detailTitle || '').trim(),
-    detailHeadline: String(product.detail_headline || detailData?.detailHeadline || '').trim(),
-    detailIntro: String(product.detail_intro || detailData?.detailIntro || '').trim(),
-    detailPriceHint: String(product.detail_price_hint || detailData?.detailPriceHint || '').trim(),
-    detailFeatureIntro: String(product.detail_feature_intro || detailData?.detailFeatureIntro || '').trim(),
-    detailPart01: String(product.detail_part_01 || detailData?.detailPart01 || '').trim(),
-    detailPart02: String(product.detail_part_02 || detailData?.detailPart02 || '').trim(),
-    detailPart03: String(product.detail_part_03 || detailData?.detailPart03 || '').trim(),
-    detailEinsatz: String(product.detail_einsatz || detailData?.detailEinsatz || '').trim(),
-    detailLook: String(product.detail_look || detailData?.detailLook || '').trim(),
-    detailNutzen: String(product.detail_nutzen || detailData?.detailNutzen || '').trim(),
-    detailSideImageUrl: String(product.detail_side_image_url || detailData?.detailSideImageUrl || '').trim(),
-    quickFacts: quickFactsFromColumns.length ? quickFactsFromColumns : quickFactsFromData,
-  };
-
-  const hasAnyDetail = Boolean(
-    detail.detailTitle
-    || detail.detailHeadline
-    || detail.detailIntro
-    || detail.detailPriceHint
-    || detail.detailFeatureIntro
-    || detail.detailPart01
-    || detail.detailPart02
-    || detail.detailPart03
-    || detail.detailEinsatz
-    || detail.detailLook
-    || detail.detailNutzen
-    || detail.detailSideImageUrl
-    || detail.quickFacts.length
-  );
-
-  return hasAnyDetail ? detail : null;
-}
-
-function countFilledDetailPayloadFields(detail = {}) {
-  const quickCount = Array.isArray(detail.quickFacts)
-    ? detail.quickFacts.filter((entry) => String(entry?.label || '').trim() || String(entry?.value || '').trim()).length
-    : 0;
-  return [
-    detail.detailTitle,
-    detail.detailHeadline,
-    detail.detailIntro,
-    detail.detailPriceHint,
-    detail.detailFeatureIntro,
-    detail.detailPart01,
-    detail.detailPart02,
-    detail.detailPart03,
-    detail.detailEinsatz,
-    detail.detailLook,
-    detail.detailNutzen,
-    detail.detailSideImageUrl,
-  ].filter((value) => String(value || '').trim()).length + quickCount;
 }
 
 function hasDynamicProductDetail(product = {}) {
@@ -2698,11 +2674,11 @@ function formatSupabasePriceLabel(value) {
 function normalizeSupabaseProductRow(row) {
   if (!row || !row.slug || !row.title) return null;
   const storedDetail = decodeStoredProductDetail(row.full_description);
-  const columnDetail = getDetailConfigFromRowColumns(row);
-  const activeDetail = columnDetail || storedDetail;
-  const plainFullDescription = activeDetail
-    ? String(activeDetail.detailIntro || '').trim()
-    : String(row.full_description || '').trim();
+  const columnDetail = readDetailConfigFromSupabaseColumns(row);
+  const mergedDetail = columnDetail || storedDetail;
+  const plainFullDescription = mergedDetail
+    ? getValueOrEmpty(mergedDetail.detailIntro)
+    : getValueOrEmpty(row.full_description);
   return {
     ...row,
     slug: String(row.slug).trim(),
@@ -2713,7 +2689,7 @@ function normalizeSupabaseProductRow(row) {
     short_description: String(row.short_description || '').trim(),
     full_description: String(row.full_description || '').trim(),
     full_description_text: plainFullDescription,
-    detail_config: activeDetail,
+    detail_config: mergedDetail,
     image_url: String(row.image_url || '').trim(),
     tebex_package_id: String(row.tebex_package_id || '').trim(),
     is_active: row.is_active !== false,
@@ -2721,6 +2697,7 @@ function normalizeSupabaseProductRow(row) {
     sort_order: Number.isFinite(Number(row.sort_order)) ? Number(row.sort_order) : 0,
   };
 }
+
 function getSupabaseProductPresentation(row) {
   const preset = supabaseProductPresentation[row.slug] || {};
   const firstWord = row.title.split(/\s+/).filter(Boolean)[0] || 'Produkt';
@@ -4123,6 +4100,7 @@ function updateAdminPortalAccess() {
 
 function resetAdminProductForm(keepMessage = false) {
   const elements = getAdminPortalElements();
+  if (elements.productSyncButton) elements.productSyncButton.textContent = 'Formular → Supabase';
   if (!elements.productForm) return;
   elements.productForm.reset();
   if (elements.productId) elements.productId.value = '';
@@ -4505,7 +4483,7 @@ async function collectAdminProductPayload() {
     short_description: String(elements.productShort?.value || '').trim(),
   };
   const detailPayload = buildDetailPayloadFromAdminForm(elements, draftProduct);
-  const detailColumns = buildDetailColumnPayload(detailPayload);
+  const detailColumns = mapDetailPayloadToSupabaseColumns(detailPayload);
   return {
     title,
     slug,
@@ -4522,126 +4500,66 @@ async function collectAdminProductPayload() {
     is_featured: Boolean(elements.productFeatured?.checked),
   };
 }
-async function saveAdminProductFromCurrentForm({ source = 'form' } = {}) {
+
+async function handleAdminProductSave(event) {
+  event?.preventDefault?.();
   const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
   const elements = getAdminPortalElements();
   if (!permissions.canEditProducts) {
-    setAdminMessage(elements.productsMessage, 'Deine Rolle darf Produkte nicht bearbeiten.', 'error');
-    return null;
+    return setAdminMessage(elements.productsMessage, 'Deine Rolle darf Produkte nicht bearbeiten.', 'error');
   }
   const client = getSupabaseClient();
-  if (!client) {
-    setAdminMessage(elements.productsMessage, 'Supabase ist nicht verbunden.', 'error');
-    return null;
-  }
+  if (!client) return setAdminMessage(elements.productsMessage, 'Supabase ist nicht verbunden.', 'error');
   const payload = await collectAdminProductPayload();
   if (!payload.title || !payload.slug) {
-    setAdminMessage(elements.productsMessage, 'Titel und Slug sind Pflicht.', 'error');
-    return null;
+    return setAdminMessage(elements.productsMessage, 'Titel und Slug sind Pflicht.', 'error');
   }
   if (elements.productSlug) elements.productSlug.value = payload.slug;
-
-  const tableName = loadFoundationState().productsTable || 'products';
-  const detailCount = countFilledDetailPayloadFields(buildDetailPayloadFromAdminForm(elements, payload));
-  const activeButton = source === 'sync' ? elements.productSyncButton : elements.productSaveButton;
+  const activeButton = event?.currentTarget || elements.productSaveButton;
+  const oldButtonText = activeButton?.textContent || '';
   if (activeButton) {
     activeButton.disabled = true;
-    activeButton.textContent = source === 'sync' ? 'Sende ...' : 'Speichere ...';
+    activeButton.textContent = 'Speichere ...';
   }
-
   try {
-    let savedRow = null;
-    let saveError = null;
-
+    const tableName = loadFoundationState().productsTable || 'products';
+    let query;
     if (adminPortalState.selectedProductDbId) {
-      const { data, error } = await client
-        .from(tableName)
-        .update(payload)
-        .eq('id', adminPortalState.selectedProductDbId)
-        .select('*')
-        .single();
-      savedRow = data;
-      saveError = error;
+      query = client.from(tableName).update(payload).eq('id', adminPortalState.selectedProductDbId).select('*').single();
     } else {
-      const { data: existingRows, error: lookupError } = await client
-        .from(tableName)
-        .select('id, slug')
-        .eq('slug', payload.slug)
-        .limit(1);
-      if (lookupError) throw lookupError;
-
-      const existingId = Array.isArray(existingRows) && existingRows[0]?.id ? existingRows[0].id : '';
-      if (existingId) {
-        const { data, error } = await client
-          .from(tableName)
-          .update(payload)
-          .eq('id', existingId)
-          .select('*')
-          .single();
-        savedRow = data;
-        saveError = error;
-      } else {
-        const { data, error } = await client
-          .from(tableName)
-          .insert(payload)
-          .select('*')
-          .single();
-        savedRow = data;
-        saveError = error;
-      }
+      // Bei neuem Produkt zuerst per Slug upserten, damit keine doppelten Datensätze entstehen.
+      query = client.from(tableName).upsert(payload, { onConflict: 'slug' }).select('*').single();
     }
+    const { data, error } = await query;
+    if (error) throw error;
 
-    if (saveError) throw saveError;
+    const savedProduct = normalizeSupabaseProductRow(data);
+    setAdminMessage(elements.productsMessage, `${payload.title} wurde vollständig in Supabase gespeichert.`, 'success');
 
-    const normalized = normalizeSupabaseProductRow({ ...payload, ...(savedRow || {}) });
-    if (normalized) {
-      const productId = `db:${normalized.id}`;
-      const existingIndex = adminPortalState.products.findIndex((entry) => entry.id === productId || entry.slug === normalized.slug);
-      const nextEntry = {
-        ...normalized,
-        id: productId,
-        dbId: normalized.id,
-        sourceKind: 'supabase',
-        sourceLabel: 'Supabase',
-      };
-      if (existingIndex >= 0) {
-        adminPortalState.products.splice(existingIndex, 1, nextEntry);
-      } else {
-        adminPortalState.products.unshift(nextEntry);
-      }
-      adminPortalState.selectedProductId = productId;
-      adminPortalState.selectedProductDbId = normalized.id || adminPortalState.selectedProductDbId;
-      adminPortalState.selectedProductSlug = normalized.slug || payload.slug;
-      renderAdminProducts();
-      hydrateAdminProductForm(nextEntry);
-      upsertCatalogProductFromSupabase(normalized);
-    }
+    adminPortalState.selectedProductDbId = data?.id || adminPortalState.selectedProductDbId || '';
+    adminPortalState.selectedProductSlug = payload.slug;
+    if (elements.productId) elements.productId.value = adminPortalState.selectedProductDbId;
 
+    adminPortalState.initialized = false;
     supabaseProductsBooted = false;
+    await loadAdminPortalData(true);
     await loadSupabaseManagedProducts();
-    setAdminMessage(elements.productsMessage, `${payload.title} wurde an Supabase gesendet. Detailfelder im Payload: ${detailCount}.`, 'success');
-    console.info('[HammerModding] Produkt an Supabase gesendet:', payload);
-    return savedRow || payload;
+
+    const refreshed = getAdminProductByKey(`db:${data?.id}`)
+      || adminPortalState.products.find((entry) => entry.slug === payload.slug && entry.sourceKind === 'supabase')
+      || savedProduct;
+    if (refreshed) hydrateAdminProductForm(refreshed);
+    updateAdminProductLivePreview();
   } catch (error) {
     setAdminMessage(elements.productsMessage, `Speichern fehlgeschlagen: ${error.message || 'Unbekannter Fehler'}`, 'error');
-    console.error('[HammerModding] Supabase-Speicherfehler:', error, payload);
-    return null;
   } finally {
-    if (elements.productSaveButton) {
-      elements.productSaveButton.disabled = false;
-      elements.productSaveButton.textContent = 'Speichern';
-    }
-    if (elements.productSyncButton) {
-      elements.productSyncButton.disabled = false;
-      elements.productSyncButton.textContent = 'Formular → Supabase';
+    if (activeButton) {
+      activeButton.disabled = false;
+      activeButton.textContent = oldButtonText || 'Speichern';
     }
   }
 }
 
-async function handleAdminProductSave(event) {
-  event.preventDefault();
-  await saveAdminProductFromCurrentForm({ source: 'form' });
-}
 async function handleAdminProductDelete() {
   const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
   const elements = getAdminPortalElements();
@@ -4669,9 +4587,12 @@ async function handleAdminProductDelete() {
 
 async function handleAdminCatalogSync() {
   const elements = getAdminPortalElements();
-  setAdminMessage(elements.productsMessage, 'Sende aktuelles Formular an Supabase ...');
-  return saveAdminProductFromCurrentForm({ source: 'sync' });
+  return handleAdminProductSave({
+    preventDefault() {},
+    currentTarget: elements.productSyncButton || elements.productSaveButton,
+  });
 }
+
 async function handleAdminRoleSave(profileId = adminPortalState.selectedUserId) {
   const permissions = getAdminPermissions(liveAccountSnapshot.profile?.role || 'guest');
   const elements = getAdminPortalElements();
