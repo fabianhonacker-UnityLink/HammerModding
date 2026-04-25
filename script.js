@@ -18,6 +18,38 @@ const viewportVisibility = new WeakMap();
 let viewportObserver = null;
 let introBooting = false;
 
+let hmRouterApplying = false;
+let hmRouterInitialRouteApplied = false;
+
+const hmRouterSectionPaths = {
+  home: '/',
+  clothing: '/kleidung',
+  scripts: '/scripte',
+  free: '/free-scripts',
+  contact: '/kontakt',
+  account: '/konto',
+  system: '/admin',
+};
+
+const hmRouterPathSections = {
+  '': 'home',
+  '/': 'home',
+  '/start': 'home',
+  '/home': 'home',
+  '/kleidung': 'clothing',
+  '/clothing': 'clothing',
+  '/scripte': 'scripts',
+  '/scripts': 'scripts',
+  '/free-scripts': 'free',
+  '/free': 'free',
+  '/kontakt': 'contact',
+  '/contact': 'contact',
+  '/konto': 'account',
+  '/account': 'account',
+  '/admin': 'system',
+  '/system': 'system',
+};
+
 function cacheDomReferences() {
   navItems = Array.from(document.querySelectorAll('.nav-item'));
   homeSections = Array.from(document.querySelectorAll('.section-home'));
@@ -554,7 +586,7 @@ function populateDynamicProductDetail(product) {
   }
 }
 
-function openDynamicProductDetail(slug, originSection = 'scripts') {
+function openDynamicProductDetail(slug, originSection = 'scripts', options = {}) {
   const product = getSupabaseManagedProductBySlug(String(slug || '').trim());
   if (!product) return;
   if (!Object.keys(detailSections).length) cacheDomReferences();
@@ -581,7 +613,8 @@ function openDynamicProductDetail(slug, originSection = 'scripts') {
   setVisible(detailSections.__dynamic__, true);
   activateNav(originSection === 'home' ? 'home' : originSection === 'free' ? 'free' : originSection === 'clothing' ? 'clothing' : 'scripts');
   syncVideoPlayback();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (!options.skipHistory && !hmRouterApplying) hmRouterUpdateProduct(slug, originSection);
+  if (options.scroll !== false) window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function formatRelativeDate(value) {
@@ -1394,6 +1427,137 @@ function activateNav(section) {
   navItems.forEach((item) => item.classList.toggle('active', item.dataset.section === section));
 }
 
+
+function hmRouterNormalizePath(pathname = window.location.pathname || '/') {
+  const raw = String(pathname || '/').split('?')[0].split('#')[0].trim() || '/';
+  const cleaned = raw.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
+  return cleaned;
+}
+
+function hmRouterBuildProductPath(slug = '') {
+  const safeSlug = encodeURIComponent(String(slug || '').trim());
+  return safeSlug ? `/produkt/${safeSlug}` : '/';
+}
+
+function hmRouterGetSectionPath(section = 'home') {
+  return hmRouterSectionPaths[section] || '/';
+}
+
+function hmRouterSetUrl(path, state = {}, replace = false) {
+  if (hmRouterApplying || !window.history || typeof window.history.pushState !== 'function') return;
+  const nextPath = path || '/';
+  const currentPath = `${window.location.pathname}${window.location.search || ''}${window.location.hash || ''}`;
+  const nextState = { hmRoute: true, ...state };
+  if (currentPath === nextPath) {
+    window.history.replaceState(nextState, '', nextPath);
+    return;
+  }
+  const method = replace ? 'replaceState' : 'pushState';
+  window.history[method](nextState, '', nextPath);
+}
+
+function hmRouterUpdateSection(section = 'home', replace = false) {
+  hmRouterSetUrl(hmRouterGetSectionPath(section), { section }, replace);
+}
+
+function hmRouterUpdateProduct(slug = '', originSection = 'scripts', replace = false) {
+  if (!slug) return;
+  hmRouterSetUrl(hmRouterBuildProductPath(slug), { detail: 'product', slug, originSection }, replace);
+}
+
+function hmRouterInferOriginFromProduct(product = {}) {
+  const category = getNormalizedRole(product.category);
+  if (category === 'clothing') return 'clothing';
+  if (category === 'free_scripts') return 'free';
+  if (category === 'scripts') return 'scripts';
+  return 'scripts';
+}
+
+function hmRouterParseCurrentRoute() {
+  const path = hmRouterNormalizePath();
+  const parts = path.split('/').filter(Boolean).map((part) => decodeURIComponent(part));
+
+  if (!parts.length) return { type: 'section', section: 'home' };
+
+  if (['produkt', 'product', 'p'].includes(parts[0]) && parts[1]) {
+    return { type: 'product', slug: parts[1] };
+  }
+
+  if (['script', 'scripts-detail'].includes(parts[0]) && parts[1]) {
+    return { type: 'staticDetail', slug: parts[1], originSection: 'scripts' };
+  }
+
+  const section = hmRouterPathSections[path] || hmRouterPathSections[`/${parts[0]}`] || 'home';
+  return { type: 'section', section };
+}
+
+function hmRouterShowSection(section = 'home', options = {}) {
+  const previousApplying = hmRouterApplying;
+  hmRouterApplying = true;
+  try {
+    activateNav(section);
+    showSection(section);
+    if (options.scroll !== false) window.scrollTo({ top: 0, behavior: options.smooth === false ? 'auto' : 'smooth' });
+  } finally {
+    hmRouterApplying = previousApplying;
+  }
+  if (options.replace) hmRouterUpdateSection(section, true);
+}
+
+function hmRouterOpenProduct(slug = '', options = {}) {
+  const cleanSlug = String(slug || '').trim();
+  if (!cleanSlug) return false;
+  const product = getSupabaseManagedProductBySlug(cleanSlug);
+  const previousApplying = hmRouterApplying;
+  hmRouterApplying = true;
+  try {
+    if (product) {
+      openDynamicProductDetail(cleanSlug, options.originSection || hmRouterInferOriginFromProduct(product), { skipHistory: true, scroll: options.scroll !== false });
+      return true;
+    }
+    if (detailSections[cleanSlug]) {
+      openScriptDetail(cleanSlug, options.originSection || 'scripts', { skipHistory: true, scroll: options.scroll !== false });
+      return true;
+    }
+    return false;
+  } finally {
+    hmRouterApplying = previousApplying;
+  }
+}
+
+function hmRouterApplyCurrentRoute(options = {}) {
+  const route = hmRouterParseCurrentRoute();
+  let applied = false;
+
+  if (route.type === 'product') {
+    applied = hmRouterOpenProduct(route.slug, { scroll: options.scroll, originSection: options.originSection });
+    if (!applied) {
+      hmRouterShowSection('home', { scroll: options.scroll, smooth: options.smooth });
+    }
+  } else if (route.type === 'staticDetail') {
+    applied = hmRouterOpenProduct(route.slug, { scroll: options.scroll, originSection: route.originSection || 'scripts' });
+    if (!applied) hmRouterShowSection('scripts', { scroll: options.scroll, smooth: options.smooth });
+  } else {
+    hmRouterShowSection(route.section || 'home', { scroll: options.scroll, smooth: options.smooth });
+    applied = true;
+  }
+
+  if (options.replace && window.history && typeof window.history.replaceState === 'function') {
+    window.history.replaceState({ hmRoute: true, route }, '', window.location.pathname || '/');
+  }
+  return applied;
+}
+
+function hmRouterApplyInitialRoute() {
+  if (hmRouterInitialRouteApplied) return;
+  hmRouterInitialRouteApplied = true;
+  hmRouterApplyCurrentRoute({ replace: true, scroll: false, smooth: false });
+}
+
+window.addEventListener('popstate', () => {
+  hmRouterApplyCurrentRoute({ scroll: false, smooth: false });
+});
+
 function showSection(section) {
   if (!homeSections.length && !scriptsSection) cacheDomReferences();
   homeSections.forEach((el) => {
@@ -1411,9 +1575,10 @@ function showSection(section) {
     loadAdminPortalData();
   }
   syncVideoPlayback();
+  if (!hmRouterApplying) hmRouterUpdateSection(section || 'home');
 }
 
-function openScriptDetail(scriptName, originSection = 'scripts') {
+function openScriptDetail(scriptName, originSection = 'scripts', options = {}) {
   if (!Object.keys(detailSections).length) cacheDomReferences();
   lastSectionBeforeDetail = originSection;
   homeSections.forEach((el) => (el.style.display = 'none'));
@@ -1427,11 +1592,16 @@ function openScriptDetail(scriptName, originSection = 'scripts') {
   setVisible(detailSections[scriptName], true);
   activateNav(originSection === 'home' ? 'home' : originSection === 'free' ? 'free' : originSection === 'clothing' ? 'clothing' : 'scripts');
   syncVideoPlayback();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (!options.skipHistory && !hmRouterApplying) hmRouterUpdateProduct(scriptName, originSection);
+  if (options.scroll !== false) window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function goBackFromDetail() {
   const target = lastSectionBeforeDetail || 'scripts';
+  if (!hmRouterApplying && window.history && window.history.state?.hmRoute) {
+    window.history.back();
+    return;
+  }
   activateNav(target);
   showSection(target);
 }
@@ -4759,13 +4929,14 @@ function initHammerModdingApp() {
   setupPreparedCartButtons();
   setupFoundationPlanner();
   setupAdminPortal();
-  loadSupabaseManagedProducts();
+  const productsLoadPromise = loadSupabaseManagedProducts();
   setupLiveSupabaseAuth();
   setupSmoothHomeIntro();
   setupMarquees();
   setupCinematicBackground();
   syncVideoPlayback();
   appInitialized = true;
+  Promise.resolve(productsLoadPromise).finally(() => hmRouterApplyInitialRoute());
 }
 
 document.addEventListener('click', async (e) => {
@@ -5078,11 +5249,9 @@ window.addEventListener('focus', () => {
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     initHammerModdingApp();
-    showSection('home');
   }, { once: true });
 } else {
   initHammerModdingApp();
-  showSection('home');
 }
 
 function setupSmoothHomeIntro() {
