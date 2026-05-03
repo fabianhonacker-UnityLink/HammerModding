@@ -130,7 +130,7 @@ Object.entries(tebexPackageMap).forEach(([slug, packageId]) => {
 });
 
 const hmStoreBridge = (window.hmStoreBridge = window.hmStoreBridge || {
-  version: 'phase-6h-tebex-mapping-prep',
+  version: 'phase-6h-tebex-mapping-prep-v15-checkout-direct',
   catalog: storeCatalog,
   tebexPublicToken: TEBEX_PUBLIC_TOKEN,
   tebexBackendBaseUrl: TEBEX_BACKEND_BASE_URL,
@@ -583,6 +583,7 @@ function populateDynamicProductDetail(product) {
     elements.cartButton.dataset.productPriceLabel = formatSupabasePriceLabel(product.price_eur || 0);
     elements.cartButton.dataset.productSlug = product.slug || '';
     elements.cartButton.dataset.productType = catalogItem.type || (product.category === 'clothing' ? 'clothing' : 'paid-script');
+    elements.cartButton.dataset.productTebexPackageId = String(product.tebex_package_id || catalogItem.tebexPackageId || '').trim();
     elements.cartButton.dataset.cartReady = 'true';
     bindPreparedCartButtons(elements.section || document);
     updateCartButtonsState(loadVisibleCart());
@@ -1682,7 +1683,7 @@ function buildPreparedCartItem(button) {
     priceLabel,
     priceCents: parseCartPriceToCents(price),
     quantity: 1,
-    tebexPackageId: catalogItem?.tebexPackageId || '',
+    tebexPackageId: String(button.dataset.productTebexPackageId || catalogItem?.tebexPackageId || '').trim(),
     source: 'detail-page',
   };
 }
@@ -1909,7 +1910,10 @@ function updateRequestDraftFields(cart) {
   });
 
   checkoutButtons.forEach((button) => {
-    button.disabled = !items.length;
+    // V15: Nicht mehr hart deaktivieren, weil disabled Buttons keinen Klick auslösen.
+    // Der Klick selbst zeigt bei leerem Warenkorb eine saubere Meldung.
+    button.disabled = false;
+    button.dataset.checkoutReady = items.length ? 'true' : 'false';
   });
 
   hmStoreBridge.requestText = requestText;
@@ -1988,7 +1992,9 @@ function setCheckoutButtonsLoadingState(isLoading) {
     if (!button.dataset.defaultLabel) {
       button.dataset.defaultLabel = button.textContent || 'Direkt zu Tebex';
     }
-    button.disabled = isLoading || !loadVisibleCart().length;
+    // V15: Der Checkout-Button bleibt grundsätzlich klickbar.
+    // Ob der Warenkorb leer ist, prüft beginLiveTebexCheckout mit einer klaren Meldung.
+    button.disabled = Boolean(isLoading);
     button.textContent = isLoading ? 'Leite weiter ...' : button.dataset.defaultLabel;
   });
 }
@@ -2176,52 +2182,91 @@ async function maybeResumePendingTebexCheckout() {
 }
 
 async function beginLiveTebexCheckout() {
-  const cart = loadVisibleCart();
-  refreshVisibleCartUi(cart);
-
-  if (!cart.length) {
-    window.alert('Dein Warenkorb ist leer. Bitte zuerst ein Produkt hinzufügen.');
-    return;
-  }
-
-  if (!liveAccountSnapshot.user || !liveAccountSnapshot.session?.access_token) {
-    openAuthModal('login');
-    return;
-  }
-
-  const discordReady = await ensureDiscordReadyForCheckout();
-  if (!discordReady) {
-    return;
-  }
-
-  const items = buildCheckoutItems(cart);
-  const missingMappings = items.filter((item) => !item.packageId);
-  if (missingMappings.length) {
-    console.warn('HM Checkout: fehlende Tebex-Paketzuordnung', missingMappings, cart);
-    window.alert(`Mindestens ein Produkt ist noch nicht mit einem Tebex-Paket verknüpft: ${missingMappings.map((item) => item.name || item.slug || 'Produkt').join(', ')}`);
-    return;
-  }
-
-  const { completeUrl, cancelUrl } = getLiveCheckoutUrls();
-  setCheckoutButtonsLoadingState(true);
+  console.info('HM Checkout V15: Klick erkannt.');
 
   try {
-    const response = await fetch(`${TEBEX_BACKEND_BASE_URL}/api/tebex/checkout/start`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${liveAccountSnapshot.session.access_token}`,
-      },
-      body: JSON.stringify({
-        items,
-        completeUrl,
-        cancelUrl,
-      }),
-    });
+    const cart = loadVisibleCart();
+    refreshVisibleCartUi(cart);
 
-    const payload = await response.json().catch(() => null);
+    if (!cart.length) {
+      window.alert('Dein Warenkorb ist leer. Bitte zuerst ein Produkt hinzufügen.');
+      return;
+    }
+
+    const client = getSupabaseClient();
+    if (client) {
+      try {
+        const { data } = await client.auth.getSession();
+        const session = data?.session || liveAccountSnapshot.session || null;
+        const user = session?.user || liveAccountSnapshot.user || null;
+        if (session && user && (!liveAccountSnapshot.user || !liveAccountSnapshot.session?.access_token)) {
+          liveAccountSnapshot = {
+            ...liveAccountSnapshot,
+            user,
+            session,
+            connectionReady: true,
+          };
+        }
+      } catch (sessionError) {
+        console.warn('HM Checkout V15: Session konnte nicht frisch gelesen werden.', sessionError);
+      }
+    }
+
+    if (!liveAccountSnapshot.user || !liveAccountSnapshot.session?.access_token) {
+      openAuthModal('login');
+      window.alert('Bitte zuerst mit deinem Website-Konto einloggen, bevor du zur Kasse gehst.');
+      return;
+    }
+
+    let discordReady = true;
+    try {
+      discordReady = await ensureDiscordReadyForCheckout();
+    } catch (discordError) {
+      console.warn('HM Checkout V15: Discord-Prüfung fehlgeschlagen, Checkout wird nicht still abgebrochen.', discordError);
+      discordReady = false;
+    }
+
+    if (!discordReady) {
+      window.alert('Discord-Verknüpfung ist noch nicht bereit. Bitte Discord prüfen/verbinden und danach erneut auf „Zur Kasse“ klicken.');
+      return;
+    }
+
+    const items = buildCheckoutItems(cart);
+    const missingMappings = items.filter((item) => !String(item.packageId || '').trim());
+    if (missingMappings.length) {
+      console.warn('HM Checkout V15: fehlende Tebex-Paketzuordnung', missingMappings, cart);
+      window.alert(`Mindestens ein Produkt ist noch nicht mit einer Tebex-Paket-ID verknüpft: ${missingMappings.map((item) => item.name || item.slug || 'Produkt').join(', ')}`);
+      return;
+    }
+
+    const { completeUrl, cancelUrl } = getLiveCheckoutUrls();
+    const checkoutPayload = { items, completeUrl, cancelUrl };
+    window.hmDebugLastCheckoutPayload = checkoutPayload;
+    console.info('HM Checkout V15: Payload', checkoutPayload);
+    setCheckoutButtonsLoadingState(true);
+
+    let response;
+    let payload;
+    try {
+      response = await fetch(`${TEBEX_BACKEND_BASE_URL}/api/tebex/checkout/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${liveAccountSnapshot.session.access_token}`,
+        },
+        body: JSON.stringify(checkoutPayload),
+      });
+      payload = await response.json().catch(() => null);
+    } catch (fetchError) {
+      console.error('HM Checkout V15: Backend nicht erreichbar.', fetchError);
+      throw new Error('Backend nicht erreichbar. Bitte Render-Backend prüfen und danach erneut versuchen.');
+    }
+
+    window.hmDebugLastCheckoutResponse = { status: response?.status, payload };
+    console.info('HM Checkout V15: Antwort', window.hmDebugLastCheckoutResponse);
+
     if (!response.ok || !payload?.ok) {
-      throw new Error(payload?.error || payload?.message || 'Checkout konnte nicht gestartet werden.');
+      throw new Error(payload?.error || payload?.message || `Checkout konnte nicht gestartet werden. HTTP ${response.status}`);
     }
 
     const pending = {
@@ -5014,7 +5059,7 @@ function initHammerModdingApp() {
 }
 
 
-// V14: Checkout-Guard im Capture-Mode, damit der Kasse-Button auch nach Router-/DB-only-Rendering sicher reagiert.
+// V15: Checkout-Guard im Capture-Mode, damit der Kasse-Button immer reagiert.
 document.addEventListener('click', async (event) => {
   const target = event.target instanceof Element ? event.target : event.target?.parentElement;
   const checkoutButton = target?.closest?.('[data-open-tebex-checkout="true"]');
@@ -5022,7 +5067,15 @@ document.addEventListener('click', async (event) => {
 
   event.preventDefault();
   event.stopPropagation();
-  await beginLiveTebexCheckout();
+  if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+
+  try {
+    await beginLiveTebexCheckout();
+  } catch (error) {
+    console.error('HM Checkout V15: Unerwarteter Klickfehler', error);
+    window.alert(String(error?.message || 'Checkout konnte nicht gestartet werden.'));
+    setCheckoutButtonsLoadingState(false);
+  }
 }, true);
 
 document.addEventListener('click', async (e) => {
