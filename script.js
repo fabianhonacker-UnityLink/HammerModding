@@ -583,6 +583,9 @@ function populateDynamicProductDetail(product) {
     elements.cartButton.dataset.productPriceLabel = formatSupabasePriceLabel(product.price_eur || 0);
     elements.cartButton.dataset.productSlug = product.slug || '';
     elements.cartButton.dataset.productType = catalogItem.type || (product.category === 'clothing' ? 'clothing' : 'paid-script');
+    elements.cartButton.dataset.cartReady = 'true';
+    bindPreparedCartButtons(elements.section || document);
+    updateCartButtonsState(loadVisibleCart());
   }
 }
 
@@ -5006,6 +5009,19 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+
+  const cartAddBtn = eventTarget.closest('[data-cart-add="true"]');
+  if (cartAddBtn && !e.defaultPrevented) {
+    e.preventDefault();
+    const item = buildPreparedCartItem(cartAddBtn);
+    if (item) {
+      addPreparedItemToCart(item);
+      pulsePreparedCartButton(cartAddBtn);
+    } else {
+      console.warn('HM Warenkorb: Produktdaten am Button fehlen.', { button: cartAddBtn, dataset: { ...cartAddBtn.dataset } });
+    }
+    return;
+  }
 
   const removeBtn = eventTarget.closest('[data-cart-remove-id]');
   if (removeBtn) {
