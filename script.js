@@ -1338,18 +1338,57 @@ function hydrateProfileEditor(user, profile) {
   }
 }
 
+function buildCatalogItemFromSupabaseProduct(row = {}) {
+  if (!row?.slug) return null;
+
+  const normalizedType = row.product_type === 'free_script'
+    ? 'free-script'
+    : row.category === 'clothing' || row.product_type === 'clothing'
+      ? 'clothing'
+      : 'paid-script';
+
+  return {
+    id: row.slug,
+    slug: row.slug,
+    name: row.title || row.slug,
+    price: formatSupabasePriceValue(row.price_eur || 0),
+    priceLabel: formatSupabasePriceLabel(row.price_eur || 0),
+    type: normalizedType,
+    tebexPackageId: row.tebex_package_id || row.tebexPackageId || '',
+  };
+}
+
 function getCatalogItem(entryLike) {
   if (!entryLike) return null;
 
   if (typeof entryLike === 'string') {
-    return storeCatalog[entryLike] || Object.values(storeCatalog).find((item) => item.id === entryLike) || null;
+    const slugOrId = String(entryLike || '').trim();
+    const fromStatic = storeCatalog[slugOrId] || Object.values(storeCatalog).find((item) => item.id === slugOrId || item.slug === slugOrId);
+    if (fromStatic) return fromStatic;
+    return buildCatalogItemFromSupabaseProduct(getSupabaseManagedProductBySlug(slugOrId));
   }
 
-  return (
-    storeCatalog[entryLike.slug] ||
-    Object.values(storeCatalog).find((item) => item.id === entryLike.id || item.slug === entryLike.slug) ||
-    null
-  );
+  const slug = String(entryLike.slug || entryLike.productSlug || '').trim();
+  const id = String(entryLike.id || entryLike.productId || '').trim();
+  const fromStatic = (slug && storeCatalog[slug]) || Object.values(storeCatalog).find((item) => item.id === id || item.slug === slug);
+  if (fromStatic) return fromStatic;
+
+  const fromSupabase = buildCatalogItemFromSupabaseProduct(getSupabaseManagedProductBySlug(slug || id));
+  if (fromSupabase) return fromSupabase;
+
+  if (slug && (entryLike.name || entryLike.priceLabel || entryLike.price)) {
+    return {
+      id: id || slug,
+      slug,
+      name: String(entryLike.name || entryLike.title || slug).trim(),
+      price: String(entryLike.price || '0').trim(),
+      priceLabel: String(entryLike.priceLabel || formatCartPrice(parseCartPriceToCents(entryLike.price || '0'))).trim(),
+      type: String(entryLike.type || 'paid-script').trim(),
+      tebexPackageId: String(entryLike.tebexPackageId || entryLike.tebex_package_id || '').trim(),
+    };
+  }
+
+  return null;
 }
 
 function getViewportObserver() {
@@ -1679,23 +1718,42 @@ function loadVisibleCart() {
   return cart
     .map((entry) => {
       const catalogItem = getCatalogItem(entry);
-      if (!catalogItem) return null;
+      if (catalogItem) {
+        return {
+          id: catalogItem.id,
+          slug: catalogItem.slug,
+          name: catalogItem.name,
+          type: catalogItem.type,
+          price: catalogItem.price,
+          priceLabel: catalogItem.priceLabel,
+          priceCents: parseCartPriceToCents(catalogItem.price),
+          quantity: 1,
+          tebexPackageId: catalogItem.tebexPackageId || entry?.tebexPackageId || entry?.tebex_package_id || '',
+          source: entry?.source || 'detail-page',
+        };
+      }
 
+      const slug = String(entry?.slug || entry?.productSlug || '').trim();
+      const name = String(entry?.name || entry?.title || slug).trim();
+      if (!slug || !name) return null;
+
+      const price = String(entry?.price || '0').trim();
+      const priceLabel = String(entry?.priceLabel || formatCartPrice(parseCartPriceToCents(price))).trim();
       return {
-        id: catalogItem.id,
-        slug: catalogItem.slug,
-        name: catalogItem.name,
-        type: catalogItem.type,
-        price: catalogItem.price,
-        priceLabel: catalogItem.priceLabel,
-        priceCents: parseCartPriceToCents(catalogItem.price),
+        id: String(entry?.id || slug).trim(),
+        slug,
+        name,
+        type: String(entry?.type || 'paid-script').trim(),
+        price,
+        priceLabel,
+        priceCents: parseCartPriceToCents(price),
         quantity: 1,
-        tebexPackageId: catalogItem.tebexPackageId || '',
+        tebexPackageId: String(entry?.tebexPackageId || entry?.tebex_package_id || '').trim(),
         source: entry?.source || 'detail-page',
       };
     })
     .filter(Boolean)
-    .filter((entry, index, array) => array.findIndex((candidate) => candidate.id === entry.id) === index);
+    .filter((entry, index, array) => array.findIndex((candidate) => candidate.id === entry.id || candidate.slug === entry.slug) === index);
 }
 
 function persistVisibleCart(cart) {
@@ -1733,8 +1791,14 @@ function getCartItemTypeLabel(item) {
 
 
 function getTebexPackageId(entryLike) {
+  if (entryLike && typeof entryLike === 'object') {
+    const direct = String(entryLike.tebexPackageId || entryLike.tebex_package_id || '').trim();
+    if (direct) return direct;
+  }
+
   const catalogItem = getCatalogItem(entryLike);
-  return catalogItem?.tebexPackageId || tebexPackageMap[catalogItem?.slug || ''] || '';
+  const slug = catalogItem?.slug || (typeof entryLike === 'string' ? entryLike : entryLike?.slug) || '';
+  return catalogItem?.tebexPackageId || tebexPackageMap[slug] || '';
 }
 
 function buildTebexDraftText(cart) {
@@ -1914,6 +1978,7 @@ function buildCheckoutItems(cart) {
     packageId: getTebexPackageId(item),
     quantity: Number.isFinite(Number(item?.quantity)) && Number(item.quantity) > 0 ? Number(item.quantity) : 1,
     name: item.name,
+    slug: item.slug || '',
   }));
 }
 
@@ -2112,7 +2177,12 @@ async function maybeResumePendingTebexCheckout() {
 
 async function beginLiveTebexCheckout() {
   const cart = loadVisibleCart();
-  if (!cart.length) return;
+  refreshVisibleCartUi(cart);
+
+  if (!cart.length) {
+    window.alert('Dein Warenkorb ist leer. Bitte zuerst ein Produkt hinzufügen.');
+    return;
+  }
 
   if (!liveAccountSnapshot.user || !liveAccountSnapshot.session?.access_token) {
     openAuthModal('login');
@@ -2127,7 +2197,8 @@ async function beginLiveTebexCheckout() {
   const items = buildCheckoutItems(cart);
   const missingMappings = items.filter((item) => !item.packageId);
   if (missingMappings.length) {
-    window.alert('Mindestens ein Produkt ist noch nicht mit einem Tebex-Paket verknüpft.');
+    console.warn('HM Checkout: fehlende Tebex-Paketzuordnung', missingMappings, cart);
+    window.alert(`Mindestens ein Produkt ist noch nicht mit einem Tebex-Paket verknüpft: ${missingMappings.map((item) => item.name || item.slug || 'Produkt').join(', ')}`);
     return;
   }
 
@@ -3105,7 +3176,7 @@ function renderSupabaseManagedProducts(products) {
 
   bindPreparedCartButtons(document);
   refreshSearchableCards();
-  updateCartButtonsState(loadVisibleCart());
+  refreshVisibleCartUi(loadVisibleCart());
 }
 
 async function loadSupabaseManagedProducts() {
@@ -4941,6 +5012,18 @@ function initHammerModdingApp() {
   appInitialized = true;
   Promise.resolve(productsLoadPromise).finally(() => hmRouterApplyInitialRoute());
 }
+
+
+// V14: Checkout-Guard im Capture-Mode, damit der Kasse-Button auch nach Router-/DB-only-Rendering sicher reagiert.
+document.addEventListener('click', async (event) => {
+  const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+  const checkoutButton = target?.closest?.('[data-open-tebex-checkout="true"]');
+  if (!checkoutButton) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  await beginLiveTebexCheckout();
+}, true);
 
 document.addEventListener('click', async (e) => {
   const eventTarget = e.target instanceof Element ? e.target : e.target?.parentElement;
